@@ -1,0 +1,67 @@
+﻿316: def __init__(self, stream_url, parent=None):
+332: def run(self):
+512: def __init__(self, parent=None):
+524: def run(self):
+698: def __init__(self, parent=None):
+706: def stop(self):
+712: def run(self):
+796: def __init__(self, message, parent=None):
+800: def run(self):
+846: def __init__(self):
+1518: def setup_ui(self):
+6206: def connect_signals(self):
+7603: def load_settings_into_ui(self):
+7739: def check_first_run_setup(self):
+7773: def open_settings(self):
+8053: def _dedicated_chrome_profile_dir(self):
+8064: def _find_chrome_executable(self):
+8076: def _cdp_port_open(self, host="127.0.0.1", port=9222):
+8083: def _ensure_dedicated_bot_chrome(self, timeout_seconds=15):
+8125: def _open_room_in_dedicated_chrome(self, room_url):
+8171: def connect_imvu(self):
+8240: def start_imvu_auto_join(self):
+8320: def cleanup_imvu_join_worker(self, worker):
+8348: def imvu_auto_join_succeeded(self, room_url, clicked):
+8398: def imvu_auto_join_failed(self, message):
+8454: def start_imvu_chat_listener(self):
+8482: def stop_imvu_chat_listener(self, wait_ms=3000):
+8504: def imvu_chat_listener_started(self, existing_count):
+8516: def imvu_chat_listener_failed(self, message):
+8522: def imvu_chat_listener_finished(self):
+8534: def receive_live_imvu_chat(self, username, message):
+8552: def disconnect_imvu(self):
+8592: def refresh_imvu_client_status(self):
+8684: def update_imvu_status(
+8788: def handle_imvu_error(
+8892: def handle_imvu_chat(
+9020: def handle_async_command_response(
+9055: def handle_bot_response(
+9075: def send_bot_response_to_imvu(self, response):
+9101: def cleanup_imvu_chat_send_worker(self, worker):
+9107: def imvu_chat_send_succeeded(self, message):
+9112: def imvu_chat_send_failed(self, message, error):
+9121: def send_simulated_chat(self):
+9401: def start_radio(self):
+10361: def stop_radio(self):
+10713: def update_radio_status(
+10817: def handle_radio_error(
+10953: def cloudflare_started(self, stream_url):
+10982: def start_imvu_radio_update(self, stream_url):
+11114: def cleanup_imvu_radio_worker(self, worker):
+11146: def imvu_radio_update_succeeded(
+11218: def imvu_radio_update_failed(self, message):
+11274: def cloudflare_stopped(self):
+11386: def cloudflare_error(
+11570: def cloudflare_status_changed(
+11746: def copy_local_stream_url(self):
+11874: def copy_public_stream_url(self):
+12370: def execute_command(self):
+12754: def update_now_playing(
+13018: def update_queue(self):
+13258: def update_music_status(
+13362: def handle_music_error(
+13466: def change_volume(
+13586: def open_users(self):
+13658: def open_logs(self):
+13762: def closeEvent(
+14067: def log(

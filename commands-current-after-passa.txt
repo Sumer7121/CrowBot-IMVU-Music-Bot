@@ -1,0 +1,1486 @@
+from urllib.parse import urlparse
+import random
+
+from PySide6.QtCore import QObject, QThread, Signal, Slot
+
+from database.users import UserManager
+from music.resolver import MusicResolver
+from music.youtube_owned import YouTubeOwnedProvider
+
+
+# =============================================================
+# BACKGROUND MUSIC RESOLVER
+# =============================================================
+
+class MusicResolveWorker(QThread):
+
+    resolved = Signal(str, str, object)
+    failed = Signal(str, str, str)
+
+    def __init__(
+        self,
+        resolver,
+        query,
+        username,
+        parent=None,
+    ):
+        super().__init__(parent)
+
+        self.resolver = resolver
+        self.query = str(query or "").strip()
+        self.username = str(username or "").strip()
+
+    def run(self):
+
+        try:
+            print()
+            print(
+                "BACKGROUND MUSIC: "
+                f"Preparing '{self.query}' "
+                f"for {self.username}..."
+            )
+
+            result = self.resolver.resolve(
+                self.query,
+                requested_by=self.username,
+            )
+
+            if not result:
+                self.failed.emit(
+                    self.username,
+                    self.query,
+                    (
+                        "No playable tracks "
+                        f"found for: {self.query}"
+                    ),
+                )
+                return
+
+            self.resolved.emit(
+                self.username,
+                self.query,
+                result,
+            )
+
+        except Exception as error:
+
+            self.failed.emit(
+                self.username,
+                self.query,
+                str(error),
+            )
+
+
+# =============================================================
+# COMMAND HANDLER
+# =============================================================
+
+class CommandHandler(QObject):
+
+    # Emitted after a background !play request finishes.
+    #
+    # We will connect this to live IMVU output in the next stage.
+    async_response = Signal(str, str)
+
+    def __init__(
+        self,
+        music_controller,
+        user_manager=None,
+        prefix="!",
+    ):
+        super().__init__()
+
+        self.music_controller = music_controller
+
+        self.user_manager = (
+            user_manager
+            if user_manager
+            else UserManager()
+        )
+
+        self.prefix = prefix or "!"
+
+        # -----------------------------------------------------
+        # UNIFIED MUSIC RESOLVER
+        # -----------------------------------------------------
+
+        self.music_resolver = MusicResolver(
+            timeout=10,
+        )
+
+        # -----------------------------------------------------
+        # YOUTUBE SEARCH PROVIDER
+        # -----------------------------------------------------
+
+        self.youtube_search = YouTubeOwnedProvider()
+
+        # -----------------------------------------------------
+        # FIFO MUSIC PREPARATION
+        # -----------------------------------------------------
+        #
+        # Song requests are prepared one at a time.
+        #
+        # This prevents multiple yt-dlp / FFmpeg preparation
+        # jobs from running simultaneously and guarantees that
+        # requests enter MusicController in request order.
+        #
+        # Example:
+        #
+        #   Request A
+        #   Request B
+        #   Request C
+        #
+        # Preparation:
+        #
+        #   A -> B -> C
+        #
+        # Playback queue therefore remains:
+        #
+        #   A -> B -> C
+        #
+        self.music_prepare_queue = []
+        self.active_music_worker = None
+
+        # -----------------------------------------------------
+        # COMMANDS
+        # -----------------------------------------------------
+
+        self.commands = {
+            "play": self.play,
+            "ytsearch": self.ytsearch,
+            "queue": self.show_queue,
+            "nowplaying": self.now_playing,
+            "np": self.now_playing,
+            "skip": self.skip,
+            "pause": self.pause,
+            "resume": self.resume,
+            "stop": self.stop,
+            "clear": self.clear,
+            "remove": self.remove,
+
+            # Fun commands
+            "joke": self.joke,
+            "roast": self.roast,
+            "truth": self.truth,
+            "dare": self.dare,
+            "tod": self.truth_or_dare,
+            "truthordare": self.truth_or_dare,
+
+            # Tic-Tac-Toe
+            "ttt": self.tic_tac_toe,
+            "accept": self.accept_tic_tac_toe,
+            "move": self.tic_tac_toe_move,
+            "tttboard": self.tic_tac_toe_board,
+            "tttend": self.tic_tac_toe_end,
+
+            "help": self.help,
+        }
+
+        # -----------------------------------------------------
+        # SOCIAL / GAME STATE
+        # -----------------------------------------------------
+
+        # Public commands intentionally have no role gate.
+        self.permissions = {}
+
+        self.jokes = [
+            "Why did the computer go to therapy? It had too many unresolved issues.",
+            "Why was the keyboard exhausted? It had two shifts.",
+            "Why did the developer go broke? They used up all their cache.",
+            "Why do programmers prefer dark mode? Because light attracts bugs.",
+            "I told my computer I needed a break. It said: No problem, I'll go to sleep.",
+            "Why was the music bot calm? It knew how to handle the queue.",
+            "What do you call eight hobbits? A hobbyte.",
+            "Why did the scarecrow get promoted? He was outstanding in his field.",
+            "I tried to organize a hide-and-seek tournament, but good players are hard to find.",
+            "Why don't skeletons fight each other? They don't have the guts.",
+            "What did one wall say to the other wall? I'll meet you at the corner.",
+            "Why did the math book look stressed? It had too many problems.",
+            "What do you call fake spaghetti? An impasta.",
+            "Why couldn't the bicycle stand up? It was two-tired.",
+            "What does a cloud wear under its raincoat? Thunderwear.",
+        ]
+
+        self.roasts = [
+            "{name}, you bring loading-screen energy to every conversation.",
+            "{name}, even autocorrect looked at that and said 'you're on your own.'",
+            "{name}, your Wi-Fi has better social skills.",
+            "{name}, you're proof that buffering can happen in real life.",
+            "{name}, your comeback is still downloading.",
+            "{name}, I've seen stronger signals from airplane mode.",
+            "{name}, you have the confidence of someone who didn't read the instructions.",
+            "{name}, even the queue knows when to move on.",
+            "{name}, you're running on 1 percent battery energy today.",
+            "{name}, that was bold for someone whose brain just hit snooze.",
+            "{name}, your plot twist needs a software update.",
+            "{name}, you make lag look productive.",
+        ]
+
+        self.truths = [
+            "What is the most embarrassing song you secretly like?",
+            "What is the funniest mistake you've made recently?",
+            "What is something you've pretended to understand but actually didn't?",
+            "Who was your first crush?",
+            "What is the weirdest food combination you actually enjoy?",
+            "What is your most useless talent?",
+            "What is the last thing you searched for?",
+            "What is one habit you wish you could instantly change?",
+            "What is the longest you've gone without sleeping?",
+            "What is something silly you're surprisingly competitive about?",
+            "What is the strangest dream you remember?",
+            "What is one thing on your bucket list?",
+            "What is the funniest excuse you've ever used?",
+            "What is a movie everyone loves that you don't?",
+            "What is something you've never told your friends because it seemed too random?",
+        ]
+
+        self.dares = [
+            "Type your next message using only capital letters.",
+            "Use a dramatic movie-trailer voice for your next sentence.",
+            "Give someone in the room a genuine compliment.",
+            "Describe your day using only three words.",
+            "Change your status to something funny for five minutes.",
+            "Type a sentence without using the letter E.",
+            "Tell the room your best terrible joke.",
+            "Write a two-line poem about the person who dared you.",
+            "Speak in questions for your next three messages.",
+            "Describe yourself as if you were a video-game character.",
+            "Make up a ridiculous superhero name for yourself.",
+            "Use three random emojis to describe your mood.",
+            "Give your favorite song a completely different title.",
+            "Say something nice about the last person who spoke.",
+            "Invent a fake fact about CrowBot that is obviously ridiculous.",
+        ]
+
+        # One pending challenge and one active game are enough for
+        # a single IMVU room/session.
+        self.ttt_pending = None
+        self.ttt_game = None
+
+# =========================================================
+    # PREFIX
+    # =========================================================
+
+    def set_prefix(self, prefix):
+
+        prefix = str(prefix or "").strip()
+
+        if not prefix:
+            prefix = "!"
+
+        self.prefix = prefix
+
+    # =========================================================
+    # COMMAND HANDLER
+    # =========================================================
+
+    def handle(
+        self,
+        message,
+        username="Owner",
+    ):
+
+        if not message:
+            return "Empty command."
+
+        message = message.strip()
+
+        if not message.startswith(
+            self.prefix
+        ):
+            return None
+
+        command_text = (
+            message[len(self.prefix):]
+            .strip()
+        )
+
+        if not command_text:
+            return "Enter a command."
+
+        parts = command_text.split()
+
+        command = parts[0].lower()
+        arguments = parts[1:]
+
+        if command not in self.commands:
+
+            return (
+                f"Unknown command: "
+                f"{self.prefix}{command}"
+            )
+
+        # All CrowBot commands are public room commands.
+        # No DJ / Moderator / Owner role check is performed here.
+        return self.commands[command](
+            arguments,
+            username,
+        )
+
+    # =========================================================
+    # URL VALIDATION
+    # =========================================================
+
+    def is_valid_url(
+        self,
+        url,
+    ):
+
+        try:
+
+            parsed = urlparse(url)
+
+            return (
+                parsed.scheme
+                in (
+                    "http",
+                    "https",
+                )
+                and bool(
+                    parsed.netloc
+                )
+            )
+
+        except Exception:
+            return False
+
+    # =========================================================
+    # PLAY
+    # =========================================================
+
+    def play(
+        self,
+        arguments,
+        username,
+    ):
+
+        if not arguments:
+
+            current = (
+                self.music_controller
+                .get_current_song()
+            )
+
+            if current:
+
+                title = current.get(
+                    "title",
+                    "Unknown",
+                )
+
+                return (
+                    f"Currently playing: "
+                    f"{title}"
+                )
+
+            return "Queue is empty."
+
+        first_argument = arguments[0]
+
+        # -----------------------------------------------------
+        # DIRECT URL
+        #
+        # Direct URLs do not require searching/downloading,
+        # so they remain immediate.
+        # -----------------------------------------------------
+
+        if self.is_valid_url(
+            first_argument
+        ):
+
+            url = first_argument
+
+            title = " ".join(
+                arguments[1:]
+            ).strip()
+
+            if not title:
+                title = url
+
+            track = {
+                "title": title,
+                "url": url,
+                "requested_by": username,
+                "source": "direct",
+            }
+
+            added = (
+                self.music_controller
+                .add_song(
+                    track
+                )
+            )
+
+            if not added:
+
+                return (
+                    "Could not add the track "
+                    "to the music queue."
+                )
+
+            current = (
+                self.music_controller
+                .get_current_song()
+            )
+
+            if current == track:
+
+                return (
+                    f"Now playing: "
+                    f"{title}"
+                )
+
+            return (
+                f"Added to queue: "
+                f"{title}"
+            )
+
+        # -----------------------------------------------------
+        # SEARCH QUERY
+        #
+        # yt-dlp resolution happens in a QThread.
+        # -----------------------------------------------------
+
+        query = " ".join(
+            arguments
+        ).strip()
+
+        if not query:
+
+            return (
+                f"Usage: {self.prefix}play "
+                "<song, artist, or URL>"
+            )
+
+        self.start_music_resolve(
+            query,
+            username,
+        )
+
+        # Return immediately.
+        #
+        # This means IMVU chat does not have to wait for
+        # yt-dlp search/download/FFmpeg preparation.
+        return (
+            f"Preparing: {query}"
+        )
+
+    # =========================================================
+    # START BACKGROUND MUSIC RESOLUTION
+    # =========================================================
+
+    def start_music_resolve(
+        self,
+        query,
+        username,
+    ):
+        """
+        Add a music request to the FIFO preparation queue.
+
+        Only one MusicResolveWorker is allowed to run at a time.
+        """
+
+        request = {
+            "query": str(query or "").strip(),
+            "username": str(username or "").strip(),
+        }
+
+        self.music_prepare_queue.append(
+            request
+        )
+
+        position = len(
+            self.music_prepare_queue
+        )
+
+        if self.active_music_worker is not None:
+            position += 1
+
+        print()
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            f"Queued {username}: {query}"
+        )
+
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            f"Preparation position: {position}"
+        )
+
+        self.start_next_music_resolve()
+
+    # =========================================================
+    # START NEXT FIFO REQUEST
+    # =========================================================
+
+    def start_next_music_resolve(
+        self,
+    ):
+        """
+        Start the next queued preparation request.
+
+        If a worker is already running, this method does nothing.
+        """
+
+        if self.active_music_worker is not None:
+            return
+
+        if not self.music_prepare_queue:
+
+            print()
+            print(
+                "BACKGROUND MUSIC FIFO: "
+                "Preparation queue is empty."
+            )
+
+            return
+
+        request = (
+            self.music_prepare_queue.pop(0)
+        )
+
+        query = request.get(
+            "query",
+            "",
+        )
+
+        username = request.get(
+            "username",
+            "",
+        )
+
+        worker = MusicResolveWorker(
+            self.music_resolver,
+            query,
+            username,
+            self,
+        )
+
+        self.active_music_worker = worker
+
+        worker.resolved.connect(
+            self.music_resolve_succeeded
+        )
+
+        worker.failed.connect(
+            self.music_resolve_failed
+        )
+
+        worker.finished.connect(
+            self.music_resolve_finished
+        )
+
+        print()
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            f"Starting {username}: {query}"
+        )
+
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            f"{len(self.music_prepare_queue)} "
+            "request(s) waiting after this one."
+        )
+
+        worker.start()
+
+    # =========================================================
+    # BACKGROUND MUSIC SUCCESS
+    # =========================================================
+
+    @Slot(str, str, object)
+    def music_resolve_succeeded(
+        self,
+        username,
+        query,
+        result,
+    ):
+
+        try:
+
+            track = dict(
+                result
+            )
+
+            track[
+                "requested_by"
+            ] = username
+
+            title = track.get(
+                "title",
+                "Unknown",
+            )
+
+            # This slot runs back on the CommandHandler / Qt
+            # thread, so MusicController remains on the main
+            # application side.
+            added = (
+                self.music_controller
+                .add_song(
+                    track
+                )
+            )
+
+            if not added:
+
+                response = (
+                    "Could not add the track "
+                    "to the music queue."
+                )
+
+                self.async_response.emit(
+                    username,
+                    response,
+                )
+
+                return
+
+            current = (
+                self.music_controller
+                .get_current_song()
+            )
+
+            if current == track:
+
+                response = (
+                    f"Now playing: "
+                    f"{title}"
+                )
+
+            else:
+
+                response = (
+                    f"Added to queue: "
+                    f"{title}"
+                )
+
+            print()
+            print(
+                "BACKGROUND MUSIC FIFO: "
+                f"{response}"
+            )
+
+            self.async_response.emit(
+                username,
+                response,
+            )
+
+        except Exception as error:
+
+            response = (
+                "Music preparation failed: "
+                f"{error}"
+            )
+
+            print()
+            print(
+                "BACKGROUND MUSIC FIFO ERROR: "
+                f"{error}"
+            )
+
+            self.async_response.emit(
+                username,
+                response,
+            )
+
+    # =========================================================
+    # BACKGROUND MUSIC FAILURE
+    # =========================================================
+
+    @Slot(str, str, str)
+    def music_resolve_failed(
+        self,
+        username,
+        query,
+        error,
+    ):
+
+        error = str(
+            error or ""
+        ).strip()
+
+        if error.startswith(
+            "No playable tracks found"
+        ):
+
+            response = error
+
+        else:
+
+            response = (
+                "Music search failed: "
+                f"{error}"
+            )
+
+        print()
+        print(
+            "BACKGROUND MUSIC FIFO ERROR: "
+            f"{query}: {error}"
+        )
+
+        self.async_response.emit(
+            username,
+            response,
+        )
+
+    # =========================================================
+    # FIFO WORKER FINISHED
+    # =========================================================
+
+    @Slot()
+    def music_resolve_finished(
+        self,
+    ):
+        """
+        Clean up the completed worker and automatically start
+        the next request in FIFO order.
+        """
+
+        worker = self.active_music_worker
+
+        self.active_music_worker = None
+
+        if worker is not None:
+            worker.deleteLater()
+
+        print()
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            "Worker finished."
+        )
+
+        if self.music_prepare_queue:
+
+            print(
+                "BACKGROUND MUSIC FIFO: "
+                f"Starting next request. "
+                f"{len(self.music_prepare_queue)} "
+                "request(s) waiting."
+            )
+
+        self.start_next_music_resolve()
+    # =========================================================
+    # YOUTUBE SEARCH
+    # =========================================================
+
+    def ytsearch(
+        self,
+        arguments,
+        username,
+    ):
+
+        query = " ".join(
+            arguments
+        ).strip()
+
+        if not query:
+
+            return (
+                f"Usage: "
+                f"{self.prefix}ytsearch "
+                "<song or artist>"
+            )
+
+        print()
+        print(
+            "IMVU YTSEARCH: "
+            f"{username}: {query}"
+        )
+
+        try:
+
+            results = (
+                self.youtube_search
+                .search_candidates(
+                    query,
+                    limit=5,
+                )
+            )
+
+        except Exception as error:
+
+            print(
+                "IMVU YTSEARCH ERROR: "
+                f"{error}"
+            )
+
+            return (
+                "YouTube search failed: "
+                f"{error}"
+            )
+
+        if not results:
+
+            return (
+                "No YouTube results "
+                f"found for: {query}"
+            )
+
+        lines = [
+            f"YouTube results for "
+            f"{query}:"
+        ]
+
+        for number, result in enumerate(
+            results[:3],
+            start=1,
+        ):
+
+            title = result.get(
+                "title",
+                "Unknown",
+            )
+
+            channel = result.get(
+                "channel",
+                "Unknown",
+            )
+
+            video_id = result.get(
+                "id",
+                "",
+            )
+
+            lines.append(
+                f"{number}. {title} "
+                f"- {channel} "
+                f"[{video_id}]"
+            )
+
+        return "\n".join(
+            lines
+        )
+
+    # =========================================================
+    # QUEUE
+    # =========================================================
+
+    def show_queue(
+        self,
+        arguments,
+        username,
+    ):
+
+        queue = (
+            self.music_controller
+            .get_queue()
+        )
+
+        if not queue:
+            return "Queue is empty."
+
+        lines = []
+
+        for number, track in enumerate(
+            queue,
+            start=1,
+        ):
+
+            title = track.get(
+                "title",
+                "Unknown",
+            )
+
+            requester = track.get(
+                "requested_by",
+                "Unknown",
+            )
+
+            lines.append(
+                f"{number}. {title} "
+                f"(requested by "
+                f"{requester})"
+            )
+
+        return "\n".join(
+            lines
+        )
+
+    # =========================================================
+    # NOW PLAYING
+    # =========================================================
+
+    def now_playing(
+        self,
+        arguments,
+        username,
+    ):
+
+        song = (
+            self.music_controller
+            .get_current_song()
+        )
+
+        if song:
+
+            title = song.get(
+                "title",
+                "Unknown",
+            )
+
+            requester = song.get(
+                "requested_by",
+                "Unknown",
+            )
+
+            if (
+                self.music_controller
+                .queue
+                .is_paused
+            ):
+
+                return (
+                    f"Paused: {title} "
+                    f"(requested by "
+                    f"{requester})"
+                )
+
+            return (
+                f"Now playing: {title} "
+                f"(requested by "
+                f"{requester})"
+            )
+
+        return (
+            "Nothing is playing."
+        )
+
+    # =========================================================
+    # SKIP
+    # =========================================================
+
+    def skip(
+        self,
+        arguments,
+        username,
+    ):
+
+        if (
+            self.music_controller
+            .skip()
+        ):
+
+            song = (
+                self.music_controller
+                .get_current_song()
+            )
+
+            if song:
+
+                title = song.get(
+                    "title",
+                    "Unknown",
+                )
+
+                return (
+                    "Skipped. "
+                    f"Now playing: {title}"
+                )
+
+        return "Queue is empty."
+
+    # =========================================================
+    # PAUSE
+    # =========================================================
+
+    def pause(
+        self,
+        arguments,
+        username,
+    ):
+
+        if (
+            self.music_controller
+            .pause()
+        ):
+
+            return "Music paused."
+
+        return (
+            "Nothing is currently "
+            "playing."
+        )
+
+    # =========================================================
+    # RESUME
+    # =========================================================
+
+    def resume(
+        self,
+        arguments,
+        username,
+    ):
+
+        if (
+            self.music_controller
+            .resume()
+        ):
+
+            return "Music resumed."
+
+        return (
+            "Nothing is currently "
+            "playing."
+        )
+
+    # =========================================================
+    # STOP
+    # =========================================================
+
+    def stop(
+        self,
+        arguments,
+        username,
+    ):
+
+        self.music_controller.stop()
+
+        return "Music stopped."
+
+    # =========================================================
+    # CLEAR
+    # =========================================================
+
+    def clear(
+        self,
+        arguments,
+        username,
+    ):
+
+        self.music_controller.clear_queue()
+
+        return "Queue cleared."
+
+    # =========================================================
+    # REMOVE
+    # =========================================================
+
+    def remove(
+        self,
+        arguments,
+        username,
+    ):
+
+        if not arguments:
+
+            return (
+                "Usage: "
+                f"{self.prefix}remove "
+                "<number>"
+            )
+
+        try:
+
+            number = int(
+                arguments[0]
+            )
+
+        except ValueError:
+
+            return (
+                "Queue number must "
+                "be a number."
+            )
+
+        index = number - 1
+
+        song = (
+            self.music_controller
+            .remove_song(
+                index
+            )
+        )
+
+        if song:
+
+            title = song.get(
+                "title",
+                "Unknown",
+            )
+
+            return (
+                f"Removed: {title}"
+            )
+
+        return (
+            "Invalid queue number."
+        )
+
+
+    # =========================================================
+    # JOKE
+    # =========================================================
+
+    def joke(self, arguments, username):
+        return random.choice(self.jokes)
+
+    # =========================================================
+    # ROAST
+    # =========================================================
+
+    def roast(self, arguments, username):
+        target = " ".join(arguments).strip()
+
+        if target:
+            target = target.lstrip("@").strip()
+        else:
+            target = username
+
+        if not target:
+            target = "friend"
+
+        return random.choice(
+            self.roasts
+        ).format(name=target)
+
+    # =========================================================
+    # TRUTH / DARE
+    # =========================================================
+
+    def truth(self, arguments, username):
+        target = " ".join(arguments).strip().lstrip("@")
+
+        prompt = random.choice(self.truths)
+
+        if target:
+            return f"{target} - TRUTH: {prompt}"
+
+        return f"TRUTH for {username}: {prompt}"
+
+    def dare(self, arguments, username):
+        target = " ".join(arguments).strip().lstrip("@")
+
+        prompt = random.choice(self.dares)
+
+        if target:
+            return f"{target} - DARE: {prompt}"
+
+        return f"DARE for {username}: {prompt}"
+
+    def truth_or_dare(self, arguments, username):
+        if random.choice((True, False)):
+            return self.truth(arguments, username)
+
+        return self.dare(arguments, username)
+
+    # =========================================================
+    # TIC-TAC-TOE
+    # =========================================================
+
+    def _normalize_player(self, value):
+        return str(value or "").strip().lstrip("@").lower()
+
+    def _ttt_display_name(self, value):
+        return str(value or "").strip().lstrip("@")
+
+    def _ttt_render_board(self, board=None):
+        if board is None:
+            if not self.ttt_game:
+                return "No Tic-Tac-Toe game is active."
+
+            board = self.ttt_game["board"]
+
+        cells = []
+
+        for index, value in enumerate(board):
+            cells.append(
+                value if value else str(index + 1)
+            )
+
+        return (
+            f"{cells[0]} | {cells[1]} | {cells[2]}\n"
+            "---------\n"
+            f"{cells[3]} | {cells[4]} | {cells[5]}\n"
+            "---------\n"
+            f"{cells[6]} | {cells[7]} | {cells[8]}"
+        )
+
+    def _ttt_winner(self, board):
+        winning_lines = (
+            (0, 1, 2),
+            (3, 4, 5),
+            (6, 7, 8),
+            (0, 3, 6),
+            (1, 4, 7),
+            (2, 5, 8),
+            (0, 4, 8),
+            (2, 4, 6),
+        )
+
+        for a, b, c in winning_lines:
+            if (
+                board[a]
+                and board[a] == board[b]
+                and board[a] == board[c]
+            ):
+                return board[a]
+
+        return None
+
+    def tic_tac_toe(self, arguments, username):
+        if self.ttt_game:
+            return (
+                "A Tic-Tac-Toe game is already active.\n"
+                f"{self._ttt_render_board()}"
+            )
+
+        if not arguments:
+            return (
+                f"Usage: {self.prefix}ttt <username> "
+                f"to challenge someone."
+            )
+
+        challenger = self._ttt_display_name(username)
+        opponent = self._ttt_display_name(
+            " ".join(arguments)
+        )
+
+        if not opponent:
+            return (
+                f"Usage: {self.prefix}ttt <username>"
+            )
+
+        if (
+            self._normalize_player(challenger)
+            == self._normalize_player(opponent)
+        ):
+            return "You cannot challenge yourself."
+
+        self.ttt_pending = {
+            "challenger": challenger,
+            "opponent": opponent,
+        }
+
+        return (
+            f"{opponent}, {challenger} challenged you "
+            "to Tic-Tac-Toe. "
+            f"Type {self.prefix}accept to play."
+        )
+
+    def accept_tic_tac_toe(self, arguments, username):
+        if self.ttt_game:
+            return "A Tic-Tac-Toe game is already active."
+
+        if not self.ttt_pending:
+            return "There is no pending Tic-Tac-Toe challenge."
+
+        accepting = self._normalize_player(username)
+        expected = self._normalize_player(
+            self.ttt_pending["opponent"]
+        )
+
+        if accepting != expected:
+            return (
+                f"Only {self.ttt_pending['opponent']} "
+                "can accept this challenge."
+            )
+
+        challenger = self.ttt_pending["challenger"]
+        opponent = self.ttt_pending["opponent"]
+
+        self.ttt_game = {
+            "x": challenger,
+            "o": opponent,
+            "turn": "X",
+            "board": [""] * 9,
+        }
+
+        self.ttt_pending = None
+
+        return (
+            "TIC-TAC-TOE STARTED\n"
+            f"{challenger} = X | {opponent} = O\n"
+            f"{self._ttt_render_board()}\n"
+            f"{challenger}'s turn. "
+            f"Use {self.prefix}move 1-9."
+        )
+
+    def tic_tac_toe_move(self, arguments, username):
+        if not self.ttt_game:
+            return (
+                "No Tic-Tac-Toe game is active. "
+                f"Start one with {self.prefix}ttt <username>."
+            )
+
+        if not arguments:
+            return f"Usage: {self.prefix}move <1-9>"
+
+        try:
+            position = int(arguments[0])
+        except (TypeError, ValueError):
+            return "Move must be a number from 1 to 9."
+
+        if position < 1 or position > 9:
+            return "Move must be a number from 1 to 9."
+
+        game = self.ttt_game
+
+        username_key = self._normalize_player(username)
+        x_key = self._normalize_player(game["x"])
+        o_key = self._normalize_player(game["o"])
+
+        if username_key == x_key:
+            player_mark = "X"
+            display_name = game["x"]
+        elif username_key == o_key:
+            player_mark = "O"
+            display_name = game["o"]
+        else:
+            return "You are not a player in the current game."
+
+        if game["turn"] != player_mark:
+            current_name = (
+                game["x"]
+                if game["turn"] == "X"
+                else game["o"]
+            )
+
+            return f"It is {current_name}'s turn."
+
+        index = position - 1
+
+        if game["board"][index]:
+            return (
+                "That square is already taken.\n"
+                f"{self._ttt_render_board()}"
+            )
+
+        game["board"][index] = player_mark
+
+        winner = self._ttt_winner(game["board"])
+
+        if winner:
+            board_text = self._ttt_render_board(
+                game["board"]
+            )
+
+            winner_name = (
+                game["x"]
+                if winner == "X"
+                else game["o"]
+            )
+
+            self.ttt_game = None
+
+            return (
+                f"{board_text}\n"
+                f"{winner_name} wins Tic-Tac-Toe!"
+            )
+
+        if all(game["board"]):
+            board_text = self._ttt_render_board(
+                game["board"]
+            )
+
+            self.ttt_game = None
+
+            return (
+                f"{board_text}\n"
+                "Tic-Tac-Toe ended in a draw."
+            )
+
+        game["turn"] = (
+            "O"
+            if player_mark == "X"
+            else "X"
+        )
+
+        next_name = (
+            game["x"]
+            if game["turn"] == "X"
+            else game["o"]
+        )
+
+        return (
+            f"{display_name} played {position}.\n"
+            f"{self._ttt_render_board()}\n"
+            f"{next_name}'s turn."
+        )
+
+    def tic_tac_toe_board(self, arguments, username):
+        if not self.ttt_game:
+            return "No Tic-Tac-Toe game is active."
+
+        current_name = (
+            self.ttt_game["x"]
+            if self.ttt_game["turn"] == "X"
+            else self.ttt_game["o"]
+        )
+
+        return (
+            f"{self._ttt_render_board()}\n"
+            f"{current_name}'s turn."
+        )
+
+    def tic_tac_toe_end(self, arguments, username):
+        if not self.ttt_game and not self.ttt_pending:
+            return "There is no Tic-Tac-Toe game to end."
+
+        allowed = {
+            self._normalize_player(username)
+        }
+
+        if self.ttt_game:
+            players = {
+                self._normalize_player(self.ttt_game["x"]),
+                self._normalize_player(self.ttt_game["o"]),
+            }
+
+            if not (allowed & players):
+                return (
+                    "Only a player in the current game "
+                    "can end it."
+                )
+
+        elif self.ttt_pending:
+            players = {
+                self._normalize_player(
+                    self.ttt_pending["challenger"]
+                ),
+                self._normalize_player(
+                    self.ttt_pending["opponent"]
+                ),
+            }
+
+            if not (allowed & players):
+                return (
+                    "Only someone in the challenge can cancel it."
+                )
+
+        self.ttt_game = None
+        self.ttt_pending = None
+
+        return "Tic-Tac-Toe ended."
+
+    # =========================================================
+    # HELP
+    # =========================================================
+
+    def help(
+        self,
+        arguments,
+        username,
+    ):
+        return (
+            "CROWBOT COMMANDS\n"
+            f"{self.prefix}play <song/artist or URL> | "
+            f"{self.prefix}queue | "
+            f"{self.prefix}nowplaying | "
+            f"{self.prefix}skip\n"
+            f"{self.prefix}pause | "
+            f"{self.prefix}resume | "
+            f"{self.prefix}stop | "
+            f"{self.prefix}remove <number> | "
+            f"{self.prefix}clear\n"
+            f"{self.prefix}joke | "
+            f"{self.prefix}roast [username] | "
+            f"{self.prefix}truth | "
+            f"{self.prefix}dare | "
+            f"{self.prefix}tod\n"
+            f"{self.prefix}ttt <username> | "
+            f"{self.prefix}accept | "
+            f"{self.prefix}move <1-9> | "
+            f"{self.prefix}tttboard | "
+            f"{self.prefix}tttend"
+        )
+

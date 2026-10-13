@@ -1,0 +1,34 @@
+{
+    "owner": {
+        "username": "Owner",
+        "role": "Owner"
+    },
+    "alice": {
+        "username": "alice",
+        "role": "User"
+    },
+    "testmod": {
+        "username": "testmod",
+        "role": "Moderator"
+    },
+    "testuser": {
+        "username": "TestUser",
+        "role": "User"
+    },
+    "testdj": {
+        "username": "TestDJ",
+        "role": "DJ"
+    },
+    "testmoderator": {
+        "username": "TestModerator",
+        "role": "Moderator"
+    },
+    "testowner": {
+        "username": "TestOwner",
+        "role": "Owner"
+    },
+    "sleepyhead": {
+        "username": "sleepyhead",
+        "role": "Owner"
+    }
+}

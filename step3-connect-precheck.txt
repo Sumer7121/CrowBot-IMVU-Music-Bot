@@ -1,0 +1,3039 @@
+﻿
+============================================================
+PATTERN: def connect
+LINE: 6206
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:6198:
+  D:\IMVU-Music-Bot\app\main_window.py:6199:
+  D:\IMVU-Music-Bot\app\main_window.py:6200:
+  D:\IMVU-Music-Bot\app\main_window.py:6201:
+  D:\IMVU-Music-Bot\app\main_window.py:6202:
+  D:\IMVU-Music-Bot\app\main_window.py:6203:
+  D:\IMVU-Music-Bot\app\main_window.py:6204:
+  D:\IMVU-Music-Bot\app\main_window.py:6205:
+> D:\IMVU-Music-Bot\app\main_window.py:6206:    def connect_signals(self):
+  D:\IMVU-Music-Bot\app\main_window.py:6207:
+  D:\IMVU-Music-Bot\app\main_window.py:6208:
+  D:\IMVU-Music-Bot\app\main_window.py:6209:
+  D:\IMVU-Music-Bot\app\main_window.py:6210:
+  D:\IMVU-Music-Bot\app\main_window.py:6211:
+  D:\IMVU-Music-Bot\app\main_window.py:6212:
+  D:\IMVU-Music-Bot\app\main_window.py:6213:
+  D:\IMVU-Music-Bot\app\main_window.py:6214:
+  D:\IMVU-Music-Bot\app\main_window.py:6215:
+  D:\IMVU-Music-Bot\app\main_window.py:6216:
+  D:\IMVU-Music-Bot\app\main_window.py:6217:
+  D:\IMVU-Music-Bot\app\main_window.py:6218:
+  D:\IMVU-Music-Bot\app\main_window.py:6219:
+  D:\IMVU-Music-Bot\app\main_window.py:6220:
+  D:\IMVU-Music-Bot\app\main_window.py:6221:
+  D:\IMVU-Music-Bot\app\main_window.py:6222:        # -----------------------------------------------------
+  D:\IMVU-Music-Bot\app\main_window.py:6223:
+  D:\IMVU-Music-Bot\app\main_window.py:6224:
+  D:\IMVU-Music-Bot\app\main_window.py:6225:
+  D:\IMVU-Music-Bot\app\main_window.py:6226:
+  D:\IMVU-Music-Bot\app\main_window.py:6227:
+  D:\IMVU-Music-Bot\app\main_window.py:6228:
+  D:\IMVU-Music-Bot\app\main_window.py:6229:
+  D:\IMVU-Music-Bot\app\main_window.py:6230:        # IMVU
+  D:\IMVU-Music-Bot\app\main_window.py:6231:
+  D:\IMVU-Music-Bot\app\main_window.py:6232:
+  D:\IMVU-Music-Bot\app\main_window.py:6233:
+  D:\IMVU-Music-Bot\app\main_window.py:6234:
+  D:\IMVU-Music-Bot\app\main_window.py:6235:
+  D:\IMVU-Music-Bot\app\main_window.py:6236:
+
+============================================================
+PATTERN: def connect
+LINE: 8171
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8163:                timeout=30000,
+  D:\IMVU-Music-Bot\app\main_window.py:8164:            )
+  D:\IMVU-Music-Bot\app\main_window.py:8165:            target_page.bring_to_front()
+  D:\IMVU-Music-Bot\app\main_window.py:8166:            self.log(f"IMVU: Opened room in dedicated bot Chrome: {room_url}")
+  D:\IMVU-Music-Bot\app\main_window.py:8167:            return target_page.url
+  D:\IMVU-Music-Bot\app\main_window.py:8168:        finally:
+  D:\IMVU-Music-Bot\app\main_window.py:8169:            controller.disconnect()
+  D:\IMVU-Music-Bot\app\main_window.py:8170:
+> D:\IMVU-Music-Bot\app\main_window.py:8171:    def connect_imvu(self):
+  D:\IMVU-Music-Bot\app\main_window.py:8172:        username = self.username_input.text().strip()
+  D:\IMVU-Music-Bot\app\main_window.py:8173:        room_id = self.room_input.text().strip()
+  D:\IMVU-Music-Bot\app\main_window.py:8174:
+  D:\IMVU-Music-Bot\app\main_window.py:8175:        if not room_id:
+  D:\IMVU-Music-Bot\app\main_window.py:8176:            QMessageBox.warning(
+  D:\IMVU-Music-Bot\app\main_window.py:8177:                self,
+  D:\IMVU-Music-Bot\app\main_window.py:8178:                "Missing Room ID",
+  D:\IMVU-Music-Bot\app\main_window.py:8179:                "Enter an IMVU Room ID, for example 379262025-7.",
+  D:\IMVU-Music-Bot\app\main_window.py:8180:            )
+  D:\IMVU-Music-Bot\app\main_window.py:8181:            return
+  D:\IMVU-Music-Bot\app\main_window.py:8182:
+  D:\IMVU-Music-Bot\app\main_window.py:8183:        raw_room = room_id.strip()
+  D:\IMVU-Music-Bot\app\main_window.py:8184:
+  D:\IMVU-Music-Bot\app\main_window.py:8185:        if "/room-" in raw_room:
+  D:\IMVU-Music-Bot\app\main_window.py:8186:            room_id = raw_room.split("/room-", 1)[1]
+  D:\IMVU-Music-Bot\app\main_window.py:8187:            room_id = room_id.split("/", 1)[0]
+  D:\IMVU-Music-Bot\app\main_window.py:8188:            room_id = room_id.split("?", 1)[0]
+  D:\IMVU-Music-Bot\app\main_window.py:8189:            room_id = room_id.split("#", 1)[0]
+  D:\IMVU-Music-Bot\app\main_window.py:8190:        else:
+  D:\IMVU-Music-Bot\app\main_window.py:8191:            room_id = raw_room.strip("/")
+  D:\IMVU-Music-Bot\app\main_window.py:8192:            if room_id.startswith("room-"):
+  D:\IMVU-Music-Bot\app\main_window.py:8193:                room_id = room_id[5:]
+  D:\IMVU-Music-Bot\app\main_window.py:8194:
+  D:\IMVU-Music-Bot\app\main_window.py:8195:        room_id = room_id.strip()
+  D:\IMVU-Music-Bot\app\main_window.py:8196:
+  D:\IMVU-Music-Bot\app\main_window.py:8197:        if not room_id:
+  D:\IMVU-Music-Bot\app\main_window.py:8198:            QMessageBox.warning(
+  D:\IMVU-Music-Bot\app\main_window.py:8199:                self,
+  D:\IMVU-Music-Bot\app\main_window.py:8200:                "Invalid Room ID",
+  D:\IMVU-Music-Bot\app\main_window.py:8201:                "Enter a valid IMVU Room ID, for example 379262025-7.",
+
+============================================================
+PATTERN: def.*bot
+LINE: 8083
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8075:
+  D:\IMVU-Music-Bot\app\main_window.py:8076:    def _cdp_port_open(self, host="127.0.0.1", port=9222):
+  D:\IMVU-Music-Bot\app\main_window.py:8077:        try:
+  D:\IMVU-Music-Bot\app\main_window.py:8078:            with socket.create_connection((host, port), timeout=0.5):
+  D:\IMVU-Music-Bot\app\main_window.py:8079:                return True
+  D:\IMVU-Music-Bot\app\main_window.py:8080:        except OSError:
+  D:\IMVU-Music-Bot\app\main_window.py:8081:            return False
+  D:\IMVU-Music-Bot\app\main_window.py:8082:
+> D:\IMVU-Music-Bot\app\main_window.py:8083:    def _ensure_dedicated_bot_chrome(self, timeout_seconds=15):
+  D:\IMVU-Music-Bot\app\main_window.py:8084:        if self._cdp_port_open():
+  D:\IMVU-Music-Bot\app\main_window.py:8085:            self.log("IMVU: Dedicated bot Chrome is already running on port 9222.")
+  D:\IMVU-Music-Bot\app\main_window.py:8086:            return True
+  D:\IMVU-Music-Bot\app\main_window.py:8087:
+  D:\IMVU-Music-Bot\app\main_window.py:8088:        chrome_path = self._find_chrome_executable()
+  D:\IMVU-Music-Bot\app\main_window.py:8089:        if not chrome_path:
+  D:\IMVU-Music-Bot\app\main_window.py:8090:            raise RuntimeError(
+  D:\IMVU-Music-Bot\app\main_window.py:8091:                "Google Chrome was not found in the standard Windows locations."
+  D:\IMVU-Music-Bot\app\main_window.py:8092:            )
+  D:\IMVU-Music-Bot\app\main_window.py:8093:
+  D:\IMVU-Music-Bot\app\main_window.py:8094:        profile_dir = self._dedicated_chrome_profile_dir()
+  D:\IMVU-Music-Bot\app\main_window.py:8095:        command = [
+  D:\IMVU-Music-Bot\app\main_window.py:8096:            str(chrome_path),
+  D:\IMVU-Music-Bot\app\main_window.py:8097:            "--remote-debugging-port=9222",
+  D:\IMVU-Music-Bot\app\main_window.py:8098:            "--remote-debugging-address=127.0.0.1",
+  D:\IMVU-Music-Bot\app\main_window.py:8099:            f"--user-data-dir={profile_dir}",
+  D:\IMVU-Music-Bot\app\main_window.py:8100:            "--no-first-run",
+  D:\IMVU-Music-Bot\app\main_window.py:8101:            "--no-default-browser-check",
+  D:\IMVU-Music-Bot\app\main_window.py:8102:            "about:blank",
+  D:\IMVU-Music-Bot\app\main_window.py:8103:        ]
+  D:\IMVU-Music-Bot\app\main_window.py:8104:
+  D:\IMVU-Music-Bot\app\main_window.py:8105:        self.log("IMVU: Starting dedicated bot Chrome...")
+  D:\IMVU-Music-Bot\app\main_window.py:8106:        self.log(f"IMVU: Bot Chrome profile: {profile_dir}")
+  D:\IMVU-Music-Bot\app\main_window.py:8107:
+  D:\IMVU-Music-Bot\app\main_window.py:8108:        subprocess.Popen(
+  D:\IMVU-Music-Bot\app\main_window.py:8109:            command,
+  D:\IMVU-Music-Bot\app\main_window.py:8110:            stdout=subprocess.DEVNULL,
+  D:\IMVU-Music-Bot\app\main_window.py:8111:            stderr=subprocess.DEVNULL,
+  D:\IMVU-Music-Bot\app\main_window.py:8112:        )
+  D:\IMVU-Music-Bot\app\main_window.py:8113:
+
+============================================================
+PATTERN: def.*bot
+LINE: 9055
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:9047:            f"[BOT -> {username}] "
+  D:\IMVU-Music-Bot\app\main_window.py:9048:            f"{response}"
+  D:\IMVU-Music-Bot\app\main_window.py:9049:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9050:
+  D:\IMVU-Music-Bot\app\main_window.py:9051:        self.send_bot_response_to_imvu(
+  D:\IMVU-Music-Bot\app\main_window.py:9052:            response
+  D:\IMVU-Music-Bot\app\main_window.py:9053:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9054:
+> D:\IMVU-Music-Bot\app\main_window.py:9055:    def handle_bot_response(
+  D:\IMVU-Music-Bot\app\main_window.py:9056:        self,
+  D:\IMVU-Music-Bot\app\main_window.py:9057:        username,
+  D:\IMVU-Music-Bot\app\main_window.py:9058:        response
+  D:\IMVU-Music-Bot\app\main_window.py:9059:    ):
+  D:\IMVU-Music-Bot\app\main_window.py:9060:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:9061:            f"BOT RESPONSE TO "
+  D:\IMVU-Music-Bot\app\main_window.py:9062:            f"{username}: "
+  D:\IMVU-Music-Bot\app\main_window.py:9063:            f"{response}"
+  D:\IMVU-Music-Bot\app\main_window.py:9064:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9065:
+  D:\IMVU-Music-Bot\app\main_window.py:9066:        self.command_output.append(
+  D:\IMVU-Music-Bot\app\main_window.py:9067:            f"[BOT -> {username}] {response}"
+  D:\IMVU-Music-Bot\app\main_window.py:9068:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9069:
+  D:\IMVU-Music-Bot\app\main_window.py:9070:        # Send only responses generated by REAL live IMVU messages.
+  D:\IMVU-Music-Bot\app\main_window.py:9071:        # Simulated chat and local command-console tests stay local.
+  D:\IMVU-Music-Bot\app\main_window.py:9072:        if self._processing_live_imvu_chat:
+  D:\IMVU-Music-Bot\app\main_window.py:9073:            self.send_bot_response_to_imvu(response)
+  D:\IMVU-Music-Bot\app\main_window.py:9074:
+
+============================================================
+PATTERN: def.*bot
+LINE: 9075
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:9075:    def send_bot_response_to_imvu(self, response):
+  D:\IMVU-Music-Bot\app\main_window.py:9076:        message = str(response or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:9077:
+  D:\IMVU-Music-Bot\app\main_window.py:9078:        if not message:
+  D:\IMVU-Music-Bot\app\main_window.py:9079:            return
+  D:\IMVU-Music-Bot\app\main_window.py:9080:
+  D:\IMVU-Music-Bot\app\main_window.py:9081:        worker = IMVUChatSendWorker(message, self)
+  D:\IMVU-Music-Bot\app\main_window.py:9082:
+  D:\IMVU-Music-Bot\app\main_window.py:9083:        worker.succeeded.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:9084:            self.imvu_chat_send_succeeded
+  D:\IMVU-Music-Bot\app\main_window.py:9085:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9086:        worker.failed.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:9087:            self.imvu_chat_send_failed
+  D:\IMVU-Music-Bot\app\main_window.py:9088:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9089:        worker.finished.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:9090:            lambda w=worker: self.cleanup_imvu_chat_send_worker(w)
+  D:\IMVU-Music-Bot\app\main_window.py:9091:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9092:
+  D:\IMVU-Music-Bot\app\main_window.py:9093:        self.imvu_chat_send_workers.append(worker)
+  D:\IMVU-Music-Bot\app\main_window.py:9094:
+  D:\IMVU-Music-Bot\app\main_window.py:9095:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:9096:            f"IMVU CHAT SEND: Queued bot response: {message}"
+  D:\IMVU-Music-Bot\app\main_window.py:9097:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9098:
+  D:\IMVU-Music-Bot\app\main_window.py:9099:        worker.start()
+  D:\IMVU-Music-Bot\app\main_window.py:9100:
+  D:\IMVU-Music-Bot\app\main_window.py:9101:    def cleanup_imvu_chat_send_worker(self, worker):
+  D:\IMVU-Music-Bot\app\main_window.py:9102:        if worker in self.imvu_chat_send_workers:
+  D:\IMVU-Music-Bot\app\main_window.py:9103:            self.imvu_chat_send_workers.remove(worker)
+  D:\IMVU-Music-Bot\app\main_window.py:9104:
+  D:\IMVU-Music-Bot\app\main_window.py:9105:        worker.deleteLater()
+
+============================================================
+PATTERN: def.*room
+LINE: 8125
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8117:                self.log("IMVU: Dedicated bot Chrome CDP is ready on port 9222.")
+  D:\IMVU-Music-Bot\app\main_window.py:8118:                return True
+  D:\IMVU-Music-Bot\app\main_window.py:8119:            time.sleep(0.25)
+  D:\IMVU-Music-Bot\app\main_window.py:8120:
+  D:\IMVU-Music-Bot\app\main_window.py:8121:        raise RuntimeError(
+  D:\IMVU-Music-Bot\app\main_window.py:8122:            "Dedicated bot Chrome started, but port 9222 did not become ready."
+  D:\IMVU-Music-Bot\app\main_window.py:8123:        )
+  D:\IMVU-Music-Bot\app\main_window.py:8124:
+> D:\IMVU-Music-Bot\app\main_window.py:8125:    def _open_room_in_dedicated_chrome(self, room_url):
+  D:\IMVU-Music-Bot\app\main_window.py:8126:        controller = IMVUWebController()
+  D:\IMVU-Music-Bot\app\main_window.py:8127:        try:
+  D:\IMVU-Music-Bot\app\main_window.py:8128:            controller.connect()
+  D:\IMVU-Music-Bot\app\main_window.py:8129:            room_fragment = room_url.rstrip("/").split("/")[-1].lower()
+  D:\IMVU-Music-Bot\app\main_window.py:8130:
+  D:\IMVU-Music-Bot\app\main_window.py:8131:            for page in controller.context.pages:
+  D:\IMVU-Music-Bot\app\main_window.py:8132:                try:
+  D:\IMVU-Music-Bot\app\main_window.py:8133:                    if room_fragment in (page.url or "").lower():
+  D:\IMVU-Music-Bot\app\main_window.py:8134:                        controller.page = page
+  D:\IMVU-Music-Bot\app\main_window.py:8135:                        page.bring_to_front()
+  D:\IMVU-Music-Bot\app\main_window.py:8136:                        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:8137:                            "IMVU: Dedicated Chrome already has the configured room open."
+  D:\IMVU-Music-Bot\app\main_window.py:8138:                        )
+  D:\IMVU-Music-Bot\app\main_window.py:8139:                        return page.url
+  D:\IMVU-Music-Bot\app\main_window.py:8140:                except Exception:
+  D:\IMVU-Music-Bot\app\main_window.py:8141:                    continue
+  D:\IMVU-Music-Bot\app\main_window.py:8142:
+  D:\IMVU-Music-Bot\app\main_window.py:8143:            target_page = None
+  D:\IMVU-Music-Bot\app\main_window.py:8144:            for page in controller.context.pages:
+  D:\IMVU-Music-Bot\app\main_window.py:8145:                try:
+  D:\IMVU-Music-Bot\app\main_window.py:8146:                    if (page.url or "").lower() in (
+  D:\IMVU-Music-Bot\app\main_window.py:8147:                        "",
+  D:\IMVU-Music-Bot\app\main_window.py:8148:                        "about:blank",
+  D:\IMVU-Music-Bot\app\main_window.py:8149:                        "chrome://newtab/",
+  D:\IMVU-Music-Bot\app\main_window.py:8150:                        "chrome://new-tab-page/",
+  D:\IMVU-Music-Bot\app\main_window.py:8151:                    ):
+  D:\IMVU-Music-Bot\app\main_window.py:8152:                        target_page = page
+  D:\IMVU-Music-Bot\app\main_window.py:8153:                        break
+  D:\IMVU-Music-Bot\app\main_window.py:8154:                except Exception:
+  D:\IMVU-Music-Bot\app\main_window.py:8155:                    continue
+
+============================================================
+PATTERN: def.*room
+LINE: 8348
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8340:
+  D:\IMVU-Music-Bot\app\main_window.py:8341:
+  D:\IMVU-Music-Bot\app\main_window.py:8342:
+  D:\IMVU-Music-Bot\app\main_window.py:8343:
+  D:\IMVU-Music-Bot\app\main_window.py:8344:
+  D:\IMVU-Music-Bot\app\main_window.py:8345:
+  D:\IMVU-Music-Bot\app\main_window.py:8346:
+  D:\IMVU-Music-Bot\app\main_window.py:8347:
+> D:\IMVU-Music-Bot\app\main_window.py:8348:    def imvu_auto_join_succeeded(self, room_url, clicked):
+  D:\IMVU-Music-Bot\app\main_window.py:8349:
+  D:\IMVU-Music-Bot\app\main_window.py:8350:
+  D:\IMVU-Music-Bot\app\main_window.py:8351:
+  D:\IMVU-Music-Bot\app\main_window.py:8352:        self.connection_status.setText("Joined Room")
+  D:\IMVU-Music-Bot\app\main_window.py:8353:
+  D:\IMVU-Music-Bot\app\main_window.py:8354:
+  D:\IMVU-Music-Bot\app\main_window.py:8355:
+  D:\IMVU-Music-Bot\app\main_window.py:8356:
+  D:\IMVU-Music-Bot\app\main_window.py:8357:
+  D:\IMVU-Music-Bot\app\main_window.py:8358:
+  D:\IMVU-Music-Bot\app\main_window.py:8359:
+  D:\IMVU-Music-Bot\app\main_window.py:8360:        if clicked:
+  D:\IMVU-Music-Bot\app\main_window.py:8361:
+  D:\IMVU-Music-Bot\app\main_window.py:8362:
+  D:\IMVU-Music-Bot\app\main_window.py:8363:
+  D:\IMVU-Music-Bot\app\main_window.py:8364:            self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:8365:
+  D:\IMVU-Music-Bot\app\main_window.py:8366:
+  D:\IMVU-Music-Bot\app\main_window.py:8367:
+  D:\IMVU-Music-Bot\app\main_window.py:8368:                f"IMVU: Automatically joined room: {room_url}"
+  D:\IMVU-Music-Bot\app\main_window.py:8369:
+  D:\IMVU-Music-Bot\app\main_window.py:8370:
+  D:\IMVU-Music-Bot\app\main_window.py:8371:
+  D:\IMVU-Music-Bot\app\main_window.py:8372:            )
+  D:\IMVU-Music-Bot\app\main_window.py:8373:
+  D:\IMVU-Music-Bot\app\main_window.py:8374:
+  D:\IMVU-Music-Bot\app\main_window.py:8375:
+  D:\IMVU-Music-Bot\app\main_window.py:8376:        else:
+  D:\IMVU-Music-Bot\app\main_window.py:8377:
+  D:\IMVU-Music-Bot\app\main_window.py:8378:
+
+============================================================
+PATTERN: automatic room join
+LINE: 8248
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8240:    def start_imvu_auto_join(self):
+  D:\IMVU-Music-Bot\app\main_window.py:8241:
+  D:\IMVU-Music-Bot\app\main_window.py:8242:
+  D:\IMVU-Music-Bot\app\main_window.py:8243:
+  D:\IMVU-Music-Bot\app\main_window.py:8244:        self.connection_status.setText("Joining Room...")
+  D:\IMVU-Music-Bot\app\main_window.py:8245:
+  D:\IMVU-Music-Bot\app\main_window.py:8246:
+  D:\IMVU-Music-Bot\app\main_window.py:8247:
+> D:\IMVU-Music-Bot\app\main_window.py:8248:        self.log("IMVU: Starting automatic room join...")
+  D:\IMVU-Music-Bot\app\main_window.py:8249:
+  D:\IMVU-Music-Bot\app\main_window.py:8250:
+  D:\IMVU-Music-Bot\app\main_window.py:8251:
+  D:\IMVU-Music-Bot\app\main_window.py:8252:
+  D:\IMVU-Music-Bot\app\main_window.py:8253:
+  D:\IMVU-Music-Bot\app\main_window.py:8254:
+  D:\IMVU-Music-Bot\app\main_window.py:8255:
+  D:\IMVU-Music-Bot\app\main_window.py:8256:        worker = IMVUJoinWorker(self)
+  D:\IMVU-Music-Bot\app\main_window.py:8257:
+  D:\IMVU-Music-Bot\app\main_window.py:8258:
+  D:\IMVU-Music-Bot\app\main_window.py:8259:
+  D:\IMVU-Music-Bot\app\main_window.py:8260:
+  D:\IMVU-Music-Bot\app\main_window.py:8261:
+  D:\IMVU-Music-Bot\app\main_window.py:8262:
+  D:\IMVU-Music-Bot\app\main_window.py:8263:
+  D:\IMVU-Music-Bot\app\main_window.py:8264:        worker.succeeded.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:8265:
+  D:\IMVU-Music-Bot\app\main_window.py:8266:
+  D:\IMVU-Music-Bot\app\main_window.py:8267:
+  D:\IMVU-Music-Bot\app\main_window.py:8268:            self.imvu_auto_join_succeeded
+  D:\IMVU-Music-Bot\app\main_window.py:8269:
+  D:\IMVU-Music-Bot\app\main_window.py:8270:
+  D:\IMVU-Music-Bot\app\main_window.py:8271:
+  D:\IMVU-Music-Bot\app\main_window.py:8272:        )
+  D:\IMVU-Music-Bot\app\main_window.py:8273:
+  D:\IMVU-Music-Bot\app\main_window.py:8274:
+  D:\IMVU-Music-Bot\app\main_window.py:8275:
+  D:\IMVU-Music-Bot\app\main_window.py:8276:        worker.failed.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:8277:
+  D:\IMVU-Music-Bot\app\main_window.py:8278:
+
+============================================================
+PATTERN: def start_radio
+LINE: 9401
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:9393:
+  D:\IMVU-Music-Bot\app\main_window.py:9394:
+  D:\IMVU-Music-Bot\app\main_window.py:9395:
+  D:\IMVU-Music-Bot\app\main_window.py:9396:
+  D:\IMVU-Music-Bot\app\main_window.py:9397:
+  D:\IMVU-Music-Bot\app\main_window.py:9398:
+  D:\IMVU-Music-Bot\app\main_window.py:9399:
+  D:\IMVU-Music-Bot\app\main_window.py:9400:
+> D:\IMVU-Music-Bot\app\main_window.py:9401:    def start_radio(self):
+  D:\IMVU-Music-Bot\app\main_window.py:9402:
+  D:\IMVU-Music-Bot\app\main_window.py:9403:
+  D:\IMVU-Music-Bot\app\main_window.py:9404:
+  D:\IMVU-Music-Bot\app\main_window.py:9405:
+  D:\IMVU-Music-Bot\app\main_window.py:9406:
+  D:\IMVU-Music-Bot\app\main_window.py:9407:
+  D:\IMVU-Music-Bot\app\main_window.py:9408:
+  D:\IMVU-Music-Bot\app\main_window.py:9409:
+  D:\IMVU-Music-Bot\app\main_window.py:9410:
+  D:\IMVU-Music-Bot\app\main_window.py:9411:
+  D:\IMVU-Music-Bot\app\main_window.py:9412:
+  D:\IMVU-Music-Bot\app\main_window.py:9413:
+  D:\IMVU-Music-Bot\app\main_window.py:9414:
+  D:\IMVU-Music-Bot\app\main_window.py:9415:
+  D:\IMVU-Music-Bot\app\main_window.py:9416:
+  D:\IMVU-Music-Bot\app\main_window.py:9417:        url = (
+  D:\IMVU-Music-Bot\app\main_window.py:9418:
+  D:\IMVU-Music-Bot\app\main_window.py:9419:
+  D:\IMVU-Music-Bot\app\main_window.py:9420:
+  D:\IMVU-Music-Bot\app\main_window.py:9421:
+  D:\IMVU-Music-Bot\app\main_window.py:9422:
+  D:\IMVU-Music-Bot\app\main_window.py:9423:
+  D:\IMVU-Music-Bot\app\main_window.py:9424:
+  D:\IMVU-Music-Bot\app\main_window.py:9425:            self.radio_url_input
+  D:\IMVU-Music-Bot\app\main_window.py:9426:
+  D:\IMVU-Music-Bot\app\main_window.py:9427:
+  D:\IMVU-Music-Bot\app\main_window.py:9428:
+  D:\IMVU-Music-Bot\app\main_window.py:9429:
+  D:\IMVU-Music-Bot\app\main_window.py:9430:
+  D:\IMVU-Music-Bot\app\main_window.py:9431:
+
+============================================================
+PATTERN: def stop_radio
+LINE: 10361
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:10353:
+  D:\IMVU-Music-Bot\app\main_window.py:10354:
+  D:\IMVU-Music-Bot\app\main_window.py:10355:
+  D:\IMVU-Music-Bot\app\main_window.py:10356:
+  D:\IMVU-Music-Bot\app\main_window.py:10357:
+  D:\IMVU-Music-Bot\app\main_window.py:10358:
+  D:\IMVU-Music-Bot\app\main_window.py:10359:
+  D:\IMVU-Music-Bot\app\main_window.py:10360:
+> D:\IMVU-Music-Bot\app\main_window.py:10361:    def stop_radio(self):
+  D:\IMVU-Music-Bot\app\main_window.py:10362:
+  D:\IMVU-Music-Bot\app\main_window.py:10363:
+  D:\IMVU-Music-Bot\app\main_window.py:10364:
+  D:\IMVU-Music-Bot\app\main_window.py:10365:
+  D:\IMVU-Music-Bot\app\main_window.py:10366:
+  D:\IMVU-Music-Bot\app\main_window.py:10367:
+  D:\IMVU-Music-Bot\app\main_window.py:10368:
+  D:\IMVU-Music-Bot\app\main_window.py:10369:
+  D:\IMVU-Music-Bot\app\main_window.py:10370:
+  D:\IMVU-Music-Bot\app\main_window.py:10371:
+  D:\IMVU-Music-Bot\app\main_window.py:10372:
+  D:\IMVU-Music-Bot\app\main_window.py:10373:
+  D:\IMVU-Music-Bot\app\main_window.py:10374:
+  D:\IMVU-Music-Bot\app\main_window.py:10375:
+  D:\IMVU-Music-Bot\app\main_window.py:10376:
+  D:\IMVU-Music-Bot\app\main_window.py:10377:        # -----------------------------------------------------
+  D:\IMVU-Music-Bot\app\main_window.py:10378:
+  D:\IMVU-Music-Bot\app\main_window.py:10379:
+  D:\IMVU-Music-Bot\app\main_window.py:10380:
+  D:\IMVU-Music-Bot\app\main_window.py:10381:
+  D:\IMVU-Music-Bot\app\main_window.py:10382:
+  D:\IMVU-Music-Bot\app\main_window.py:10383:
+  D:\IMVU-Music-Bot\app\main_window.py:10384:
+  D:\IMVU-Music-Bot\app\main_window.py:10385:        # STOP CLOUDFLARE
+  D:\IMVU-Music-Bot\app\main_window.py:10386:
+  D:\IMVU-Music-Bot\app\main_window.py:10387:
+  D:\IMVU-Music-Bot\app\main_window.py:10388:
+  D:\IMVU-Music-Bot\app\main_window.py:10389:
+  D:\IMVU-Music-Bot\app\main_window.py:10390:
+  D:\IMVU-Music-Bot\app\main_window.py:10391:
+
+============================================================
+PATTERN: def cloudflare_started
+LINE: 10953
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:10945:
+  D:\IMVU-Music-Bot\app\main_window.py:10946:
+  D:\IMVU-Music-Bot\app\main_window.py:10947:
+  D:\IMVU-Music-Bot\app\main_window.py:10948:
+  D:\IMVU-Music-Bot\app\main_window.py:10949:
+  D:\IMVU-Music-Bot\app\main_window.py:10950:
+  D:\IMVU-Music-Bot\app\main_window.py:10951:
+  D:\IMVU-Music-Bot\app\main_window.py:10952:
+> D:\IMVU-Music-Bot\app\main_window.py:10953:    def cloudflare_started(self, stream_url):
+  D:\IMVU-Music-Bot\app\main_window.py:10954:        """
+  D:\IMVU-Music-Bot\app\main_window.py:10955:        cloudflare.py emits tunnel_started only after the public HTTPS
+  D:\IMVU-Music-Bot\app\main_window.py:10956:        /stream.mp3 endpoint has been DNS-resolved and actual MP3 bytes
+  D:\IMVU-Music-Bot\app\main_window.py:10957:        have been received through the tunnel.
+  D:\IMVU-Music-Bot\app\main_window.py:10958:
+  D:\IMVU-Music-Bot\app\main_window.py:10959:        Do not perform a second urllib readiness test here. The old duplicate
+  D:\IMVU-Music-Bot\app\main_window.py:10960:        test could fail inside this long-running Python process even after
+  D:\IMVU-Music-Bot\app\main_window.py:10961:        cloudflare.py had already validated the same public stream with curl.
+  D:\IMVU-Music-Bot\app\main_window.py:10962:        """
+  D:\IMVU-Music-Bot\app\main_window.py:10963:        stream_url = str(stream_url or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:10964:
+  D:\IMVU-Music-Bot\app\main_window.py:10965:        if not stream_url:
+  D:\IMVU-Music-Bot\app\main_window.py:10966:            self.public_status.setText("Public Stream: Error")
+  D:\IMVU-Music-Bot\app\main_window.py:10967:            self.log("CLOUDFLARE ERROR: Validated tunnel returned an empty URL.")
+  D:\IMVU-Music-Bot\app\main_window.py:10968:            return
+  D:\IMVU-Music-Bot\app\main_window.py:10969:
+  D:\IMVU-Music-Bot\app\main_window.py:10970:        self.public_stream_url = stream_url
+  D:\IMVU-Music-Bot\app\main_window.py:10971:        self.public_stream_input.setText(stream_url)
+  D:\IMVU-Music-Bot\app\main_window.py:10972:        self.public_status.setText("Public Stream: Ready for IMVU")
+  D:\IMVU-Music-Bot\app\main_window.py:10973:
+  D:\IMVU-Music-Bot\app\main_window.py:10974:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:10975:            "Cloudflare public MP3 stream validated. "
+  D:\IMVU-Music-Bot\app\main_window.py:10976:            f"Updating IMVU immediately: {stream_url}"
+  D:\IMVU-Music-Bot\app\main_window.py:10977:        )
+  D:\IMVU-Music-Bot\app\main_window.py:10978:
+  D:\IMVU-Music-Bot\app\main_window.py:10979:        self.start_imvu_radio_update(stream_url)
+  D:\IMVU-Music-Bot\app\main_window.py:10980:
+  D:\IMVU-Music-Bot\app\main_window.py:10981:
+  D:\IMVU-Music-Bot\app\main_window.py:10982:    def start_imvu_radio_update(self, stream_url):
+  D:\IMVU-Music-Bot\app\main_window.py:10983:
+
+============================================================
+PATTERN: def start_imvu_radio_update
+LINE: 10982
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:10974:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:10975:            "Cloudflare public MP3 stream validated. "
+  D:\IMVU-Music-Bot\app\main_window.py:10976:            f"Updating IMVU immediately: {stream_url}"
+  D:\IMVU-Music-Bot\app\main_window.py:10977:        )
+  D:\IMVU-Music-Bot\app\main_window.py:10978:
+  D:\IMVU-Music-Bot\app\main_window.py:10979:        self.start_imvu_radio_update(stream_url)
+  D:\IMVU-Music-Bot\app\main_window.py:10980:
+  D:\IMVU-Music-Bot\app\main_window.py:10981:
+> D:\IMVU-Music-Bot\app\main_window.py:10982:    def start_imvu_radio_update(self, stream_url):
+  D:\IMVU-Music-Bot\app\main_window.py:10983:
+  D:\IMVU-Music-Bot\app\main_window.py:10984:
+  D:\IMVU-Music-Bot\app\main_window.py:10985:
+  D:\IMVU-Music-Bot\app\main_window.py:10986:
+  D:\IMVU-Music-Bot\app\main_window.py:10987:
+  D:\IMVU-Music-Bot\app\main_window.py:10988:
+  D:\IMVU-Music-Bot\app\main_window.py:10989:
+  D:\IMVU-Music-Bot\app\main_window.py:10990:        self.public_status.setText(
+  D:\IMVU-Music-Bot\app\main_window.py:10991:
+  D:\IMVU-Music-Bot\app\main_window.py:10992:
+  D:\IMVU-Music-Bot\app\main_window.py:10993:
+  D:\IMVU-Music-Bot\app\main_window.py:10994:            "Public Stream: Updating IMVU..."
+  D:\IMVU-Music-Bot\app\main_window.py:10995:
+  D:\IMVU-Music-Bot\app\main_window.py:10996:
+  D:\IMVU-Music-Bot\app\main_window.py:10997:
+  D:\IMVU-Music-Bot\app\main_window.py:10998:        )
+  D:\IMVU-Music-Bot\app\main_window.py:10999:
+  D:\IMVU-Music-Bot\app\main_window.py:11000:
+  D:\IMVU-Music-Bot\app\main_window.py:11001:
+  D:\IMVU-Music-Bot\app\main_window.py:11002:
+  D:\IMVU-Music-Bot\app\main_window.py:11003:
+  D:\IMVU-Music-Bot\app\main_window.py:11004:
+  D:\IMVU-Music-Bot\app\main_window.py:11005:
+  D:\IMVU-Music-Bot\app\main_window.py:11006:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:11007:
+  D:\IMVU-Music-Bot\app\main_window.py:11008:
+  D:\IMVU-Music-Bot\app\main_window.py:11009:
+  D:\IMVU-Music-Bot\app\main_window.py:11010:            "Updating IMVU Radio Streaming with the new Cloudflare URL..."
+  D:\IMVU-Music-Bot\app\main_window.py:11011:
+  D:\IMVU-Music-Bot\app\main_window.py:11012:
+
+============================================================
+PATTERN: def imvu_radio_update_succeeded
+LINE: 11146
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:11138:
+  D:\IMVU-Music-Bot\app\main_window.py:11139:
+  D:\IMVU-Music-Bot\app\main_window.py:11140:
+  D:\IMVU-Music-Bot\app\main_window.py:11141:
+  D:\IMVU-Music-Bot\app\main_window.py:11142:
+  D:\IMVU-Music-Bot\app\main_window.py:11143:
+  D:\IMVU-Music-Bot\app\main_window.py:11144:
+  D:\IMVU-Music-Bot\app\main_window.py:11145:
+> D:\IMVU-Music-Bot\app\main_window.py:11146:    def imvu_radio_update_succeeded(
+  D:\IMVU-Music-Bot\app\main_window.py:11147:
+  D:\IMVU-Music-Bot\app\main_window.py:11148:
+  D:\IMVU-Music-Bot\app\main_window.py:11149:
+  D:\IMVU-Music-Bot\app\main_window.py:11150:        self,
+  D:\IMVU-Music-Bot\app\main_window.py:11151:
+  D:\IMVU-Music-Bot\app\main_window.py:11152:
+  D:\IMVU-Music-Bot\app\main_window.py:11153:
+  D:\IMVU-Music-Bot\app\main_window.py:11154:        stream_url,
+  D:\IMVU-Music-Bot\app\main_window.py:11155:
+  D:\IMVU-Music-Bot\app\main_window.py:11156:
+  D:\IMVU-Music-Bot\app\main_window.py:11157:
+  D:\IMVU-Music-Bot\app\main_window.py:11158:        previous_url
+  D:\IMVU-Music-Bot\app\main_window.py:11159:
+  D:\IMVU-Music-Bot\app\main_window.py:11160:
+  D:\IMVU-Music-Bot\app\main_window.py:11161:
+  D:\IMVU-Music-Bot\app\main_window.py:11162:    ):
+  D:\IMVU-Music-Bot\app\main_window.py:11163:
+  D:\IMVU-Music-Bot\app\main_window.py:11164:
+  D:\IMVU-Music-Bot\app\main_window.py:11165:
+  D:\IMVU-Music-Bot\app\main_window.py:11166:
+  D:\IMVU-Music-Bot\app\main_window.py:11167:
+  D:\IMVU-Music-Bot\app\main_window.py:11168:
+  D:\IMVU-Music-Bot\app\main_window.py:11169:
+  D:\IMVU-Music-Bot\app\main_window.py:11170:        self.public_status.setText(
+  D:\IMVU-Music-Bot\app\main_window.py:11171:
+  D:\IMVU-Music-Bot\app\main_window.py:11172:
+  D:\IMVU-Music-Bot\app\main_window.py:11173:
+  D:\IMVU-Music-Bot\app\main_window.py:11174:            "Public Stream: Loaded in IMVU"
+  D:\IMVU-Music-Bot\app\main_window.py:11175:
+  D:\IMVU-Music-Bot\app\main_window.py:11176:
+
+============================================================
+PATTERN: def imvu_radio_update_failed
+LINE: 11218
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:11210:
+  D:\IMVU-Music-Bot\app\main_window.py:11211:
+  D:\IMVU-Music-Bot\app\main_window.py:11212:
+  D:\IMVU-Music-Bot\app\main_window.py:11213:
+  D:\IMVU-Music-Bot\app\main_window.py:11214:
+  D:\IMVU-Music-Bot\app\main_window.py:11215:
+  D:\IMVU-Music-Bot\app\main_window.py:11216:
+  D:\IMVU-Music-Bot\app\main_window.py:11217:
+> D:\IMVU-Music-Bot\app\main_window.py:11218:    def imvu_radio_update_failed(self, message):
+  D:\IMVU-Music-Bot\app\main_window.py:11219:
+  D:\IMVU-Music-Bot\app\main_window.py:11220:
+  D:\IMVU-Music-Bot\app\main_window.py:11221:
+  D:\IMVU-Music-Bot\app\main_window.py:11222:
+  D:\IMVU-Music-Bot\app\main_window.py:11223:
+  D:\IMVU-Music-Bot\app\main_window.py:11224:
+  D:\IMVU-Music-Bot\app\main_window.py:11225:
+  D:\IMVU-Music-Bot\app\main_window.py:11226:        self.public_status.setText(
+  D:\IMVU-Music-Bot\app\main_window.py:11227:
+  D:\IMVU-Music-Bot\app\main_window.py:11228:
+  D:\IMVU-Music-Bot\app\main_window.py:11229:
+  D:\IMVU-Music-Bot\app\main_window.py:11230:            "Public Stream: IMVU Update Failed"
+  D:\IMVU-Music-Bot\app\main_window.py:11231:
+  D:\IMVU-Music-Bot\app\main_window.py:11232:
+  D:\IMVU-Music-Bot\app\main_window.py:11233:
+  D:\IMVU-Music-Bot\app\main_window.py:11234:        )
+  D:\IMVU-Music-Bot\app\main_window.py:11235:
+  D:\IMVU-Music-Bot\app\main_window.py:11236:
+  D:\IMVU-Music-Bot\app\main_window.py:11237:
+  D:\IMVU-Music-Bot\app\main_window.py:11238:
+  D:\IMVU-Music-Bot\app\main_window.py:11239:
+  D:\IMVU-Music-Bot\app\main_window.py:11240:
+  D:\IMVU-Music-Bot\app\main_window.py:11241:
+  D:\IMVU-Music-Bot\app\main_window.py:11242:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:11243:
+  D:\IMVU-Music-Bot\app\main_window.py:11244:
+  D:\IMVU-Music-Bot\app\main_window.py:11245:
+  D:\IMVU-Music-Bot\app\main_window.py:11246:            f"IMVU RADIO UPDATE ERROR: {message}"
+  D:\IMVU-Music-Bot\app\main_window.py:11247:
+  D:\IMVU-Music-Bot\app\main_window.py:11248:
+
+============================================================
+PATTERN: def start.*listener
+LINE: 8454
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8446:
+  D:\IMVU-Music-Bot\app\main_window.py:8447:
+  D:\IMVU-Music-Bot\app\main_window.py:8448:
+  D:\IMVU-Music-Bot\app\main_window.py:8449:
+  D:\IMVU-Music-Bot\app\main_window.py:8450:
+  D:\IMVU-Music-Bot\app\main_window.py:8451:
+  D:\IMVU-Music-Bot\app\main_window.py:8452:
+  D:\IMVU-Music-Bot\app\main_window.py:8453:
+> D:\IMVU-Music-Bot\app\main_window.py:8454:    def start_imvu_chat_listener(self):
+  D:\IMVU-Music-Bot\app\main_window.py:8455:
+  D:\IMVU-Music-Bot\app\main_window.py:8456:        if self.imvu_chat_worker is not None and self.imvu_chat_worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8457:
+  D:\IMVU-Music-Bot\app\main_window.py:8458:            self.log("IMVU CHAT: Listener is already running.")
+  D:\IMVU-Music-Bot\app\main_window.py:8459:
+  D:\IMVU-Music-Bot\app\main_window.py:8460:            return
+  D:\IMVU-Music-Bot\app\main_window.py:8461:
+  D:\IMVU-Music-Bot\app\main_window.py:8462:
+  D:\IMVU-Music-Bot\app\main_window.py:8463:
+  D:\IMVU-Music-Bot\app\main_window.py:8464:        self.log("IMVU CHAT: Starting live room listener...")
+  D:\IMVU-Music-Bot\app\main_window.py:8465:
+  D:\IMVU-Music-Bot\app\main_window.py:8466:        worker = IMVUChatWorker(self)
+  D:\IMVU-Music-Bot\app\main_window.py:8467:
+  D:\IMVU-Music-Bot\app\main_window.py:8468:        self.imvu_chat_worker = worker
+  D:\IMVU-Music-Bot\app\main_window.py:8469:
+  D:\IMVU-Music-Bot\app\main_window.py:8470:        worker.message_received.connect(self.receive_live_imvu_chat)
+  D:\IMVU-Music-Bot\app\main_window.py:8471:
+  D:\IMVU-Music-Bot\app\main_window.py:8472:        worker.started_listening.connect(self.imvu_chat_listener_started)
+  D:\IMVU-Music-Bot\app\main_window.py:8473:
+  D:\IMVU-Music-Bot\app\main_window.py:8474:        worker.failed.connect(self.imvu_chat_listener_failed)
+  D:\IMVU-Music-Bot\app\main_window.py:8475:
+  D:\IMVU-Music-Bot\app\main_window.py:8476:        worker.finished.connect(self.imvu_chat_listener_finished)
+  D:\IMVU-Music-Bot\app\main_window.py:8477:
+  D:\IMVU-Music-Bot\app\main_window.py:8478:        worker.start()
+  D:\IMVU-Music-Bot\app\main_window.py:8479:
+  D:\IMVU-Music-Bot\app\main_window.py:8480:
+  D:\IMVU-Music-Bot\app\main_window.py:8481:
+  D:\IMVU-Music-Bot\app\main_window.py:8482:    def stop_imvu_chat_listener(self, wait_ms=3000):
+  D:\IMVU-Music-Bot\app\main_window.py:8483:
+  D:\IMVU-Music-Bot\app\main_window.py:8484:        worker = self.imvu_chat_worker
+
+============================================================
+PATTERN: def stop.*listener
+LINE: 8482
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8474:        worker.failed.connect(self.imvu_chat_listener_failed)
+  D:\IMVU-Music-Bot\app\main_window.py:8475:
+  D:\IMVU-Music-Bot\app\main_window.py:8476:        worker.finished.connect(self.imvu_chat_listener_finished)
+  D:\IMVU-Music-Bot\app\main_window.py:8477:
+  D:\IMVU-Music-Bot\app\main_window.py:8478:        worker.start()
+  D:\IMVU-Music-Bot\app\main_window.py:8479:
+  D:\IMVU-Music-Bot\app\main_window.py:8480:
+  D:\IMVU-Music-Bot\app\main_window.py:8481:
+> D:\IMVU-Music-Bot\app\main_window.py:8482:    def stop_imvu_chat_listener(self, wait_ms=3000):
+  D:\IMVU-Music-Bot\app\main_window.py:8483:
+  D:\IMVU-Music-Bot\app\main_window.py:8484:        worker = self.imvu_chat_worker
+  D:\IMVU-Music-Bot\app\main_window.py:8485:
+  D:\IMVU-Music-Bot\app\main_window.py:8486:        if worker is None:
+  D:\IMVU-Music-Bot\app\main_window.py:8487:
+  D:\IMVU-Music-Bot\app\main_window.py:8488:            return
+  D:\IMVU-Music-Bot\app\main_window.py:8489:
+  D:\IMVU-Music-Bot\app\main_window.py:8490:        if worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8491:
+  D:\IMVU-Music-Bot\app\main_window.py:8492:            worker.stop()
+  D:\IMVU-Music-Bot\app\main_window.py:8493:
+  D:\IMVU-Music-Bot\app\main_window.py:8494:            worker.wait(wait_ms)
+  D:\IMVU-Music-Bot\app\main_window.py:8495:
+  D:\IMVU-Music-Bot\app\main_window.py:8496:        if not worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8497:
+  D:\IMVU-Music-Bot\app\main_window.py:8498:            worker.deleteLater()
+  D:\IMVU-Music-Bot\app\main_window.py:8499:
+  D:\IMVU-Music-Bot\app\main_window.py:8500:            self.imvu_chat_worker = None
+  D:\IMVU-Music-Bot\app\main_window.py:8501:
+  D:\IMVU-Music-Bot\app\main_window.py:8502:
+  D:\IMVU-Music-Bot\app\main_window.py:8503:
+  D:\IMVU-Music-Bot\app\main_window.py:8504:    def imvu_chat_listener_started(self, existing_count):
+  D:\IMVU-Music-Bot\app\main_window.py:8505:
+  D:\IMVU-Music-Bot\app\main_window.py:8506:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:8507:
+  D:\IMVU-Music-Bot\app\main_window.py:8508:            "IMVU CHAT: Live listener active. "
+  D:\IMVU-Music-Bot\app\main_window.py:8509:
+  D:\IMVU-Music-Bot\app\main_window.py:8510:            f"Ignoring {existing_count} existing chat entries."
+  D:\IMVU-Music-Bot\app\main_window.py:8511:
+  D:\IMVU-Music-Bot\app\main_window.py:8512:        )
+
+============================================================
+PATTERN: live.*listener
+LINE: 686
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:678:
+  D:\IMVU-Music-Bot\app\main_window.py:679:
+  D:\IMVU-Music-Bot\app\main_window.py:680:
+  D:\IMVU-Music-Bot\app\main_window.py:681:
+  D:\IMVU-Music-Bot\app\main_window.py:682:
+  D:\IMVU-Music-Bot\app\main_window.py:683:
+  D:\IMVU-Music-Bot\app\main_window.py:684:class IMVUChatWorker(QThread):
+  D:\IMVU-Music-Bot\app\main_window.py:685:
+> D:\IMVU-Music-Bot\app\main_window.py:686:    """Long-lived live IMVU room chat listener."""
+  D:\IMVU-Music-Bot\app\main_window.py:687:
+  D:\IMVU-Music-Bot\app\main_window.py:688:
+  D:\IMVU-Music-Bot\app\main_window.py:689:
+  D:\IMVU-Music-Bot\app\main_window.py:690:    message_received = Signal(str, str)
+  D:\IMVU-Music-Bot\app\main_window.py:691:
+  D:\IMVU-Music-Bot\app\main_window.py:692:    started_listening = Signal(int)
+  D:\IMVU-Music-Bot\app\main_window.py:693:
+  D:\IMVU-Music-Bot\app\main_window.py:694:    failed = Signal(str)
+  D:\IMVU-Music-Bot\app\main_window.py:695:
+  D:\IMVU-Music-Bot\app\main_window.py:696:
+  D:\IMVU-Music-Bot\app\main_window.py:697:
+  D:\IMVU-Music-Bot\app\main_window.py:698:    def __init__(self, parent=None):
+  D:\IMVU-Music-Bot\app\main_window.py:699:
+  D:\IMVU-Music-Bot\app\main_window.py:700:        super().__init__(parent)
+  D:\IMVU-Music-Bot\app\main_window.py:701:
+  D:\IMVU-Music-Bot\app\main_window.py:702:        self._stop_requested = False
+  D:\IMVU-Music-Bot\app\main_window.py:703:
+  D:\IMVU-Music-Bot\app\main_window.py:704:
+  D:\IMVU-Music-Bot\app\main_window.py:705:
+  D:\IMVU-Music-Bot\app\main_window.py:706:    def stop(self):
+  D:\IMVU-Music-Bot\app\main_window.py:707:
+  D:\IMVU-Music-Bot\app\main_window.py:708:        self._stop_requested = True
+  D:\IMVU-Music-Bot\app\main_window.py:709:
+  D:\IMVU-Music-Bot\app\main_window.py:710:
+  D:\IMVU-Music-Bot\app\main_window.py:711:
+  D:\IMVU-Music-Bot\app\main_window.py:712:    def run(self):
+  D:\IMVU-Music-Bot\app\main_window.py:713:
+  D:\IMVU-Music-Bot\app\main_window.py:714:        controller = IMVUWebController()
+  D:\IMVU-Music-Bot\app\main_window.py:715:
+  D:\IMVU-Music-Bot\app\main_window.py:716:
+
+============================================================
+PATTERN: live.*listener
+LINE: 8464
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8456:        if self.imvu_chat_worker is not None and self.imvu_chat_worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8457:
+  D:\IMVU-Music-Bot\app\main_window.py:8458:            self.log("IMVU CHAT: Listener is already running.")
+  D:\IMVU-Music-Bot\app\main_window.py:8459:
+  D:\IMVU-Music-Bot\app\main_window.py:8460:            return
+  D:\IMVU-Music-Bot\app\main_window.py:8461:
+  D:\IMVU-Music-Bot\app\main_window.py:8462:
+  D:\IMVU-Music-Bot\app\main_window.py:8463:
+> D:\IMVU-Music-Bot\app\main_window.py:8464:        self.log("IMVU CHAT: Starting live room listener...")
+  D:\IMVU-Music-Bot\app\main_window.py:8465:
+  D:\IMVU-Music-Bot\app\main_window.py:8466:        worker = IMVUChatWorker(self)
+  D:\IMVU-Music-Bot\app\main_window.py:8467:
+  D:\IMVU-Music-Bot\app\main_window.py:8468:        self.imvu_chat_worker = worker
+  D:\IMVU-Music-Bot\app\main_window.py:8469:
+  D:\IMVU-Music-Bot\app\main_window.py:8470:        worker.message_received.connect(self.receive_live_imvu_chat)
+  D:\IMVU-Music-Bot\app\main_window.py:8471:
+  D:\IMVU-Music-Bot\app\main_window.py:8472:        worker.started_listening.connect(self.imvu_chat_listener_started)
+  D:\IMVU-Music-Bot\app\main_window.py:8473:
+  D:\IMVU-Music-Bot\app\main_window.py:8474:        worker.failed.connect(self.imvu_chat_listener_failed)
+  D:\IMVU-Music-Bot\app\main_window.py:8475:
+  D:\IMVU-Music-Bot\app\main_window.py:8476:        worker.finished.connect(self.imvu_chat_listener_finished)
+  D:\IMVU-Music-Bot\app\main_window.py:8477:
+  D:\IMVU-Music-Bot\app\main_window.py:8478:        worker.start()
+  D:\IMVU-Music-Bot\app\main_window.py:8479:
+  D:\IMVU-Music-Bot\app\main_window.py:8480:
+  D:\IMVU-Music-Bot\app\main_window.py:8481:
+  D:\IMVU-Music-Bot\app\main_window.py:8482:    def stop_imvu_chat_listener(self, wait_ms=3000):
+  D:\IMVU-Music-Bot\app\main_window.py:8483:
+  D:\IMVU-Music-Bot\app\main_window.py:8484:        worker = self.imvu_chat_worker
+  D:\IMVU-Music-Bot\app\main_window.py:8485:
+  D:\IMVU-Music-Bot\app\main_window.py:8486:        if worker is None:
+  D:\IMVU-Music-Bot\app\main_window.py:8487:
+  D:\IMVU-Music-Bot\app\main_window.py:8488:            return
+  D:\IMVU-Music-Bot\app\main_window.py:8489:
+  D:\IMVU-Music-Bot\app\main_window.py:8490:        if worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8491:
+  D:\IMVU-Music-Bot\app\main_window.py:8492:            worker.stop()
+  D:\IMVU-Music-Bot\app\main_window.py:8493:
+  D:\IMVU-Music-Bot\app\main_window.py:8494:            worker.wait(wait_ms)
+
+============================================================
+PATTERN: live.*listener
+LINE: 8508
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8500:            self.imvu_chat_worker = None
+  D:\IMVU-Music-Bot\app\main_window.py:8501:
+  D:\IMVU-Music-Bot\app\main_window.py:8502:
+  D:\IMVU-Music-Bot\app\main_window.py:8503:
+  D:\IMVU-Music-Bot\app\main_window.py:8504:    def imvu_chat_listener_started(self, existing_count):
+  D:\IMVU-Music-Bot\app\main_window.py:8505:
+  D:\IMVU-Music-Bot\app\main_window.py:8506:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:8507:
+> D:\IMVU-Music-Bot\app\main_window.py:8508:            "IMVU CHAT: Live listener active. "
+  D:\IMVU-Music-Bot\app\main_window.py:8509:
+  D:\IMVU-Music-Bot\app\main_window.py:8510:            f"Ignoring {existing_count} existing chat entries."
+  D:\IMVU-Music-Bot\app\main_window.py:8511:
+  D:\IMVU-Music-Bot\app\main_window.py:8512:        )
+  D:\IMVU-Music-Bot\app\main_window.py:8513:
+  D:\IMVU-Music-Bot\app\main_window.py:8514:
+  D:\IMVU-Music-Bot\app\main_window.py:8515:
+  D:\IMVU-Music-Bot\app\main_window.py:8516:    def imvu_chat_listener_failed(self, message):
+  D:\IMVU-Music-Bot\app\main_window.py:8517:
+  D:\IMVU-Music-Bot\app\main_window.py:8518:        self.log(f"IMVU CHAT LISTENER ERROR: {message}")
+  D:\IMVU-Music-Bot\app\main_window.py:8519:
+  D:\IMVU-Music-Bot\app\main_window.py:8520:
+  D:\IMVU-Music-Bot\app\main_window.py:8521:
+  D:\IMVU-Music-Bot\app\main_window.py:8522:    def imvu_chat_listener_finished(self):
+  D:\IMVU-Music-Bot\app\main_window.py:8523:
+  D:\IMVU-Music-Bot\app\main_window.py:8524:        worker = self.imvu_chat_worker
+  D:\IMVU-Music-Bot\app\main_window.py:8525:
+  D:\IMVU-Music-Bot\app\main_window.py:8526:        if worker is not None and not worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8527:
+  D:\IMVU-Music-Bot\app\main_window.py:8528:            worker.deleteLater()
+  D:\IMVU-Music-Bot\app\main_window.py:8529:
+  D:\IMVU-Music-Bot\app\main_window.py:8530:            self.imvu_chat_worker = None
+  D:\IMVU-Music-Bot\app\main_window.py:8531:
+  D:\IMVU-Music-Bot\app\main_window.py:8532:
+  D:\IMVU-Music-Bot\app\main_window.py:8533:
+  D:\IMVU-Music-Bot\app\main_window.py:8534:    def receive_live_imvu_chat(self, username, message):
+  D:\IMVU-Music-Bot\app\main_window.py:8535:        """
+  D:\IMVU-Music-Bot\app\main_window.py:8536:        Process a live IMVU chat message.
+  D:\IMVU-Music-Bot\app\main_window.py:8537:
+  D:\IMVU-Music-Bot\app\main_window.py:8538:        The shared IMVU command handler controls the MusicController,
+
+============================================================
+PATTERN: chat_listener
+LINE: 740
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:732:                    "No IMVU room tab was found in the dedicated bot Chrome session."
+  D:\IMVU-Music-Bot\app\main_window.py:733:
+  D:\IMVU-Music-Bot\app\main_window.py:734:                )
+  D:\IMVU-Music-Bot\app\main_window.py:735:
+  D:\IMVU-Music-Bot\app\main_window.py:736:
+  D:\IMVU-Music-Bot\app\main_window.py:737:
+  D:\IMVU-Music-Bot\app\main_window.py:738:            controller.ensure_joined(timeout_ms=30000)
+  D:\IMVU-Music-Bot\app\main_window.py:739:
+> D:\IMVU-Music-Bot\app\main_window.py:740:            existing_count = controller.prime_chat_listener()
+  D:\IMVU-Music-Bot\app\main_window.py:741:
+  D:\IMVU-Music-Bot\app\main_window.py:742:            self.started_listening.emit(existing_count)
+  D:\IMVU-Music-Bot\app\main_window.py:743:
+  D:\IMVU-Music-Bot\app\main_window.py:744:
+  D:\IMVU-Music-Bot\app\main_window.py:745:
+  D:\IMVU-Music-Bot\app\main_window.py:746:            while not self._stop_requested:
+  D:\IMVU-Music-Bot\app\main_window.py:747:
+  D:\IMVU-Music-Bot\app\main_window.py:748:                messages = controller.wait_for_new_chat_messages(
+  D:\IMVU-Music-Bot\app\main_window.py:749:
+  D:\IMVU-Music-Bot\app\main_window.py:750:                    timeout_ms=750,
+  D:\IMVU-Music-Bot\app\main_window.py:751:
+  D:\IMVU-Music-Bot\app\main_window.py:752:                    poll_interval_ms=250,
+  D:\IMVU-Music-Bot\app\main_window.py:753:
+  D:\IMVU-Music-Bot\app\main_window.py:754:                )
+  D:\IMVU-Music-Bot\app\main_window.py:755:
+  D:\IMVU-Music-Bot\app\main_window.py:756:
+  D:\IMVU-Music-Bot\app\main_window.py:757:
+  D:\IMVU-Music-Bot\app\main_window.py:758:                for message in messages:
+  D:\IMVU-Music-Bot\app\main_window.py:759:
+  D:\IMVU-Music-Bot\app\main_window.py:760:                    if self._stop_requested:
+  D:\IMVU-Music-Bot\app\main_window.py:761:
+  D:\IMVU-Music-Bot\app\main_window.py:762:                        break
+  D:\IMVU-Music-Bot\app\main_window.py:763:
+  D:\IMVU-Music-Bot\app\main_window.py:764:                    username = (message.get("username") or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:765:
+  D:\IMVU-Music-Bot\app\main_window.py:766:                    chat_text = (message.get("message") or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:767:
+  D:\IMVU-Music-Bot\app\main_window.py:768:                    if username and chat_text:
+  D:\IMVU-Music-Bot\app\main_window.py:769:
+  D:\IMVU-Music-Bot\app\main_window.py:770:                        self.message_received.emit(username, chat_text)
+
+============================================================
+PATTERN: chat_listener
+LINE: 8209
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8201:                "Enter a valid IMVU Room ID, for example 379262025-7.",
+  D:\IMVU-Music-Bot\app\main_window.py:8202:            )
+  D:\IMVU-Music-Bot\app\main_window.py:8203:            return
+  D:\IMVU-Music-Bot\app\main_window.py:8204:
+  D:\IMVU-Music-Bot\app\main_window.py:8205:        room_url = f"https://www.imvu.com/next/chat/room-{room_id}/"
+  D:\IMVU-Music-Bot\app\main_window.py:8206:        self.room_input.setText(room_id)
+  D:\IMVU-Music-Bot\app\main_window.py:8207:
+  D:\IMVU-Music-Bot\app\main_window.py:8208:        try:
+> D:\IMVU-Music-Bot\app\main_window.py:8209:            self.stop_imvu_chat_listener()
+  D:\IMVU-Music-Bot\app\main_window.py:8210:
+  D:\IMVU-Music-Bot\app\main_window.py:8211:            self.connection_status.setText("Opening Bot Chrome...")
+  D:\IMVU-Music-Bot\app\main_window.py:8212:            self.client_status.setText("Client: Dedicated Chrome (CDP)")
+  D:\IMVU-Music-Bot\app\main_window.py:8213:
+  D:\IMVU-Music-Bot\app\main_window.py:8214:            self._ensure_dedicated_bot_chrome()
+  D:\IMVU-Music-Bot\app\main_window.py:8215:            opened_url = self._open_room_in_dedicated_chrome(room_url)
+  D:\IMVU-Music-Bot\app\main_window.py:8216:
+  D:\IMVU-Music-Bot\app\main_window.py:8217:            self.connection_status.setText("IMVU Opened")
+  D:\IMVU-Music-Bot\app\main_window.py:8218:            self.client_status.setText("Client: Dedicated Chrome (CDP)")
+  D:\IMVU-Music-Bot\app\main_window.py:8219:
+  D:\IMVU-Music-Bot\app\main_window.py:8220:            self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:8221:                "Opened IMVU using dedicated bot Chrome. "
+  D:\IMVU-Music-Bot\app\main_window.py:8222:                f"Bot username setting: {username or 'Not set'}. "
+  D:\IMVU-Music-Bot\app\main_window.py:8223:                f"Room ID: {room_id}."
+  D:\IMVU-Music-Bot\app\main_window.py:8224:            )
+  D:\IMVU-Music-Bot\app\main_window.py:8225:            self.log(f"Opened IMVU room: {opened_url or room_url}")
+  D:\IMVU-Music-Bot\app\main_window.py:8226:
+  D:\IMVU-Music-Bot\app\main_window.py:8227:            self.start_imvu_auto_join()
+  D:\IMVU-Music-Bot\app\main_window.py:8228:
+  D:\IMVU-Music-Bot\app\main_window.py:8229:        except Exception as error:
+  D:\IMVU-Music-Bot\app\main_window.py:8230:            self.connection_status.setText("Error")
+  D:\IMVU-Music-Bot\app\main_window.py:8231:            self.client_status.setText("Client: Dedicated Chrome (CDP)")
+  D:\IMVU-Music-Bot\app\main_window.py:8232:            self.log(f"IMVU CLIENT ERROR: {error}")
+  D:\IMVU-Music-Bot\app\main_window.py:8233:            QMessageBox.warning(
+  D:\IMVU-Music-Bot\app\main_window.py:8234:                self,
+  D:\IMVU-Music-Bot\app\main_window.py:8235:                "IMVU Client Error",
+  D:\IMVU-Music-Bot\app\main_window.py:8236:                str(error),
+  D:\IMVU-Music-Bot\app\main_window.py:8237:            )
+  D:\IMVU-Music-Bot\app\main_window.py:8238:
+  D:\IMVU-Music-Bot\app\main_window.py:8239:
+
+============================================================
+PATTERN: chat_listener
+LINE: 8392
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8384:                f"IMVU: Room already joined: {room_url}"
+  D:\IMVU-Music-Bot\app\main_window.py:8385:
+  D:\IMVU-Music-Bot\app\main_window.py:8386:
+  D:\IMVU-Music-Bot\app\main_window.py:8387:
+  D:\IMVU-Music-Bot\app\main_window.py:8388:            )
+  D:\IMVU-Music-Bot\app\main_window.py:8389:
+  D:\IMVU-Music-Bot\app\main_window.py:8390:
+  D:\IMVU-Music-Bot\app\main_window.py:8391:
+> D:\IMVU-Music-Bot\app\main_window.py:8392:        self.start_imvu_chat_listener()
+  D:\IMVU-Music-Bot\app\main_window.py:8393:
+  D:\IMVU-Music-Bot\app\main_window.py:8394:
+  D:\IMVU-Music-Bot\app\main_window.py:8395:
+  D:\IMVU-Music-Bot\app\main_window.py:8396:
+  D:\IMVU-Music-Bot\app\main_window.py:8397:
+  D:\IMVU-Music-Bot\app\main_window.py:8398:    def imvu_auto_join_failed(self, message):
+  D:\IMVU-Music-Bot\app\main_window.py:8399:
+  D:\IMVU-Music-Bot\app\main_window.py:8400:
+  D:\IMVU-Music-Bot\app\main_window.py:8401:
+  D:\IMVU-Music-Bot\app\main_window.py:8402:        self.connection_status.setText("Join Failed")
+  D:\IMVU-Music-Bot\app\main_window.py:8403:
+  D:\IMVU-Music-Bot\app\main_window.py:8404:
+  D:\IMVU-Music-Bot\app\main_window.py:8405:
+  D:\IMVU-Music-Bot\app\main_window.py:8406:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:8407:
+  D:\IMVU-Music-Bot\app\main_window.py:8408:
+  D:\IMVU-Music-Bot\app\main_window.py:8409:
+  D:\IMVU-Music-Bot\app\main_window.py:8410:            f"IMVU AUTO-JOIN ERROR: {message}"
+  D:\IMVU-Music-Bot\app\main_window.py:8411:
+  D:\IMVU-Music-Bot\app\main_window.py:8412:
+  D:\IMVU-Music-Bot\app\main_window.py:8413:
+  D:\IMVU-Music-Bot\app\main_window.py:8414:        )
+  D:\IMVU-Music-Bot\app\main_window.py:8415:
+  D:\IMVU-Music-Bot\app\main_window.py:8416:
+  D:\IMVU-Music-Bot\app\main_window.py:8417:
+  D:\IMVU-Music-Bot\app\main_window.py:8418:
+  D:\IMVU-Music-Bot\app\main_window.py:8419:
+  D:\IMVU-Music-Bot\app\main_window.py:8420:
+  D:\IMVU-Music-Bot\app\main_window.py:8421:
+  D:\IMVU-Music-Bot\app\main_window.py:8422:        QMessageBox.warning(
+
+============================================================
+PATTERN: chat_listener
+LINE: 8454
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8446:
+  D:\IMVU-Music-Bot\app\main_window.py:8447:
+  D:\IMVU-Music-Bot\app\main_window.py:8448:
+  D:\IMVU-Music-Bot\app\main_window.py:8449:
+  D:\IMVU-Music-Bot\app\main_window.py:8450:
+  D:\IMVU-Music-Bot\app\main_window.py:8451:
+  D:\IMVU-Music-Bot\app\main_window.py:8452:
+  D:\IMVU-Music-Bot\app\main_window.py:8453:
+> D:\IMVU-Music-Bot\app\main_window.py:8454:    def start_imvu_chat_listener(self):
+  D:\IMVU-Music-Bot\app\main_window.py:8455:
+  D:\IMVU-Music-Bot\app\main_window.py:8456:        if self.imvu_chat_worker is not None and self.imvu_chat_worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8457:
+  D:\IMVU-Music-Bot\app\main_window.py:8458:            self.log("IMVU CHAT: Listener is already running.")
+  D:\IMVU-Music-Bot\app\main_window.py:8459:
+  D:\IMVU-Music-Bot\app\main_window.py:8460:            return
+  D:\IMVU-Music-Bot\app\main_window.py:8461:
+  D:\IMVU-Music-Bot\app\main_window.py:8462:
+  D:\IMVU-Music-Bot\app\main_window.py:8463:
+  D:\IMVU-Music-Bot\app\main_window.py:8464:        self.log("IMVU CHAT: Starting live room listener...")
+  D:\IMVU-Music-Bot\app\main_window.py:8465:
+  D:\IMVU-Music-Bot\app\main_window.py:8466:        worker = IMVUChatWorker(self)
+  D:\IMVU-Music-Bot\app\main_window.py:8467:
+  D:\IMVU-Music-Bot\app\main_window.py:8468:        self.imvu_chat_worker = worker
+  D:\IMVU-Music-Bot\app\main_window.py:8469:
+  D:\IMVU-Music-Bot\app\main_window.py:8470:        worker.message_received.connect(self.receive_live_imvu_chat)
+  D:\IMVU-Music-Bot\app\main_window.py:8471:
+
+============================================================
+PATTERN: chat_listener
+LINE: 8472
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:8472:        worker.started_listening.connect(self.imvu_chat_listener_started)
+  D:\IMVU-Music-Bot\app\main_window.py:8473:
+
+============================================================
+PATTERN: chat_listener
+LINE: 8474
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:8474:        worker.failed.connect(self.imvu_chat_listener_failed)
+  D:\IMVU-Music-Bot\app\main_window.py:8475:
+
+============================================================
+PATTERN: chat_listener
+LINE: 8476
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:8476:        worker.finished.connect(self.imvu_chat_listener_finished)
+  D:\IMVU-Music-Bot\app\main_window.py:8477:
+  D:\IMVU-Music-Bot\app\main_window.py:8478:        worker.start()
+  D:\IMVU-Music-Bot\app\main_window.py:8479:
+  D:\IMVU-Music-Bot\app\main_window.py:8480:
+  D:\IMVU-Music-Bot\app\main_window.py:8481:
+
+============================================================
+PATTERN: chat_listener
+LINE: 8482
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:8482:    def stop_imvu_chat_listener(self, wait_ms=3000):
+  D:\IMVU-Music-Bot\app\main_window.py:8483:
+  D:\IMVU-Music-Bot\app\main_window.py:8484:        worker = self.imvu_chat_worker
+  D:\IMVU-Music-Bot\app\main_window.py:8485:
+  D:\IMVU-Music-Bot\app\main_window.py:8486:        if worker is None:
+  D:\IMVU-Music-Bot\app\main_window.py:8487:
+  D:\IMVU-Music-Bot\app\main_window.py:8488:            return
+  D:\IMVU-Music-Bot\app\main_window.py:8489:
+  D:\IMVU-Music-Bot\app\main_window.py:8490:        if worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8491:
+  D:\IMVU-Music-Bot\app\main_window.py:8492:            worker.stop()
+  D:\IMVU-Music-Bot\app\main_window.py:8493:
+  D:\IMVU-Music-Bot\app\main_window.py:8494:            worker.wait(wait_ms)
+  D:\IMVU-Music-Bot\app\main_window.py:8495:
+  D:\IMVU-Music-Bot\app\main_window.py:8496:        if not worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8497:
+  D:\IMVU-Music-Bot\app\main_window.py:8498:            worker.deleteLater()
+  D:\IMVU-Music-Bot\app\main_window.py:8499:
+  D:\IMVU-Music-Bot\app\main_window.py:8500:            self.imvu_chat_worker = None
+  D:\IMVU-Music-Bot\app\main_window.py:8501:
+  D:\IMVU-Music-Bot\app\main_window.py:8502:
+  D:\IMVU-Music-Bot\app\main_window.py:8503:
+
+============================================================
+PATTERN: chat_listener
+LINE: 8504
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:8504:    def imvu_chat_listener_started(self, existing_count):
+  D:\IMVU-Music-Bot\app\main_window.py:8505:
+  D:\IMVU-Music-Bot\app\main_window.py:8506:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:8507:
+  D:\IMVU-Music-Bot\app\main_window.py:8508:            "IMVU CHAT: Live listener active. "
+  D:\IMVU-Music-Bot\app\main_window.py:8509:
+  D:\IMVU-Music-Bot\app\main_window.py:8510:            f"Ignoring {existing_count} existing chat entries."
+  D:\IMVU-Music-Bot\app\main_window.py:8511:
+  D:\IMVU-Music-Bot\app\main_window.py:8512:        )
+  D:\IMVU-Music-Bot\app\main_window.py:8513:
+  D:\IMVU-Music-Bot\app\main_window.py:8514:
+  D:\IMVU-Music-Bot\app\main_window.py:8515:
+
+============================================================
+PATTERN: chat_listener
+LINE: 8516
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:8516:    def imvu_chat_listener_failed(self, message):
+  D:\IMVU-Music-Bot\app\main_window.py:8517:
+  D:\IMVU-Music-Bot\app\main_window.py:8518:        self.log(f"IMVU CHAT LISTENER ERROR: {message}")
+  D:\IMVU-Music-Bot\app\main_window.py:8519:
+  D:\IMVU-Music-Bot\app\main_window.py:8520:
+  D:\IMVU-Music-Bot\app\main_window.py:8521:
+
+============================================================
+PATTERN: chat_listener
+LINE: 8522
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:8522:    def imvu_chat_listener_finished(self):
+  D:\IMVU-Music-Bot\app\main_window.py:8523:
+  D:\IMVU-Music-Bot\app\main_window.py:8524:        worker = self.imvu_chat_worker
+  D:\IMVU-Music-Bot\app\main_window.py:8525:
+  D:\IMVU-Music-Bot\app\main_window.py:8526:        if worker is not None and not worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:8527:
+  D:\IMVU-Music-Bot\app\main_window.py:8528:            worker.deleteLater()
+  D:\IMVU-Music-Bot\app\main_window.py:8529:
+  D:\IMVU-Music-Bot\app\main_window.py:8530:            self.imvu_chat_worker = None
+  D:\IMVU-Music-Bot\app\main_window.py:8531:
+  D:\IMVU-Music-Bot\app\main_window.py:8532:
+  D:\IMVU-Music-Bot\app\main_window.py:8533:
+  D:\IMVU-Music-Bot\app\main_window.py:8534:    def receive_live_imvu_chat(self, username, message):
+  D:\IMVU-Music-Bot\app\main_window.py:8535:        """
+  D:\IMVU-Music-Bot\app\main_window.py:8536:        Process a live IMVU chat message.
+  D:\IMVU-Music-Bot\app\main_window.py:8537:
+  D:\IMVU-Music-Bot\app\main_window.py:8538:        The shared IMVU command handler controls the MusicController,
+  D:\IMVU-Music-Bot\app\main_window.py:8539:        queue, and RadioStreamServer.
+  D:\IMVU-Music-Bot\app\main_window.py:8540:
+  D:\IMVU-Music-Bot\app\main_window.py:8541:        The public Cloudflare stream is a persistent station URL.
+  D:\IMVU-Music-Bot\app\main_window.py:8542:        Song changes happen internally and must NOT restart the radio
+  D:\IMVU-Music-Bot\app\main_window.py:8543:        transport or reload the IMVU Radio Streaming URL.
+  D:\IMVU-Music-Bot\app\main_window.py:8544:        """
+  D:\IMVU-Music-Bot\app\main_window.py:8545:        self._processing_live_imvu_chat = True
+  D:\IMVU-Music-Bot\app\main_window.py:8546:
+  D:\IMVU-Music-Bot\app\main_window.py:8547:        try:
+  D:\IMVU-Music-Bot\app\main_window.py:8548:            self.imvu_manager.receive_chat(username, message)
+  D:\IMVU-Music-Bot\app\main_window.py:8549:        finally:
+  D:\IMVU-Music-Bot\app\main_window.py:8550:            self._processing_live_imvu_chat = False
+  D:\IMVU-Music-Bot\app\main_window.py:8551:
+  D:\IMVU-Music-Bot\app\main_window.py:8552:    def disconnect_imvu(self):
+
+============================================================
+PATTERN: chat_listener
+LINE: 8556
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:8553:
+  D:\IMVU-Music-Bot\app\main_window.py:8554:
+  D:\IMVU-Music-Bot\app\main_window.py:8555:
+> D:\IMVU-Music-Bot\app\main_window.py:8556:        self.stop_imvu_chat_listener()
+  D:\IMVU-Music-Bot\app\main_window.py:8557:
+  D:\IMVU-Music-Bot\app\main_window.py:8558:
+  D:\IMVU-Music-Bot\app\main_window.py:8559:
+  D:\IMVU-Music-Bot\app\main_window.py:8560:
+  D:\IMVU-Music-Bot\app\main_window.py:8561:
+  D:\IMVU-Music-Bot\app\main_window.py:8562:
+  D:\IMVU-Music-Bot\app\main_window.py:8563:
+  D:\IMVU-Music-Bot\app\main_window.py:8564:        # The official IMVU client/browser owns the login session.
+  D:\IMVU-Music-Bot\app\main_window.py:8565:
+  D:\IMVU-Music-Bot\app\main_window.py:8566:
+  D:\IMVU-Music-Bot\app\main_window.py:8567:
+  D:\IMVU-Music-Bot\app\main_window.py:8568:        # We only clear this application's displayed client status.
+  D:\IMVU-Music-Bot\app\main_window.py:8569:
+  D:\IMVU-Music-Bot\app\main_window.py:8570:
+  D:\IMVU-Music-Bot\app\main_window.py:8571:
+  D:\IMVU-Music-Bot\app\main_window.py:8572:        self.connection_status.setText("Disconnected")
+  D:\IMVU-Music-Bot\app\main_window.py:8573:
+  D:\IMVU-Music-Bot\app\main_window.py:8574:
+  D:\IMVU-Music-Bot\app\main_window.py:8575:
+  D:\IMVU-Music-Bot\app\main_window.py:8576:        self.refresh_imvu_client_status()
+  D:\IMVU-Music-Bot\app\main_window.py:8577:
+  D:\IMVU-Music-Bot\app\main_window.py:8578:
+  D:\IMVU-Music-Bot\app\main_window.py:8579:
+  D:\IMVU-Music-Bot\app\main_window.py:8580:        self.log("IMVU application status cleared.")
+  D:\IMVU-Music-Bot\app\main_window.py:8581:
+  D:\IMVU-Music-Bot\app\main_window.py:8582:
+  D:\IMVU-Music-Bot\app\main_window.py:8583:
+  D:\IMVU-Music-Bot\app\main_window.py:8584:
+  D:\IMVU-Music-Bot\app\main_window.py:8585:
+  D:\IMVU-Music-Bot\app\main_window.py:8586:
+
+============================================================
+PATTERN: chat_listener
+LINE: 13804
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:13796:
+  D:\IMVU-Music-Bot\app\main_window.py:13797:
+  D:\IMVU-Music-Bot\app\main_window.py:13798:
+  D:\IMVU-Music-Bot\app\main_window.py:13799:
+  D:\IMVU-Music-Bot\app\main_window.py:13800:
+  D:\IMVU-Music-Bot\app\main_window.py:13801:
+  D:\IMVU-Music-Bot\app\main_window.py:13802:        try:
+  D:\IMVU-Music-Bot\app\main_window.py:13803:
+> D:\IMVU-Music-Bot\app\main_window.py:13804:            self.stop_imvu_chat_listener()
+  D:\IMVU-Music-Bot\app\main_window.py:13805:
+  D:\IMVU-Music-Bot\app\main_window.py:13806:        except Exception:
+  D:\IMVU-Music-Bot\app\main_window.py:13807:
+  D:\IMVU-Music-Bot\app\main_window.py:13808:            pass
+  D:\IMVU-Music-Bot\app\main_window.py:13809:
+  D:\IMVU-Music-Bot\app\main_window.py:13810:        try:
+  D:\IMVU-Music-Bot\app\main_window.py:13811:            for worker in list(self.imvu_chat_send_workers):
+  D:\IMVU-Music-Bot\app\main_window.py:13812:                if worker.isRunning():
+  D:\IMVU-Music-Bot\app\main_window.py:13813:                    worker.wait(5000)
+  D:\IMVU-Music-Bot\app\main_window.py:13814:        except Exception:
+  D:\IMVU-Music-Bot\app\main_window.py:13815:            pass
+  D:\IMVU-Music-Bot\app\main_window.py:13816:
+  D:\IMVU-Music-Bot\app\main_window.py:13817:
+  D:\IMVU-Music-Bot\app\main_window.py:13818:
+  D:\IMVU-Music-Bot\app\main_window.py:13819:        try:
+  D:\IMVU-Music-Bot\app\main_window.py:13820:
+  D:\IMVU-Music-Bot\app\main_window.py:13821:
+  D:\IMVU-Music-Bot\app\main_window.py:13822:
+  D:\IMVU-Music-Bot\app\main_window.py:13823:
+  D:\IMVU-Music-Bot\app\main_window.py:13824:
+  D:\IMVU-Music-Bot\app\main_window.py:13825:
+  D:\IMVU-Music-Bot\app\main_window.py:13826:
+  D:\IMVU-Music-Bot\app\main_window.py:13827:
+  D:\IMVU-Music-Bot\app\main_window.py:13828:
+  D:\IMVU-Music-Bot\app\main_window.py:13829:
+  D:\IMVU-Music-Bot\app\main_window.py:13830:
+  D:\IMVU-Music-Bot\app\main_window.py:13831:
+  D:\IMVU-Music-Bot\app\main_window.py:13832:
+  D:\IMVU-Music-Bot\app\main_window.py:13833:
+  D:\IMVU-Music-Bot\app\main_window.py:13834:
+
+============================================================
+PATTERN: connect_button
+LINE: 2070
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2062:
+  D:\IMVU-Music-Bot\app\main_window.py:2063:
+  D:\IMVU-Music-Bot\app\main_window.py:2064:
+  D:\IMVU-Music-Bot\app\main_window.py:2065:
+  D:\IMVU-Music-Bot\app\main_window.py:2066:
+  D:\IMVU-Music-Bot\app\main_window.py:2067:
+  D:\IMVU-Music-Bot\app\main_window.py:2068:
+  D:\IMVU-Music-Bot\app\main_window.py:2069:
+> D:\IMVU-Music-Bot\app\main_window.py:2070:        self.connect_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:2071:
+  D:\IMVU-Music-Bot\app\main_window.py:2072:
+  D:\IMVU-Music-Bot\app\main_window.py:2073:
+  D:\IMVU-Music-Bot\app\main_window.py:2074:
+  D:\IMVU-Music-Bot\app\main_window.py:2075:
+  D:\IMVU-Music-Bot\app\main_window.py:2076:
+  D:\IMVU-Music-Bot\app\main_window.py:2077:
+  D:\IMVU-Music-Bot\app\main_window.py:2078:            "Open IMVU Room"
+  D:\IMVU-Music-Bot\app\main_window.py:2079:
+  D:\IMVU-Music-Bot\app\main_window.py:2080:
+  D:\IMVU-Music-Bot\app\main_window.py:2081:
+  D:\IMVU-Music-Bot\app\main_window.py:2082:
+  D:\IMVU-Music-Bot\app\main_window.py:2083:
+  D:\IMVU-Music-Bot\app\main_window.py:2084:
+  D:\IMVU-Music-Bot\app\main_window.py:2085:
+  D:\IMVU-Music-Bot\app\main_window.py:2086:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2087:
+  D:\IMVU-Music-Bot\app\main_window.py:2088:
+  D:\IMVU-Music-Bot\app\main_window.py:2089:
+  D:\IMVU-Music-Bot\app\main_window.py:2090:
+  D:\IMVU-Music-Bot\app\main_window.py:2091:
+  D:\IMVU-Music-Bot\app\main_window.py:2092:
+  D:\IMVU-Music-Bot\app\main_window.py:2093:
+  D:\IMVU-Music-Bot\app\main_window.py:2094:
+  D:\IMVU-Music-Bot\app\main_window.py:2095:
+  D:\IMVU-Music-Bot\app\main_window.py:2096:
+  D:\IMVU-Music-Bot\app\main_window.py:2097:
+  D:\IMVU-Music-Bot\app\main_window.py:2098:
+  D:\IMVU-Music-Bot\app\main_window.py:2099:
+  D:\IMVU-Music-Bot\app\main_window.py:2100:
+
+============================================================
+PATTERN: connect_button
+LINE: 2102
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2101:
+> D:\IMVU-Music-Bot\app\main_window.py:2102:        self.disconnect_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:2103:
+  D:\IMVU-Music-Bot\app\main_window.py:2104:
+  D:\IMVU-Music-Bot\app\main_window.py:2105:
+  D:\IMVU-Music-Bot\app\main_window.py:2106:
+  D:\IMVU-Music-Bot\app\main_window.py:2107:
+  D:\IMVU-Music-Bot\app\main_window.py:2108:
+  D:\IMVU-Music-Bot\app\main_window.py:2109:
+  D:\IMVU-Music-Bot\app\main_window.py:2110:            "Clear Status"
+  D:\IMVU-Music-Bot\app\main_window.py:2111:
+  D:\IMVU-Music-Bot\app\main_window.py:2112:
+  D:\IMVU-Music-Bot\app\main_window.py:2113:
+  D:\IMVU-Music-Bot\app\main_window.py:2114:
+  D:\IMVU-Music-Bot\app\main_window.py:2115:
+  D:\IMVU-Music-Bot\app\main_window.py:2116:
+  D:\IMVU-Music-Bot\app\main_window.py:2117:
+  D:\IMVU-Music-Bot\app\main_window.py:2118:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2119:
+  D:\IMVU-Music-Bot\app\main_window.py:2120:
+  D:\IMVU-Music-Bot\app\main_window.py:2121:
+  D:\IMVU-Music-Bot\app\main_window.py:2122:
+  D:\IMVU-Music-Bot\app\main_window.py:2123:
+  D:\IMVU-Music-Bot\app\main_window.py:2124:
+  D:\IMVU-Music-Bot\app\main_window.py:2125:
+  D:\IMVU-Music-Bot\app\main_window.py:2126:
+  D:\IMVU-Music-Bot\app\main_window.py:2127:
+  D:\IMVU-Music-Bot\app\main_window.py:2128:
+  D:\IMVU-Music-Bot\app\main_window.py:2129:
+  D:\IMVU-Music-Bot\app\main_window.py:2130:
+  D:\IMVU-Music-Bot\app\main_window.py:2131:
+  D:\IMVU-Music-Bot\app\main_window.py:2132:
+
+============================================================
+PATTERN: connect_button
+LINE: 2270
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2262:        imvu_layout.addWidget(
+  D:\IMVU-Music-Bot\app\main_window.py:2263:
+  D:\IMVU-Music-Bot\app\main_window.py:2264:
+  D:\IMVU-Music-Bot\app\main_window.py:2265:
+  D:\IMVU-Music-Bot\app\main_window.py:2266:
+  D:\IMVU-Music-Bot\app\main_window.py:2267:
+  D:\IMVU-Music-Bot\app\main_window.py:2268:
+  D:\IMVU-Music-Bot\app\main_window.py:2269:
+> D:\IMVU-Music-Bot\app\main_window.py:2270:            self.connect_button
+  D:\IMVU-Music-Bot\app\main_window.py:2271:
+  D:\IMVU-Music-Bot\app\main_window.py:2272:
+  D:\IMVU-Music-Bot\app\main_window.py:2273:
+  D:\IMVU-Music-Bot\app\main_window.py:2274:
+  D:\IMVU-Music-Bot\app\main_window.py:2275:
+  D:\IMVU-Music-Bot\app\main_window.py:2276:
+  D:\IMVU-Music-Bot\app\main_window.py:2277:
+  D:\IMVU-Music-Bot\app\main_window.py:2278:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2279:
+  D:\IMVU-Music-Bot\app\main_window.py:2280:
+  D:\IMVU-Music-Bot\app\main_window.py:2281:
+  D:\IMVU-Music-Bot\app\main_window.py:2282:
+  D:\IMVU-Music-Bot\app\main_window.py:2283:
+  D:\IMVU-Music-Bot\app\main_window.py:2284:
+  D:\IMVU-Music-Bot\app\main_window.py:2285:
+  D:\IMVU-Music-Bot\app\main_window.py:2286:
+  D:\IMVU-Music-Bot\app\main_window.py:2287:
+  D:\IMVU-Music-Bot\app\main_window.py:2288:
+  D:\IMVU-Music-Bot\app\main_window.py:2289:
+  D:\IMVU-Music-Bot\app\main_window.py:2290:
+  D:\IMVU-Music-Bot\app\main_window.py:2291:
+  D:\IMVU-Music-Bot\app\main_window.py:2292:
+  D:\IMVU-Music-Bot\app\main_window.py:2293:
+  D:\IMVU-Music-Bot\app\main_window.py:2294:        imvu_layout.addWidget(
+  D:\IMVU-Music-Bot\app\main_window.py:2295:
+  D:\IMVU-Music-Bot\app\main_window.py:2296:
+  D:\IMVU-Music-Bot\app\main_window.py:2297:
+  D:\IMVU-Music-Bot\app\main_window.py:2298:
+  D:\IMVU-Music-Bot\app\main_window.py:2299:
+  D:\IMVU-Music-Bot\app\main_window.py:2300:
+
+============================================================
+PATTERN: connect_button
+LINE: 2302
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2301:
+> D:\IMVU-Music-Bot\app\main_window.py:2302:            self.disconnect_button
+  D:\IMVU-Music-Bot\app\main_window.py:2303:
+  D:\IMVU-Music-Bot\app\main_window.py:2304:
+  D:\IMVU-Music-Bot\app\main_window.py:2305:
+  D:\IMVU-Music-Bot\app\main_window.py:2306:
+  D:\IMVU-Music-Bot\app\main_window.py:2307:
+  D:\IMVU-Music-Bot\app\main_window.py:2308:
+  D:\IMVU-Music-Bot\app\main_window.py:2309:
+  D:\IMVU-Music-Bot\app\main_window.py:2310:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2311:
+  D:\IMVU-Music-Bot\app\main_window.py:2312:
+  D:\IMVU-Music-Bot\app\main_window.py:2313:
+  D:\IMVU-Music-Bot\app\main_window.py:2314:
+  D:\IMVU-Music-Bot\app\main_window.py:2315:
+  D:\IMVU-Music-Bot\app\main_window.py:2316:
+  D:\IMVU-Music-Bot\app\main_window.py:2317:
+  D:\IMVU-Music-Bot\app\main_window.py:2318:
+  D:\IMVU-Music-Bot\app\main_window.py:2319:
+  D:\IMVU-Music-Bot\app\main_window.py:2320:
+  D:\IMVU-Music-Bot\app\main_window.py:2321:
+  D:\IMVU-Music-Bot\app\main_window.py:2322:
+  D:\IMVU-Music-Bot\app\main_window.py:2323:
+  D:\IMVU-Music-Bot\app\main_window.py:2324:
+  D:\IMVU-Music-Bot\app\main_window.py:2325:
+  D:\IMVU-Music-Bot\app\main_window.py:2326:        self.client_status = QLabel("Client: Detecting...")
+  D:\IMVU-Music-Bot\app\main_window.py:2327:
+  D:\IMVU-Music-Bot\app\main_window.py:2328:
+  D:\IMVU-Music-Bot\app\main_window.py:2329:
+  D:\IMVU-Music-Bot\app\main_window.py:2330:
+  D:\IMVU-Music-Bot\app\main_window.py:2331:
+  D:\IMVU-Music-Bot\app\main_window.py:2332:
+
+============================================================
+PATTERN: connect_button
+LINE: 6254
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:6246:
+  D:\IMVU-Music-Bot\app\main_window.py:6247:
+  D:\IMVU-Music-Bot\app\main_window.py:6248:
+  D:\IMVU-Music-Bot\app\main_window.py:6249:
+  D:\IMVU-Music-Bot\app\main_window.py:6250:
+  D:\IMVU-Music-Bot\app\main_window.py:6251:
+  D:\IMVU-Music-Bot\app\main_window.py:6252:
+  D:\IMVU-Music-Bot\app\main_window.py:6253:
+> D:\IMVU-Music-Bot\app\main_window.py:6254:        self.connect_button.clicked.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:6255:
+  D:\IMVU-Music-Bot\app\main_window.py:6256:
+  D:\IMVU-Music-Bot\app\main_window.py:6257:
+  D:\IMVU-Music-Bot\app\main_window.py:6258:
+  D:\IMVU-Music-Bot\app\main_window.py:6259:
+  D:\IMVU-Music-Bot\app\main_window.py:6260:
+  D:\IMVU-Music-Bot\app\main_window.py:6261:
+  D:\IMVU-Music-Bot\app\main_window.py:6262:            self.connect_imvu
+  D:\IMVU-Music-Bot\app\main_window.py:6263:
+  D:\IMVU-Music-Bot\app\main_window.py:6264:
+  D:\IMVU-Music-Bot\app\main_window.py:6265:
+  D:\IMVU-Music-Bot\app\main_window.py:6266:
+  D:\IMVU-Music-Bot\app\main_window.py:6267:
+  D:\IMVU-Music-Bot\app\main_window.py:6268:
+  D:\IMVU-Music-Bot\app\main_window.py:6269:
+  D:\IMVU-Music-Bot\app\main_window.py:6270:        )
+  D:\IMVU-Music-Bot\app\main_window.py:6271:
+  D:\IMVU-Music-Bot\app\main_window.py:6272:
+  D:\IMVU-Music-Bot\app\main_window.py:6273:
+  D:\IMVU-Music-Bot\app\main_window.py:6274:
+  D:\IMVU-Music-Bot\app\main_window.py:6275:
+  D:\IMVU-Music-Bot\app\main_window.py:6276:
+  D:\IMVU-Music-Bot\app\main_window.py:6277:
+  D:\IMVU-Music-Bot\app\main_window.py:6278:
+  D:\IMVU-Music-Bot\app\main_window.py:6279:
+  D:\IMVU-Music-Bot\app\main_window.py:6280:
+  D:\IMVU-Music-Bot\app\main_window.py:6281:
+  D:\IMVU-Music-Bot\app\main_window.py:6282:
+  D:\IMVU-Music-Bot\app\main_window.py:6283:
+  D:\IMVU-Music-Bot\app\main_window.py:6284:
+
+============================================================
+PATTERN: connect_button
+LINE: 6286
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:6285:
+> D:\IMVU-Music-Bot\app\main_window.py:6286:        self.disconnect_button.clicked.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:6287:
+  D:\IMVU-Music-Bot\app\main_window.py:6288:
+  D:\IMVU-Music-Bot\app\main_window.py:6289:
+  D:\IMVU-Music-Bot\app\main_window.py:6290:
+  D:\IMVU-Music-Bot\app\main_window.py:6291:
+  D:\IMVU-Music-Bot\app\main_window.py:6292:
+  D:\IMVU-Music-Bot\app\main_window.py:6293:
+  D:\IMVU-Music-Bot\app\main_window.py:6294:            self.disconnect_imvu
+  D:\IMVU-Music-Bot\app\main_window.py:6295:
+  D:\IMVU-Music-Bot\app\main_window.py:6296:
+  D:\IMVU-Music-Bot\app\main_window.py:6297:
+  D:\IMVU-Music-Bot\app\main_window.py:6298:
+  D:\IMVU-Music-Bot\app\main_window.py:6299:
+  D:\IMVU-Music-Bot\app\main_window.py:6300:
+  D:\IMVU-Music-Bot\app\main_window.py:6301:
+  D:\IMVU-Music-Bot\app\main_window.py:6302:        )
+  D:\IMVU-Music-Bot\app\main_window.py:6303:
+  D:\IMVU-Music-Bot\app\main_window.py:6304:
+  D:\IMVU-Music-Bot\app\main_window.py:6305:
+  D:\IMVU-Music-Bot\app\main_window.py:6306:
+  D:\IMVU-Music-Bot\app\main_window.py:6307:
+  D:\IMVU-Music-Bot\app\main_window.py:6308:
+  D:\IMVU-Music-Bot\app\main_window.py:6309:
+  D:\IMVU-Music-Bot\app\main_window.py:6310:
+  D:\IMVU-Music-Bot\app\main_window.py:6311:
+  D:\IMVU-Music-Bot\app\main_window.py:6312:
+  D:\IMVU-Music-Bot\app\main_window.py:6313:
+  D:\IMVU-Music-Bot\app\main_window.py:6314:
+  D:\IMVU-Music-Bot\app\main_window.py:6315:
+  D:\IMVU-Music-Bot\app\main_window.py:6316:
+
+============================================================
+PATTERN: QPushButton
+LINE: 87
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:79:    QMessageBox,
+  D:\IMVU-Music-Bot\app\main_window.py:80:
+  D:\IMVU-Music-Bot\app\main_window.py:81:
+  D:\IMVU-Music-Bot\app\main_window.py:82:
+  D:\IMVU-Music-Bot\app\main_window.py:83:
+  D:\IMVU-Music-Bot\app\main_window.py:84:
+  D:\IMVU-Music-Bot\app\main_window.py:85:
+  D:\IMVU-Music-Bot\app\main_window.py:86:
+> D:\IMVU-Music-Bot\app\main_window.py:87:    QPushButton,
+  D:\IMVU-Music-Bot\app\main_window.py:88:
+  D:\IMVU-Music-Bot\app\main_window.py:89:
+  D:\IMVU-Music-Bot\app\main_window.py:90:
+  D:\IMVU-Music-Bot\app\main_window.py:91:
+  D:\IMVU-Music-Bot\app\main_window.py:92:
+  D:\IMVU-Music-Bot\app\main_window.py:93:
+  D:\IMVU-Music-Bot\app\main_window.py:94:
+  D:\IMVU-Music-Bot\app\main_window.py:95:    QSlider,
+  D:\IMVU-Music-Bot\app\main_window.py:96:
+  D:\IMVU-Music-Bot\app\main_window.py:97:
+  D:\IMVU-Music-Bot\app\main_window.py:98:
+  D:\IMVU-Music-Bot\app\main_window.py:99:
+  D:\IMVU-Music-Bot\app\main_window.py:100:
+  D:\IMVU-Music-Bot\app\main_window.py:101:
+  D:\IMVU-Music-Bot\app\main_window.py:102:
+  D:\IMVU-Music-Bot\app\main_window.py:103:    QTextEdit,
+  D:\IMVU-Music-Bot\app\main_window.py:104:
+  D:\IMVU-Music-Bot\app\main_window.py:105:
+  D:\IMVU-Music-Bot\app\main_window.py:106:
+  D:\IMVU-Music-Bot\app\main_window.py:107:
+  D:\IMVU-Music-Bot\app\main_window.py:108:
+  D:\IMVU-Music-Bot\app\main_window.py:109:
+  D:\IMVU-Music-Bot\app\main_window.py:110:
+  D:\IMVU-Music-Bot\app\main_window.py:111:    QVBoxLayout,
+  D:\IMVU-Music-Bot\app\main_window.py:112:
+  D:\IMVU-Music-Bot\app\main_window.py:113:
+  D:\IMVU-Music-Bot\app\main_window.py:114:
+  D:\IMVU-Music-Bot\app\main_window.py:115:
+  D:\IMVU-Music-Bot\app\main_window.py:116:
+  D:\IMVU-Music-Bot\app\main_window.py:117:
+
+============================================================
+PATTERN: QPushButton
+LINE: 2070
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2062:
+  D:\IMVU-Music-Bot\app\main_window.py:2063:
+  D:\IMVU-Music-Bot\app\main_window.py:2064:
+  D:\IMVU-Music-Bot\app\main_window.py:2065:
+  D:\IMVU-Music-Bot\app\main_window.py:2066:
+  D:\IMVU-Music-Bot\app\main_window.py:2067:
+  D:\IMVU-Music-Bot\app\main_window.py:2068:
+  D:\IMVU-Music-Bot\app\main_window.py:2069:
+> D:\IMVU-Music-Bot\app\main_window.py:2070:        self.connect_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:2071:
+  D:\IMVU-Music-Bot\app\main_window.py:2072:
+  D:\IMVU-Music-Bot\app\main_window.py:2073:
+  D:\IMVU-Music-Bot\app\main_window.py:2074:
+  D:\IMVU-Music-Bot\app\main_window.py:2075:
+  D:\IMVU-Music-Bot\app\main_window.py:2076:
+  D:\IMVU-Music-Bot\app\main_window.py:2077:
+  D:\IMVU-Music-Bot\app\main_window.py:2078:            "Open IMVU Room"
+  D:\IMVU-Music-Bot\app\main_window.py:2079:
+  D:\IMVU-Music-Bot\app\main_window.py:2080:
+  D:\IMVU-Music-Bot\app\main_window.py:2081:
+  D:\IMVU-Music-Bot\app\main_window.py:2082:
+  D:\IMVU-Music-Bot\app\main_window.py:2083:
+  D:\IMVU-Music-Bot\app\main_window.py:2084:
+  D:\IMVU-Music-Bot\app\main_window.py:2085:
+  D:\IMVU-Music-Bot\app\main_window.py:2086:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2087:
+  D:\IMVU-Music-Bot\app\main_window.py:2088:
+  D:\IMVU-Music-Bot\app\main_window.py:2089:
+  D:\IMVU-Music-Bot\app\main_window.py:2090:
+  D:\IMVU-Music-Bot\app\main_window.py:2091:
+  D:\IMVU-Music-Bot\app\main_window.py:2092:
+  D:\IMVU-Music-Bot\app\main_window.py:2093:
+  D:\IMVU-Music-Bot\app\main_window.py:2094:
+  D:\IMVU-Music-Bot\app\main_window.py:2095:
+  D:\IMVU-Music-Bot\app\main_window.py:2096:
+  D:\IMVU-Music-Bot\app\main_window.py:2097:
+  D:\IMVU-Music-Bot\app\main_window.py:2098:
+  D:\IMVU-Music-Bot\app\main_window.py:2099:
+  D:\IMVU-Music-Bot\app\main_window.py:2100:
+
+============================================================
+PATTERN: QPushButton
+LINE: 2102
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2101:
+> D:\IMVU-Music-Bot\app\main_window.py:2102:        self.disconnect_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:2103:
+  D:\IMVU-Music-Bot\app\main_window.py:2104:
+  D:\IMVU-Music-Bot\app\main_window.py:2105:
+  D:\IMVU-Music-Bot\app\main_window.py:2106:
+  D:\IMVU-Music-Bot\app\main_window.py:2107:
+  D:\IMVU-Music-Bot\app\main_window.py:2108:
+  D:\IMVU-Music-Bot\app\main_window.py:2109:
+  D:\IMVU-Music-Bot\app\main_window.py:2110:            "Clear Status"
+  D:\IMVU-Music-Bot\app\main_window.py:2111:
+  D:\IMVU-Music-Bot\app\main_window.py:2112:
+  D:\IMVU-Music-Bot\app\main_window.py:2113:
+  D:\IMVU-Music-Bot\app\main_window.py:2114:
+  D:\IMVU-Music-Bot\app\main_window.py:2115:
+  D:\IMVU-Music-Bot\app\main_window.py:2116:
+  D:\IMVU-Music-Bot\app\main_window.py:2117:
+  D:\IMVU-Music-Bot\app\main_window.py:2118:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2119:
+  D:\IMVU-Music-Bot\app\main_window.py:2120:
+  D:\IMVU-Music-Bot\app\main_window.py:2121:
+  D:\IMVU-Music-Bot\app\main_window.py:2122:
+  D:\IMVU-Music-Bot\app\main_window.py:2123:
+  D:\IMVU-Music-Bot\app\main_window.py:2124:
+  D:\IMVU-Music-Bot\app\main_window.py:2125:
+  D:\IMVU-Music-Bot\app\main_window.py:2126:
+  D:\IMVU-Music-Bot\app\main_window.py:2127:
+  D:\IMVU-Music-Bot\app\main_window.py:2128:
+  D:\IMVU-Music-Bot\app\main_window.py:2129:
+  D:\IMVU-Music-Bot\app\main_window.py:2130:
+  D:\IMVU-Music-Bot\app\main_window.py:2131:
+  D:\IMVU-Music-Bot\app\main_window.py:2132:
+
+============================================================
+PATTERN: QPushButton
+LINE: 2606
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2598:
+  D:\IMVU-Music-Bot\app\main_window.py:2599:
+  D:\IMVU-Music-Bot\app\main_window.py:2600:
+  D:\IMVU-Music-Bot\app\main_window.py:2601:
+  D:\IMVU-Music-Bot\app\main_window.py:2602:
+  D:\IMVU-Music-Bot\app\main_window.py:2603:
+  D:\IMVU-Music-Bot\app\main_window.py:2604:
+  D:\IMVU-Music-Bot\app\main_window.py:2605:
+> D:\IMVU-Music-Bot\app\main_window.py:2606:        self.start_radio_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:2607:
+  D:\IMVU-Music-Bot\app\main_window.py:2608:
+  D:\IMVU-Music-Bot\app\main_window.py:2609:
+  D:\IMVU-Music-Bot\app\main_window.py:2610:
+  D:\IMVU-Music-Bot\app\main_window.py:2611:
+  D:\IMVU-Music-Bot\app\main_window.py:2612:
+  D:\IMVU-Music-Bot\app\main_window.py:2613:
+  D:\IMVU-Music-Bot\app\main_window.py:2614:            "Start Radio"
+  D:\IMVU-Music-Bot\app\main_window.py:2615:
+  D:\IMVU-Music-Bot\app\main_window.py:2616:
+  D:\IMVU-Music-Bot\app\main_window.py:2617:
+  D:\IMVU-Music-Bot\app\main_window.py:2618:
+  D:\IMVU-Music-Bot\app\main_window.py:2619:
+  D:\IMVU-Music-Bot\app\main_window.py:2620:
+  D:\IMVU-Music-Bot\app\main_window.py:2621:
+  D:\IMVU-Music-Bot\app\main_window.py:2622:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2623:
+  D:\IMVU-Music-Bot\app\main_window.py:2624:
+  D:\IMVU-Music-Bot\app\main_window.py:2625:
+  D:\IMVU-Music-Bot\app\main_window.py:2626:
+  D:\IMVU-Music-Bot\app\main_window.py:2627:
+  D:\IMVU-Music-Bot\app\main_window.py:2628:
+  D:\IMVU-Music-Bot\app\main_window.py:2629:
+  D:\IMVU-Music-Bot\app\main_window.py:2630:
+  D:\IMVU-Music-Bot\app\main_window.py:2631:
+  D:\IMVU-Music-Bot\app\main_window.py:2632:
+  D:\IMVU-Music-Bot\app\main_window.py:2633:
+  D:\IMVU-Music-Bot\app\main_window.py:2634:
+  D:\IMVU-Music-Bot\app\main_window.py:2635:
+  D:\IMVU-Music-Bot\app\main_window.py:2636:
+
+============================================================
+PATTERN: QPushButton
+LINE: 2638
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2637:
+> D:\IMVU-Music-Bot\app\main_window.py:2638:        self.stop_radio_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:2639:
+  D:\IMVU-Music-Bot\app\main_window.py:2640:
+  D:\IMVU-Music-Bot\app\main_window.py:2641:
+  D:\IMVU-Music-Bot\app\main_window.py:2642:
+  D:\IMVU-Music-Bot\app\main_window.py:2643:
+  D:\IMVU-Music-Bot\app\main_window.py:2644:
+  D:\IMVU-Music-Bot\app\main_window.py:2645:
+  D:\IMVU-Music-Bot\app\main_window.py:2646:            "Stop Radio"
+  D:\IMVU-Music-Bot\app\main_window.py:2647:
+  D:\IMVU-Music-Bot\app\main_window.py:2648:
+  D:\IMVU-Music-Bot\app\main_window.py:2649:
+  D:\IMVU-Music-Bot\app\main_window.py:2650:
+  D:\IMVU-Music-Bot\app\main_window.py:2651:
+  D:\IMVU-Music-Bot\app\main_window.py:2652:
+  D:\IMVU-Music-Bot\app\main_window.py:2653:
+  D:\IMVU-Music-Bot\app\main_window.py:2654:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2655:
+  D:\IMVU-Music-Bot\app\main_window.py:2656:
+  D:\IMVU-Music-Bot\app\main_window.py:2657:
+  D:\IMVU-Music-Bot\app\main_window.py:2658:
+  D:\IMVU-Music-Bot\app\main_window.py:2659:
+  D:\IMVU-Music-Bot\app\main_window.py:2660:
+  D:\IMVU-Music-Bot\app\main_window.py:2661:
+  D:\IMVU-Music-Bot\app\main_window.py:2662:
+  D:\IMVU-Music-Bot\app\main_window.py:2663:
+  D:\IMVU-Music-Bot\app\main_window.py:2664:
+  D:\IMVU-Music-Bot\app\main_window.py:2665:
+  D:\IMVU-Music-Bot\app\main_window.py:2666:
+  D:\IMVU-Music-Bot\app\main_window.py:2667:
+  D:\IMVU-Music-Bot\app\main_window.py:2668:
+
+============================================================
+PATTERN: QPushButton
+LINE: 2942
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2934:
+  D:\IMVU-Music-Bot\app\main_window.py:2935:
+  D:\IMVU-Music-Bot\app\main_window.py:2936:
+  D:\IMVU-Music-Bot\app\main_window.py:2937:
+  D:\IMVU-Music-Bot\app\main_window.py:2938:
+  D:\IMVU-Music-Bot\app\main_window.py:2939:
+  D:\IMVU-Music-Bot\app\main_window.py:2940:
+  D:\IMVU-Music-Bot\app\main_window.py:2941:
+> D:\IMVU-Music-Bot\app\main_window.py:2942:        self.copy_local_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:2943:
+  D:\IMVU-Music-Bot\app\main_window.py:2944:
+  D:\IMVU-Music-Bot\app\main_window.py:2945:
+  D:\IMVU-Music-Bot\app\main_window.py:2946:
+  D:\IMVU-Music-Bot\app\main_window.py:2947:
+  D:\IMVU-Music-Bot\app\main_window.py:2948:
+  D:\IMVU-Music-Bot\app\main_window.py:2949:
+  D:\IMVU-Music-Bot\app\main_window.py:2950:            "Copy"
+  D:\IMVU-Music-Bot\app\main_window.py:2951:
+  D:\IMVU-Music-Bot\app\main_window.py:2952:
+  D:\IMVU-Music-Bot\app\main_window.py:2953:
+  D:\IMVU-Music-Bot\app\main_window.py:2954:
+  D:\IMVU-Music-Bot\app\main_window.py:2955:
+  D:\IMVU-Music-Bot\app\main_window.py:2956:
+  D:\IMVU-Music-Bot\app\main_window.py:2957:
+  D:\IMVU-Music-Bot\app\main_window.py:2958:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2959:
+  D:\IMVU-Music-Bot\app\main_window.py:2960:
+  D:\IMVU-Music-Bot\app\main_window.py:2961:
+  D:\IMVU-Music-Bot\app\main_window.py:2962:
+  D:\IMVU-Music-Bot\app\main_window.py:2963:
+  D:\IMVU-Music-Bot\app\main_window.py:2964:
+  D:\IMVU-Music-Bot\app\main_window.py:2965:
+  D:\IMVU-Music-Bot\app\main_window.py:2966:
+  D:\IMVU-Music-Bot\app\main_window.py:2967:
+  D:\IMVU-Music-Bot\app\main_window.py:2968:
+  D:\IMVU-Music-Bot\app\main_window.py:2969:
+  D:\IMVU-Music-Bot\app\main_window.py:2970:
+  D:\IMVU-Music-Bot\app\main_window.py:2971:
+  D:\IMVU-Music-Bot\app\main_window.py:2972:
+
+============================================================
+PATTERN: QPushButton
+LINE: 3230
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:3222:
+  D:\IMVU-Music-Bot\app\main_window.py:3223:
+  D:\IMVU-Music-Bot\app\main_window.py:3224:
+  D:\IMVU-Music-Bot\app\main_window.py:3225:
+  D:\IMVU-Music-Bot\app\main_window.py:3226:
+  D:\IMVU-Music-Bot\app\main_window.py:3227:
+  D:\IMVU-Music-Bot\app\main_window.py:3228:
+  D:\IMVU-Music-Bot\app\main_window.py:3229:
+> D:\IMVU-Music-Bot\app\main_window.py:3230:        self.copy_public_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:3231:
+  D:\IMVU-Music-Bot\app\main_window.py:3232:
+  D:\IMVU-Music-Bot\app\main_window.py:3233:
+  D:\IMVU-Music-Bot\app\main_window.py:3234:
+  D:\IMVU-Music-Bot\app\main_window.py:3235:
+  D:\IMVU-Music-Bot\app\main_window.py:3236:
+  D:\IMVU-Music-Bot\app\main_window.py:3237:
+  D:\IMVU-Music-Bot\app\main_window.py:3238:            "Copy IMVU URL"
+  D:\IMVU-Music-Bot\app\main_window.py:3239:
+  D:\IMVU-Music-Bot\app\main_window.py:3240:
+  D:\IMVU-Music-Bot\app\main_window.py:3241:
+  D:\IMVU-Music-Bot\app\main_window.py:3242:
+  D:\IMVU-Music-Bot\app\main_window.py:3243:
+  D:\IMVU-Music-Bot\app\main_window.py:3244:
+  D:\IMVU-Music-Bot\app\main_window.py:3245:
+  D:\IMVU-Music-Bot\app\main_window.py:3246:        )
+  D:\IMVU-Music-Bot\app\main_window.py:3247:
+  D:\IMVU-Music-Bot\app\main_window.py:3248:
+  D:\IMVU-Music-Bot\app\main_window.py:3249:
+  D:\IMVU-Music-Bot\app\main_window.py:3250:
+  D:\IMVU-Music-Bot\app\main_window.py:3251:
+  D:\IMVU-Music-Bot\app\main_window.py:3252:
+  D:\IMVU-Music-Bot\app\main_window.py:3253:
+  D:\IMVU-Music-Bot\app\main_window.py:3254:
+  D:\IMVU-Music-Bot\app\main_window.py:3255:
+  D:\IMVU-Music-Bot\app\main_window.py:3256:
+  D:\IMVU-Music-Bot\app\main_window.py:3257:
+  D:\IMVU-Music-Bot\app\main_window.py:3258:
+  D:\IMVU-Music-Bot\app\main_window.py:3259:
+  D:\IMVU-Music-Bot\app\main_window.py:3260:
+
+============================================================
+PATTERN: QPushButton
+LINE: 4118
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:4110:
+  D:\IMVU-Music-Bot\app\main_window.py:4111:
+  D:\IMVU-Music-Bot\app\main_window.py:4112:
+  D:\IMVU-Music-Bot\app\main_window.py:4113:
+  D:\IMVU-Music-Bot\app\main_window.py:4114:
+  D:\IMVU-Music-Bot\app\main_window.py:4115:
+  D:\IMVU-Music-Bot\app\main_window.py:4116:
+  D:\IMVU-Music-Bot\app\main_window.py:4117:
+> D:\IMVU-Music-Bot\app\main_window.py:4118:        self.play_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:4119:
+  D:\IMVU-Music-Bot\app\main_window.py:4120:
+  D:\IMVU-Music-Bot\app\main_window.py:4121:
+  D:\IMVU-Music-Bot\app\main_window.py:4122:
+  D:\IMVU-Music-Bot\app\main_window.py:4123:
+  D:\IMVU-Music-Bot\app\main_window.py:4124:
+  D:\IMVU-Music-Bot\app\main_window.py:4125:
+  D:\IMVU-Music-Bot\app\main_window.py:4126:            "Play"
+  D:\IMVU-Music-Bot\app\main_window.py:4127:
+  D:\IMVU-Music-Bot\app\main_window.py:4128:
+  D:\IMVU-Music-Bot\app\main_window.py:4129:
+  D:\IMVU-Music-Bot\app\main_window.py:4130:
+  D:\IMVU-Music-Bot\app\main_window.py:4131:
+  D:\IMVU-Music-Bot\app\main_window.py:4132:
+  D:\IMVU-Music-Bot\app\main_window.py:4133:
+  D:\IMVU-Music-Bot\app\main_window.py:4134:        )
+  D:\IMVU-Music-Bot\app\main_window.py:4135:
+  D:\IMVU-Music-Bot\app\main_window.py:4136:
+  D:\IMVU-Music-Bot\app\main_window.py:4137:
+  D:\IMVU-Music-Bot\app\main_window.py:4138:
+  D:\IMVU-Music-Bot\app\main_window.py:4139:
+  D:\IMVU-Music-Bot\app\main_window.py:4140:
+  D:\IMVU-Music-Bot\app\main_window.py:4141:
+  D:\IMVU-Music-Bot\app\main_window.py:4142:
+  D:\IMVU-Music-Bot\app\main_window.py:4143:
+  D:\IMVU-Music-Bot\app\main_window.py:4144:
+  D:\IMVU-Music-Bot\app\main_window.py:4145:
+  D:\IMVU-Music-Bot\app\main_window.py:4146:
+  D:\IMVU-Music-Bot\app\main_window.py:4147:
+  D:\IMVU-Music-Bot\app\main_window.py:4148:
+
+============================================================
+PATTERN: QPushButton
+LINE: 4150
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:4149:
+> D:\IMVU-Music-Bot\app\main_window.py:4150:        self.pause_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:4151:
+  D:\IMVU-Music-Bot\app\main_window.py:4152:
+  D:\IMVU-Music-Bot\app\main_window.py:4153:
+  D:\IMVU-Music-Bot\app\main_window.py:4154:
+  D:\IMVU-Music-Bot\app\main_window.py:4155:
+  D:\IMVU-Music-Bot\app\main_window.py:4156:
+  D:\IMVU-Music-Bot\app\main_window.py:4157:
+  D:\IMVU-Music-Bot\app\main_window.py:4158:            "Pause"
+  D:\IMVU-Music-Bot\app\main_window.py:4159:
+  D:\IMVU-Music-Bot\app\main_window.py:4160:
+  D:\IMVU-Music-Bot\app\main_window.py:4161:
+  D:\IMVU-Music-Bot\app\main_window.py:4162:
+  D:\IMVU-Music-Bot\app\main_window.py:4163:
+  D:\IMVU-Music-Bot\app\main_window.py:4164:
+  D:\IMVU-Music-Bot\app\main_window.py:4165:
+  D:\IMVU-Music-Bot\app\main_window.py:4166:        )
+  D:\IMVU-Music-Bot\app\main_window.py:4167:
+  D:\IMVU-Music-Bot\app\main_window.py:4168:
+  D:\IMVU-Music-Bot\app\main_window.py:4169:
+  D:\IMVU-Music-Bot\app\main_window.py:4170:
+  D:\IMVU-Music-Bot\app\main_window.py:4171:
+  D:\IMVU-Music-Bot\app\main_window.py:4172:
+  D:\IMVU-Music-Bot\app\main_window.py:4173:
+  D:\IMVU-Music-Bot\app\main_window.py:4174:
+  D:\IMVU-Music-Bot\app\main_window.py:4175:
+  D:\IMVU-Music-Bot\app\main_window.py:4176:
+  D:\IMVU-Music-Bot\app\main_window.py:4177:
+  D:\IMVU-Music-Bot\app\main_window.py:4178:
+  D:\IMVU-Music-Bot\app\main_window.py:4179:
+  D:\IMVU-Music-Bot\app\main_window.py:4180:
+
+============================================================
+PATTERN: QPushButton
+LINE: 4182
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:4181:
+> D:\IMVU-Music-Bot\app\main_window.py:4182:        self.resume_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:4183:
+  D:\IMVU-Music-Bot\app\main_window.py:4184:
+  D:\IMVU-Music-Bot\app\main_window.py:4185:
+  D:\IMVU-Music-Bot\app\main_window.py:4186:
+  D:\IMVU-Music-Bot\app\main_window.py:4187:
+  D:\IMVU-Music-Bot\app\main_window.py:4188:
+  D:\IMVU-Music-Bot\app\main_window.py:4189:
+  D:\IMVU-Music-Bot\app\main_window.py:4190:            "Resume"
+  D:\IMVU-Music-Bot\app\main_window.py:4191:
+  D:\IMVU-Music-Bot\app\main_window.py:4192:
+  D:\IMVU-Music-Bot\app\main_window.py:4193:
+  D:\IMVU-Music-Bot\app\main_window.py:4194:
+  D:\IMVU-Music-Bot\app\main_window.py:4195:
+  D:\IMVU-Music-Bot\app\main_window.py:4196:
+  D:\IMVU-Music-Bot\app\main_window.py:4197:
+  D:\IMVU-Music-Bot\app\main_window.py:4198:        )
+  D:\IMVU-Music-Bot\app\main_window.py:4199:
+  D:\IMVU-Music-Bot\app\main_window.py:4200:
+  D:\IMVU-Music-Bot\app\main_window.py:4201:
+  D:\IMVU-Music-Bot\app\main_window.py:4202:
+  D:\IMVU-Music-Bot\app\main_window.py:4203:
+  D:\IMVU-Music-Bot\app\main_window.py:4204:
+  D:\IMVU-Music-Bot\app\main_window.py:4205:
+  D:\IMVU-Music-Bot\app\main_window.py:4206:
+  D:\IMVU-Music-Bot\app\main_window.py:4207:
+  D:\IMVU-Music-Bot\app\main_window.py:4208:
+  D:\IMVU-Music-Bot\app\main_window.py:4209:
+  D:\IMVU-Music-Bot\app\main_window.py:4210:
+  D:\IMVU-Music-Bot\app\main_window.py:4211:
+  D:\IMVU-Music-Bot\app\main_window.py:4212:
+
+============================================================
+PATTERN: QPushButton
+LINE: 4214
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:4213:
+> D:\IMVU-Music-Bot\app\main_window.py:4214:        self.skip_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:4215:
+  D:\IMVU-Music-Bot\app\main_window.py:4216:
+  D:\IMVU-Music-Bot\app\main_window.py:4217:
+  D:\IMVU-Music-Bot\app\main_window.py:4218:
+  D:\IMVU-Music-Bot\app\main_window.py:4219:
+  D:\IMVU-Music-Bot\app\main_window.py:4220:
+  D:\IMVU-Music-Bot\app\main_window.py:4221:
+  D:\IMVU-Music-Bot\app\main_window.py:4222:            "Skip"
+  D:\IMVU-Music-Bot\app\main_window.py:4223:
+  D:\IMVU-Music-Bot\app\main_window.py:4224:
+  D:\IMVU-Music-Bot\app\main_window.py:4225:
+  D:\IMVU-Music-Bot\app\main_window.py:4226:
+  D:\IMVU-Music-Bot\app\main_window.py:4227:
+  D:\IMVU-Music-Bot\app\main_window.py:4228:
+  D:\IMVU-Music-Bot\app\main_window.py:4229:
+  D:\IMVU-Music-Bot\app\main_window.py:4230:        )
+  D:\IMVU-Music-Bot\app\main_window.py:4231:
+  D:\IMVU-Music-Bot\app\main_window.py:4232:
+  D:\IMVU-Music-Bot\app\main_window.py:4233:
+  D:\IMVU-Music-Bot\app\main_window.py:4234:
+  D:\IMVU-Music-Bot\app\main_window.py:4235:
+  D:\IMVU-Music-Bot\app\main_window.py:4236:
+  D:\IMVU-Music-Bot\app\main_window.py:4237:
+  D:\IMVU-Music-Bot\app\main_window.py:4238:
+  D:\IMVU-Music-Bot\app\main_window.py:4239:
+  D:\IMVU-Music-Bot\app\main_window.py:4240:
+  D:\IMVU-Music-Bot\app\main_window.py:4241:
+  D:\IMVU-Music-Bot\app\main_window.py:4242:
+  D:\IMVU-Music-Bot\app\main_window.py:4243:
+  D:\IMVU-Music-Bot\app\main_window.py:4244:
+
+============================================================
+PATTERN: QPushButton
+LINE: 4246
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:4245:
+> D:\IMVU-Music-Bot\app\main_window.py:4246:        self.stop_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:4247:
+  D:\IMVU-Music-Bot\app\main_window.py:4248:
+  D:\IMVU-Music-Bot\app\main_window.py:4249:
+  D:\IMVU-Music-Bot\app\main_window.py:4250:
+  D:\IMVU-Music-Bot\app\main_window.py:4251:
+  D:\IMVU-Music-Bot\app\main_window.py:4252:
+  D:\IMVU-Music-Bot\app\main_window.py:4253:
+  D:\IMVU-Music-Bot\app\main_window.py:4254:            "Stop"
+  D:\IMVU-Music-Bot\app\main_window.py:4255:
+  D:\IMVU-Music-Bot\app\main_window.py:4256:
+  D:\IMVU-Music-Bot\app\main_window.py:4257:
+  D:\IMVU-Music-Bot\app\main_window.py:4258:
+  D:\IMVU-Music-Bot\app\main_window.py:4259:
+  D:\IMVU-Music-Bot\app\main_window.py:4260:
+  D:\IMVU-Music-Bot\app\main_window.py:4261:
+  D:\IMVU-Music-Bot\app\main_window.py:4262:        )
+  D:\IMVU-Music-Bot\app\main_window.py:4263:
+  D:\IMVU-Music-Bot\app\main_window.py:4264:
+  D:\IMVU-Music-Bot\app\main_window.py:4265:
+  D:\IMVU-Music-Bot\app\main_window.py:4266:
+  D:\IMVU-Music-Bot\app\main_window.py:4267:
+  D:\IMVU-Music-Bot\app\main_window.py:4268:
+  D:\IMVU-Music-Bot\app\main_window.py:4269:
+  D:\IMVU-Music-Bot\app\main_window.py:4270:
+  D:\IMVU-Music-Bot\app\main_window.py:4271:
+  D:\IMVU-Music-Bot\app\main_window.py:4272:
+  D:\IMVU-Music-Bot\app\main_window.py:4273:
+  D:\IMVU-Music-Bot\app\main_window.py:4274:
+  D:\IMVU-Music-Bot\app\main_window.py:4275:
+  D:\IMVU-Music-Bot\app\main_window.py:4276:
+
+============================================================
+PATTERN: QPushButton
+LINE: 4278
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:4277:
+> D:\IMVU-Music-Bot\app\main_window.py:4278:        self.clear_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:4279:
+  D:\IMVU-Music-Bot\app\main_window.py:4280:
+  D:\IMVU-Music-Bot\app\main_window.py:4281:
+  D:\IMVU-Music-Bot\app\main_window.py:4282:
+  D:\IMVU-Music-Bot\app\main_window.py:4283:
+  D:\IMVU-Music-Bot\app\main_window.py:4284:
+  D:\IMVU-Music-Bot\app\main_window.py:4285:
+  D:\IMVU-Music-Bot\app\main_window.py:4286:            "Clear Queue"
+  D:\IMVU-Music-Bot\app\main_window.py:4287:
+  D:\IMVU-Music-Bot\app\main_window.py:4288:
+  D:\IMVU-Music-Bot\app\main_window.py:4289:
+  D:\IMVU-Music-Bot\app\main_window.py:4290:
+  D:\IMVU-Music-Bot\app\main_window.py:4291:
+  D:\IMVU-Music-Bot\app\main_window.py:4292:
+  D:\IMVU-Music-Bot\app\main_window.py:4293:
+  D:\IMVU-Music-Bot\app\main_window.py:4294:        )
+  D:\IMVU-Music-Bot\app\main_window.py:4295:
+  D:\IMVU-Music-Bot\app\main_window.py:4296:
+  D:\IMVU-Music-Bot\app\main_window.py:4297:
+  D:\IMVU-Music-Bot\app\main_window.py:4298:
+  D:\IMVU-Music-Bot\app\main_window.py:4299:
+  D:\IMVU-Music-Bot\app\main_window.py:4300:
+  D:\IMVU-Music-Bot\app\main_window.py:4301:
+  D:\IMVU-Music-Bot\app\main_window.py:4302:
+  D:\IMVU-Music-Bot\app\main_window.py:4303:
+  D:\IMVU-Music-Bot\app\main_window.py:4304:
+  D:\IMVU-Music-Bot\app\main_window.py:4305:
+  D:\IMVU-Music-Bot\app\main_window.py:4306:
+  D:\IMVU-Music-Bot\app\main_window.py:4307:
+  D:\IMVU-Music-Bot\app\main_window.py:4308:
+
+============================================================
+PATTERN: QPushButton
+LINE: 5198
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:5190:
+  D:\IMVU-Music-Bot\app\main_window.py:5191:
+  D:\IMVU-Music-Bot\app\main_window.py:5192:
+  D:\IMVU-Music-Bot\app\main_window.py:5193:
+  D:\IMVU-Music-Bot\app\main_window.py:5194:
+  D:\IMVU-Music-Bot\app\main_window.py:5195:
+  D:\IMVU-Music-Bot\app\main_window.py:5196:
+  D:\IMVU-Music-Bot\app\main_window.py:5197:
+> D:\IMVU-Music-Bot\app\main_window.py:5198:        self.simulated_send_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:5199:
+  D:\IMVU-Music-Bot\app\main_window.py:5200:
+  D:\IMVU-Music-Bot\app\main_window.py:5201:
+  D:\IMVU-Music-Bot\app\main_window.py:5202:
+  D:\IMVU-Music-Bot\app\main_window.py:5203:
+  D:\IMVU-Music-Bot\app\main_window.py:5204:
+  D:\IMVU-Music-Bot\app\main_window.py:5205:
+  D:\IMVU-Music-Bot\app\main_window.py:5206:            "Send Simulated Chat"
+  D:\IMVU-Music-Bot\app\main_window.py:5207:
+  D:\IMVU-Music-Bot\app\main_window.py:5208:
+  D:\IMVU-Music-Bot\app\main_window.py:5209:
+  D:\IMVU-Music-Bot\app\main_window.py:5210:
+  D:\IMVU-Music-Bot\app\main_window.py:5211:
+  D:\IMVU-Music-Bot\app\main_window.py:5212:
+  D:\IMVU-Music-Bot\app\main_window.py:5213:
+  D:\IMVU-Music-Bot\app\main_window.py:5214:        )
+  D:\IMVU-Music-Bot\app\main_window.py:5215:
+  D:\IMVU-Music-Bot\app\main_window.py:5216:
+  D:\IMVU-Music-Bot\app\main_window.py:5217:
+  D:\IMVU-Music-Bot\app\main_window.py:5218:
+  D:\IMVU-Music-Bot\app\main_window.py:5219:
+  D:\IMVU-Music-Bot\app\main_window.py:5220:
+  D:\IMVU-Music-Bot\app\main_window.py:5221:
+  D:\IMVU-Music-Bot\app\main_window.py:5222:
+  D:\IMVU-Music-Bot\app\main_window.py:5223:
+  D:\IMVU-Music-Bot\app\main_window.py:5224:
+  D:\IMVU-Music-Bot\app\main_window.py:5225:
+  D:\IMVU-Music-Bot\app\main_window.py:5226:
+  D:\IMVU-Music-Bot\app\main_window.py:5227:
+  D:\IMVU-Music-Bot\app\main_window.py:5228:
+
+============================================================
+PATTERN: QPushButton
+LINE: 5646
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:5638:
+  D:\IMVU-Music-Bot\app\main_window.py:5639:
+  D:\IMVU-Music-Bot\app\main_window.py:5640:
+  D:\IMVU-Music-Bot\app\main_window.py:5641:
+  D:\IMVU-Music-Bot\app\main_window.py:5642:
+  D:\IMVU-Music-Bot\app\main_window.py:5643:
+  D:\IMVU-Music-Bot\app\main_window.py:5644:
+  D:\IMVU-Music-Bot\app\main_window.py:5645:
+> D:\IMVU-Music-Bot\app\main_window.py:5646:        self.send_command_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:5647:
+  D:\IMVU-Music-Bot\app\main_window.py:5648:
+  D:\IMVU-Music-Bot\app\main_window.py:5649:
+  D:\IMVU-Music-Bot\app\main_window.py:5650:
+  D:\IMVU-Music-Bot\app\main_window.py:5651:
+  D:\IMVU-Music-Bot\app\main_window.py:5652:
+  D:\IMVU-Music-Bot\app\main_window.py:5653:
+  D:\IMVU-Music-Bot\app\main_window.py:5654:            "Send Command"
+  D:\IMVU-Music-Bot\app\main_window.py:5655:
+  D:\IMVU-Music-Bot\app\main_window.py:5656:
+  D:\IMVU-Music-Bot\app\main_window.py:5657:
+  D:\IMVU-Music-Bot\app\main_window.py:5658:
+  D:\IMVU-Music-Bot\app\main_window.py:5659:
+  D:\IMVU-Music-Bot\app\main_window.py:5660:
+  D:\IMVU-Music-Bot\app\main_window.py:5661:
+  D:\IMVU-Music-Bot\app\main_window.py:5662:        )
+  D:\IMVU-Music-Bot\app\main_window.py:5663:
+  D:\IMVU-Music-Bot\app\main_window.py:5664:
+  D:\IMVU-Music-Bot\app\main_window.py:5665:
+  D:\IMVU-Music-Bot\app\main_window.py:5666:
+  D:\IMVU-Music-Bot\app\main_window.py:5667:
+  D:\IMVU-Music-Bot\app\main_window.py:5668:
+  D:\IMVU-Music-Bot\app\main_window.py:5669:
+  D:\IMVU-Music-Bot\app\main_window.py:5670:
+  D:\IMVU-Music-Bot\app\main_window.py:5671:
+  D:\IMVU-Music-Bot\app\main_window.py:5672:
+  D:\IMVU-Music-Bot\app\main_window.py:5673:
+  D:\IMVU-Music-Bot\app\main_window.py:5674:
+  D:\IMVU-Music-Bot\app\main_window.py:5675:
+  D:\IMVU-Music-Bot\app\main_window.py:5676:
+
+============================================================
+PATTERN: QPushButton
+LINE: 5934
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:5926:
+  D:\IMVU-Music-Bot\app\main_window.py:5927:
+  D:\IMVU-Music-Bot\app\main_window.py:5928:
+  D:\IMVU-Music-Bot\app\main_window.py:5929:
+  D:\IMVU-Music-Bot\app\main_window.py:5930:
+  D:\IMVU-Music-Bot\app\main_window.py:5931:
+  D:\IMVU-Music-Bot\app\main_window.py:5932:
+  D:\IMVU-Music-Bot\app\main_window.py:5933:
+> D:\IMVU-Music-Bot\app\main_window.py:5934:        self.settings_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:5935:
+  D:\IMVU-Music-Bot\app\main_window.py:5936:
+  D:\IMVU-Music-Bot\app\main_window.py:5937:
+  D:\IMVU-Music-Bot\app\main_window.py:5938:
+  D:\IMVU-Music-Bot\app\main_window.py:5939:
+  D:\IMVU-Music-Bot\app\main_window.py:5940:
+  D:\IMVU-Music-Bot\app\main_window.py:5941:
+  D:\IMVU-Music-Bot\app\main_window.py:5942:            "Settings"
+  D:\IMVU-Music-Bot\app\main_window.py:5943:
+  D:\IMVU-Music-Bot\app\main_window.py:5944:
+  D:\IMVU-Music-Bot\app\main_window.py:5945:
+  D:\IMVU-Music-Bot\app\main_window.py:5946:
+  D:\IMVU-Music-Bot\app\main_window.py:5947:
+  D:\IMVU-Music-Bot\app\main_window.py:5948:
+  D:\IMVU-Music-Bot\app\main_window.py:5949:
+  D:\IMVU-Music-Bot\app\main_window.py:5950:        )
+  D:\IMVU-Music-Bot\app\main_window.py:5951:
+  D:\IMVU-Music-Bot\app\main_window.py:5952:
+  D:\IMVU-Music-Bot\app\main_window.py:5953:
+  D:\IMVU-Music-Bot\app\main_window.py:5954:
+  D:\IMVU-Music-Bot\app\main_window.py:5955:
+  D:\IMVU-Music-Bot\app\main_window.py:5956:
+  D:\IMVU-Music-Bot\app\main_window.py:5957:
+  D:\IMVU-Music-Bot\app\main_window.py:5958:
+  D:\IMVU-Music-Bot\app\main_window.py:5959:
+  D:\IMVU-Music-Bot\app\main_window.py:5960:
+  D:\IMVU-Music-Bot\app\main_window.py:5961:
+  D:\IMVU-Music-Bot\app\main_window.py:5962:
+  D:\IMVU-Music-Bot\app\main_window.py:5963:
+  D:\IMVU-Music-Bot\app\main_window.py:5964:
+
+============================================================
+PATTERN: QPushButton
+LINE: 5966
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:5965:
+> D:\IMVU-Music-Bot\app\main_window.py:5966:        self.users_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:5967:
+  D:\IMVU-Music-Bot\app\main_window.py:5968:
+  D:\IMVU-Music-Bot\app\main_window.py:5969:
+  D:\IMVU-Music-Bot\app\main_window.py:5970:
+  D:\IMVU-Music-Bot\app\main_window.py:5971:
+  D:\IMVU-Music-Bot\app\main_window.py:5972:
+  D:\IMVU-Music-Bot\app\main_window.py:5973:
+  D:\IMVU-Music-Bot\app\main_window.py:5974:            "Users"
+  D:\IMVU-Music-Bot\app\main_window.py:5975:
+  D:\IMVU-Music-Bot\app\main_window.py:5976:
+  D:\IMVU-Music-Bot\app\main_window.py:5977:
+  D:\IMVU-Music-Bot\app\main_window.py:5978:
+  D:\IMVU-Music-Bot\app\main_window.py:5979:
+  D:\IMVU-Music-Bot\app\main_window.py:5980:
+  D:\IMVU-Music-Bot\app\main_window.py:5981:
+  D:\IMVU-Music-Bot\app\main_window.py:5982:        )
+  D:\IMVU-Music-Bot\app\main_window.py:5983:
+  D:\IMVU-Music-Bot\app\main_window.py:5984:
+  D:\IMVU-Music-Bot\app\main_window.py:5985:
+  D:\IMVU-Music-Bot\app\main_window.py:5986:
+  D:\IMVU-Music-Bot\app\main_window.py:5987:
+  D:\IMVU-Music-Bot\app\main_window.py:5988:
+  D:\IMVU-Music-Bot\app\main_window.py:5989:
+  D:\IMVU-Music-Bot\app\main_window.py:5990:
+  D:\IMVU-Music-Bot\app\main_window.py:5991:
+  D:\IMVU-Music-Bot\app\main_window.py:5992:
+  D:\IMVU-Music-Bot\app\main_window.py:5993:
+  D:\IMVU-Music-Bot\app\main_window.py:5994:
+  D:\IMVU-Music-Bot\app\main_window.py:5995:
+  D:\IMVU-Music-Bot\app\main_window.py:5996:
+
+============================================================
+PATTERN: QPushButton
+LINE: 5998
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:5997:
+> D:\IMVU-Music-Bot\app\main_window.py:5998:        self.logs_button = QPushButton(
+  D:\IMVU-Music-Bot\app\main_window.py:5999:
+  D:\IMVU-Music-Bot\app\main_window.py:6000:
+  D:\IMVU-Music-Bot\app\main_window.py:6001:
+  D:\IMVU-Music-Bot\app\main_window.py:6002:
+  D:\IMVU-Music-Bot\app\main_window.py:6003:
+  D:\IMVU-Music-Bot\app\main_window.py:6004:
+  D:\IMVU-Music-Bot\app\main_window.py:6005:
+  D:\IMVU-Music-Bot\app\main_window.py:6006:            "Logs"
+  D:\IMVU-Music-Bot\app\main_window.py:6007:
+  D:\IMVU-Music-Bot\app\main_window.py:6008:
+  D:\IMVU-Music-Bot\app\main_window.py:6009:
+  D:\IMVU-Music-Bot\app\main_window.py:6010:
+  D:\IMVU-Music-Bot\app\main_window.py:6011:
+  D:\IMVU-Music-Bot\app\main_window.py:6012:
+  D:\IMVU-Music-Bot\app\main_window.py:6013:
+  D:\IMVU-Music-Bot\app\main_window.py:6014:        )
+  D:\IMVU-Music-Bot\app\main_window.py:6015:
+  D:\IMVU-Music-Bot\app\main_window.py:6016:
+  D:\IMVU-Music-Bot\app\main_window.py:6017:
+  D:\IMVU-Music-Bot\app\main_window.py:6018:
+  D:\IMVU-Music-Bot\app\main_window.py:6019:
+  D:\IMVU-Music-Bot\app\main_window.py:6020:
+  D:\IMVU-Music-Bot\app\main_window.py:6021:
+  D:\IMVU-Music-Bot\app\main_window.py:6022:
+  D:\IMVU-Music-Bot\app\main_window.py:6023:
+  D:\IMVU-Music-Bot\app\main_window.py:6024:
+  D:\IMVU-Music-Bot\app\main_window.py:6025:
+  D:\IMVU-Music-Bot\app\main_window.py:6026:
+  D:\IMVU-Music-Bot\app\main_window.py:6027:
+  D:\IMVU-Music-Bot\app\main_window.py:6028:
+
+============================================================
+PATTERN: radio_url_input
+LINE: 2558
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2550:
+  D:\IMVU-Music-Bot\app\main_window.py:2551:
+  D:\IMVU-Music-Bot\app\main_window.py:2552:
+  D:\IMVU-Music-Bot\app\main_window.py:2553:
+  D:\IMVU-Music-Bot\app\main_window.py:2554:
+  D:\IMVU-Music-Bot\app\main_window.py:2555:
+  D:\IMVU-Music-Bot\app\main_window.py:2556:
+  D:\IMVU-Music-Bot\app\main_window.py:2557:
+> D:\IMVU-Music-Bot\app\main_window.py:2558:        self.radio_url_input = QLineEdit()
+  D:\IMVU-Music-Bot\app\main_window.py:2559:
+  D:\IMVU-Music-Bot\app\main_window.py:2560:
+  D:\IMVU-Music-Bot\app\main_window.py:2561:
+  D:\IMVU-Music-Bot\app\main_window.py:2562:
+  D:\IMVU-Music-Bot\app\main_window.py:2563:
+  D:\IMVU-Music-Bot\app\main_window.py:2564:
+  D:\IMVU-Music-Bot\app\main_window.py:2565:
+  D:\IMVU-Music-Bot\app\main_window.py:2566:
+  D:\IMVU-Music-Bot\app\main_window.py:2567:
+  D:\IMVU-Music-Bot\app\main_window.py:2568:
+  D:\IMVU-Music-Bot\app\main_window.py:2569:
+  D:\IMVU-Music-Bot\app\main_window.py:2570:
+  D:\IMVU-Music-Bot\app\main_window.py:2571:
+  D:\IMVU-Music-Bot\app\main_window.py:2572:
+  D:\IMVU-Music-Bot\app\main_window.py:2573:
+
+============================================================
+PATTERN: radio_url_input
+LINE: 2574
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:2574:        self.radio_url_input.setPlaceholderText(
+  D:\IMVU-Music-Bot\app\main_window.py:2575:
+  D:\IMVU-Music-Bot\app\main_window.py:2576:
+  D:\IMVU-Music-Bot\app\main_window.py:2577:
+  D:\IMVU-Music-Bot\app\main_window.py:2578:
+  D:\IMVU-Music-Bot\app\main_window.py:2579:
+  D:\IMVU-Music-Bot\app\main_window.py:2580:
+  D:\IMVU-Music-Bot\app\main_window.py:2581:
+  D:\IMVU-Music-Bot\app\main_window.py:2582:            "Direct MP3 / continuous radio stream URL"
+  D:\IMVU-Music-Bot\app\main_window.py:2583:
+  D:\IMVU-Music-Bot\app\main_window.py:2584:
+  D:\IMVU-Music-Bot\app\main_window.py:2585:
+  D:\IMVU-Music-Bot\app\main_window.py:2586:
+  D:\IMVU-Music-Bot\app\main_window.py:2587:
+  D:\IMVU-Music-Bot\app\main_window.py:2588:
+  D:\IMVU-Music-Bot\app\main_window.py:2589:
+  D:\IMVU-Music-Bot\app\main_window.py:2590:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2591:
+  D:\IMVU-Music-Bot\app\main_window.py:2592:
+  D:\IMVU-Music-Bot\app\main_window.py:2593:
+  D:\IMVU-Music-Bot\app\main_window.py:2594:
+  D:\IMVU-Music-Bot\app\main_window.py:2595:
+  D:\IMVU-Music-Bot\app\main_window.py:2596:
+  D:\IMVU-Music-Bot\app\main_window.py:2597:
+  D:\IMVU-Music-Bot\app\main_window.py:2598:
+  D:\IMVU-Music-Bot\app\main_window.py:2599:
+  D:\IMVU-Music-Bot\app\main_window.py:2600:
+  D:\IMVU-Music-Bot\app\main_window.py:2601:
+  D:\IMVU-Music-Bot\app\main_window.py:2602:
+  D:\IMVU-Music-Bot\app\main_window.py:2603:
+  D:\IMVU-Music-Bot\app\main_window.py:2604:
+
+============================================================
+PATTERN: radio_url_input
+LINE: 2710
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2702:        source_layout.addWidget(
+  D:\IMVU-Music-Bot\app\main_window.py:2703:
+  D:\IMVU-Music-Bot\app\main_window.py:2704:
+  D:\IMVU-Music-Bot\app\main_window.py:2705:
+  D:\IMVU-Music-Bot\app\main_window.py:2706:
+  D:\IMVU-Music-Bot\app\main_window.py:2707:
+  D:\IMVU-Music-Bot\app\main_window.py:2708:
+  D:\IMVU-Music-Bot\app\main_window.py:2709:
+> D:\IMVU-Music-Bot\app\main_window.py:2710:            self.radio_url_input
+  D:\IMVU-Music-Bot\app\main_window.py:2711:
+  D:\IMVU-Music-Bot\app\main_window.py:2712:
+  D:\IMVU-Music-Bot\app\main_window.py:2713:
+  D:\IMVU-Music-Bot\app\main_window.py:2714:
+  D:\IMVU-Music-Bot\app\main_window.py:2715:
+  D:\IMVU-Music-Bot\app\main_window.py:2716:
+  D:\IMVU-Music-Bot\app\main_window.py:2717:
+  D:\IMVU-Music-Bot\app\main_window.py:2718:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2719:
+  D:\IMVU-Music-Bot\app\main_window.py:2720:
+  D:\IMVU-Music-Bot\app\main_window.py:2721:
+  D:\IMVU-Music-Bot\app\main_window.py:2722:
+  D:\IMVU-Music-Bot\app\main_window.py:2723:
+  D:\IMVU-Music-Bot\app\main_window.py:2724:
+  D:\IMVU-Music-Bot\app\main_window.py:2725:
+  D:\IMVU-Music-Bot\app\main_window.py:2726:
+  D:\IMVU-Music-Bot\app\main_window.py:2727:
+  D:\IMVU-Music-Bot\app\main_window.py:2728:
+  D:\IMVU-Music-Bot\app\main_window.py:2729:
+  D:\IMVU-Music-Bot\app\main_window.py:2730:
+  D:\IMVU-Music-Bot\app\main_window.py:2731:
+  D:\IMVU-Music-Bot\app\main_window.py:2732:
+  D:\IMVU-Music-Bot\app\main_window.py:2733:
+  D:\IMVU-Music-Bot\app\main_window.py:2734:        source_layout.addWidget(
+  D:\IMVU-Music-Bot\app\main_window.py:2735:
+  D:\IMVU-Music-Bot\app\main_window.py:2736:
+  D:\IMVU-Music-Bot\app\main_window.py:2737:
+  D:\IMVU-Music-Bot\app\main_window.py:2738:
+  D:\IMVU-Music-Bot\app\main_window.py:2739:
+  D:\IMVU-Music-Bot\app\main_window.py:2740:
+
+============================================================
+PATTERN: radio_url_input
+LINE: 9425
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:9417:        url = (
+  D:\IMVU-Music-Bot\app\main_window.py:9418:
+  D:\IMVU-Music-Bot\app\main_window.py:9419:
+  D:\IMVU-Music-Bot\app\main_window.py:9420:
+  D:\IMVU-Music-Bot\app\main_window.py:9421:
+  D:\IMVU-Music-Bot\app\main_window.py:9422:
+  D:\IMVU-Music-Bot\app\main_window.py:9423:
+  D:\IMVU-Music-Bot\app\main_window.py:9424:
+> D:\IMVU-Music-Bot\app\main_window.py:9425:            self.radio_url_input
+  D:\IMVU-Music-Bot\app\main_window.py:9426:
+  D:\IMVU-Music-Bot\app\main_window.py:9427:
+  D:\IMVU-Music-Bot\app\main_window.py:9428:
+  D:\IMVU-Music-Bot\app\main_window.py:9429:
+  D:\IMVU-Music-Bot\app\main_window.py:9430:
+  D:\IMVU-Music-Bot\app\main_window.py:9431:
+  D:\IMVU-Music-Bot\app\main_window.py:9432:
+  D:\IMVU-Music-Bot\app\main_window.py:9433:            .text()
+  D:\IMVU-Music-Bot\app\main_window.py:9434:
+  D:\IMVU-Music-Bot\app\main_window.py:9435:
+  D:\IMVU-Music-Bot\app\main_window.py:9436:
+  D:\IMVU-Music-Bot\app\main_window.py:9437:
+  D:\IMVU-Music-Bot\app\main_window.py:9438:
+  D:\IMVU-Music-Bot\app\main_window.py:9439:
+  D:\IMVU-Music-Bot\app\main_window.py:9440:
+  D:\IMVU-Music-Bot\app\main_window.py:9441:            .strip()
+  D:\IMVU-Music-Bot\app\main_window.py:9442:
+  D:\IMVU-Music-Bot\app\main_window.py:9443:
+  D:\IMVU-Music-Bot\app\main_window.py:9444:
+  D:\IMVU-Music-Bot\app\main_window.py:9445:
+  D:\IMVU-Music-Bot\app\main_window.py:9446:
+  D:\IMVU-Music-Bot\app\main_window.py:9447:
+  D:\IMVU-Music-Bot\app\main_window.py:9448:
+  D:\IMVU-Music-Bot\app\main_window.py:9449:        )
+  D:\IMVU-Music-Bot\app\main_window.py:9450:
+  D:\IMVU-Music-Bot\app\main_window.py:9451:
+  D:\IMVU-Music-Bot\app\main_window.py:9452:
+  D:\IMVU-Music-Bot\app\main_window.py:9453:
+  D:\IMVU-Music-Bot\app\main_window.py:9454:
+  D:\IMVU-Music-Bot\app\main_window.py:9455:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 3150
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:3142:
+  D:\IMVU-Music-Bot\app\main_window.py:3143:
+  D:\IMVU-Music-Bot\app\main_window.py:3144:
+  D:\IMVU-Music-Bot\app\main_window.py:3145:
+  D:\IMVU-Music-Bot\app\main_window.py:3146:
+  D:\IMVU-Music-Bot\app\main_window.py:3147:
+  D:\IMVU-Music-Bot\app\main_window.py:3148:
+  D:\IMVU-Music-Bot\app\main_window.py:3149:
+> D:\IMVU-Music-Bot\app\main_window.py:3150:        self.public_stream_input = QLineEdit()
+  D:\IMVU-Music-Bot\app\main_window.py:3151:
+  D:\IMVU-Music-Bot\app\main_window.py:3152:
+  D:\IMVU-Music-Bot\app\main_window.py:3153:
+  D:\IMVU-Music-Bot\app\main_window.py:3154:
+  D:\IMVU-Music-Bot\app\main_window.py:3155:
+  D:\IMVU-Music-Bot\app\main_window.py:3156:
+  D:\IMVU-Music-Bot\app\main_window.py:3157:
+  D:\IMVU-Music-Bot\app\main_window.py:3158:
+  D:\IMVU-Music-Bot\app\main_window.py:3159:
+  D:\IMVU-Music-Bot\app\main_window.py:3160:
+  D:\IMVU-Music-Bot\app\main_window.py:3161:
+  D:\IMVU-Music-Bot\app\main_window.py:3162:
+  D:\IMVU-Music-Bot\app\main_window.py:3163:
+  D:\IMVU-Music-Bot\app\main_window.py:3164:
+  D:\IMVU-Music-Bot\app\main_window.py:3165:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 3166
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:3166:        self.public_stream_input.setReadOnly(
+  D:\IMVU-Music-Bot\app\main_window.py:3167:
+  D:\IMVU-Music-Bot\app\main_window.py:3168:
+  D:\IMVU-Music-Bot\app\main_window.py:3169:
+  D:\IMVU-Music-Bot\app\main_window.py:3170:
+  D:\IMVU-Music-Bot\app\main_window.py:3171:
+  D:\IMVU-Music-Bot\app\main_window.py:3172:
+  D:\IMVU-Music-Bot\app\main_window.py:3173:
+  D:\IMVU-Music-Bot\app\main_window.py:3174:            True
+  D:\IMVU-Music-Bot\app\main_window.py:3175:
+  D:\IMVU-Music-Bot\app\main_window.py:3176:
+  D:\IMVU-Music-Bot\app\main_window.py:3177:
+  D:\IMVU-Music-Bot\app\main_window.py:3178:
+  D:\IMVU-Music-Bot\app\main_window.py:3179:
+  D:\IMVU-Music-Bot\app\main_window.py:3180:
+  D:\IMVU-Music-Bot\app\main_window.py:3181:
+  D:\IMVU-Music-Bot\app\main_window.py:3182:        )
+  D:\IMVU-Music-Bot\app\main_window.py:3183:
+  D:\IMVU-Music-Bot\app\main_window.py:3184:
+  D:\IMVU-Music-Bot\app\main_window.py:3185:
+  D:\IMVU-Music-Bot\app\main_window.py:3186:
+  D:\IMVU-Music-Bot\app\main_window.py:3187:
+  D:\IMVU-Music-Bot\app\main_window.py:3188:
+  D:\IMVU-Music-Bot\app\main_window.py:3189:
+  D:\IMVU-Music-Bot\app\main_window.py:3190:
+  D:\IMVU-Music-Bot\app\main_window.py:3191:
+  D:\IMVU-Music-Bot\app\main_window.py:3192:
+  D:\IMVU-Music-Bot\app\main_window.py:3193:
+  D:\IMVU-Music-Bot\app\main_window.py:3194:
+  D:\IMVU-Music-Bot\app\main_window.py:3195:
+  D:\IMVU-Music-Bot\app\main_window.py:3196:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 3198
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:3197:
+> D:\IMVU-Music-Bot\app\main_window.py:3198:        self.public_stream_input.setPlaceholderText(
+  D:\IMVU-Music-Bot\app\main_window.py:3199:
+  D:\IMVU-Music-Bot\app\main_window.py:3200:
+  D:\IMVU-Music-Bot\app\main_window.py:3201:
+  D:\IMVU-Music-Bot\app\main_window.py:3202:
+  D:\IMVU-Music-Bot\app\main_window.py:3203:
+  D:\IMVU-Music-Bot\app\main_window.py:3204:
+  D:\IMVU-Music-Bot\app\main_window.py:3205:
+  D:\IMVU-Music-Bot\app\main_window.py:3206:            "Generated automatically when radio starts"
+  D:\IMVU-Music-Bot\app\main_window.py:3207:
+  D:\IMVU-Music-Bot\app\main_window.py:3208:
+  D:\IMVU-Music-Bot\app\main_window.py:3209:
+  D:\IMVU-Music-Bot\app\main_window.py:3210:
+  D:\IMVU-Music-Bot\app\main_window.py:3211:
+  D:\IMVU-Music-Bot\app\main_window.py:3212:
+  D:\IMVU-Music-Bot\app\main_window.py:3213:
+  D:\IMVU-Music-Bot\app\main_window.py:3214:        )
+  D:\IMVU-Music-Bot\app\main_window.py:3215:
+  D:\IMVU-Music-Bot\app\main_window.py:3216:
+  D:\IMVU-Music-Bot\app\main_window.py:3217:
+  D:\IMVU-Music-Bot\app\main_window.py:3218:
+  D:\IMVU-Music-Bot\app\main_window.py:3219:
+  D:\IMVU-Music-Bot\app\main_window.py:3220:
+  D:\IMVU-Music-Bot\app\main_window.py:3221:
+  D:\IMVU-Music-Bot\app\main_window.py:3222:
+  D:\IMVU-Music-Bot\app\main_window.py:3223:
+  D:\IMVU-Music-Bot\app\main_window.py:3224:
+  D:\IMVU-Music-Bot\app\main_window.py:3225:
+  D:\IMVU-Music-Bot\app\main_window.py:3226:
+  D:\IMVU-Music-Bot\app\main_window.py:3227:
+  D:\IMVU-Music-Bot\app\main_window.py:3228:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 3302
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:3294:        public_layout.addWidget(
+  D:\IMVU-Music-Bot\app\main_window.py:3295:
+  D:\IMVU-Music-Bot\app\main_window.py:3296:
+  D:\IMVU-Music-Bot\app\main_window.py:3297:
+  D:\IMVU-Music-Bot\app\main_window.py:3298:
+  D:\IMVU-Music-Bot\app\main_window.py:3299:
+  D:\IMVU-Music-Bot\app\main_window.py:3300:
+  D:\IMVU-Music-Bot\app\main_window.py:3301:
+> D:\IMVU-Music-Bot\app\main_window.py:3302:            self.public_stream_input
+  D:\IMVU-Music-Bot\app\main_window.py:3303:
+  D:\IMVU-Music-Bot\app\main_window.py:3304:
+  D:\IMVU-Music-Bot\app\main_window.py:3305:
+  D:\IMVU-Music-Bot\app\main_window.py:3306:
+  D:\IMVU-Music-Bot\app\main_window.py:3307:
+  D:\IMVU-Music-Bot\app\main_window.py:3308:
+  D:\IMVU-Music-Bot\app\main_window.py:3309:
+  D:\IMVU-Music-Bot\app\main_window.py:3310:        )
+  D:\IMVU-Music-Bot\app\main_window.py:3311:
+  D:\IMVU-Music-Bot\app\main_window.py:3312:
+  D:\IMVU-Music-Bot\app\main_window.py:3313:
+  D:\IMVU-Music-Bot\app\main_window.py:3314:
+  D:\IMVU-Music-Bot\app\main_window.py:3315:
+  D:\IMVU-Music-Bot\app\main_window.py:3316:
+  D:\IMVU-Music-Bot\app\main_window.py:3317:
+  D:\IMVU-Music-Bot\app\main_window.py:3318:
+  D:\IMVU-Music-Bot\app\main_window.py:3319:
+  D:\IMVU-Music-Bot\app\main_window.py:3320:
+  D:\IMVU-Music-Bot\app\main_window.py:3321:
+  D:\IMVU-Music-Bot\app\main_window.py:3322:
+  D:\IMVU-Music-Bot\app\main_window.py:3323:
+  D:\IMVU-Music-Bot\app\main_window.py:3324:
+  D:\IMVU-Music-Bot\app\main_window.py:3325:
+  D:\IMVU-Music-Bot\app\main_window.py:3326:        public_layout.addWidget(
+  D:\IMVU-Music-Bot\app\main_window.py:3327:
+  D:\IMVU-Music-Bot\app\main_window.py:3328:
+  D:\IMVU-Music-Bot\app\main_window.py:3329:
+  D:\IMVU-Music-Bot\app\main_window.py:3330:
+  D:\IMVU-Music-Bot\app\main_window.py:3331:
+  D:\IMVU-Music-Bot\app\main_window.py:3332:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 9953
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:9945:
+  D:\IMVU-Music-Bot\app\main_window.py:9946:
+  D:\IMVU-Music-Bot\app\main_window.py:9947:
+  D:\IMVU-Music-Bot\app\main_window.py:9948:
+  D:\IMVU-Music-Bot\app\main_window.py:9949:
+  D:\IMVU-Music-Bot\app\main_window.py:9950:
+  D:\IMVU-Music-Bot\app\main_window.py:9951:
+  D:\IMVU-Music-Bot\app\main_window.py:9952:
+> D:\IMVU-Music-Bot\app\main_window.py:9953:            self.public_stream_input.clear()
+  D:\IMVU-Music-Bot\app\main_window.py:9954:
+  D:\IMVU-Music-Bot\app\main_window.py:9955:
+  D:\IMVU-Music-Bot\app\main_window.py:9956:
+  D:\IMVU-Music-Bot\app\main_window.py:9957:
+  D:\IMVU-Music-Bot\app\main_window.py:9958:
+  D:\IMVU-Music-Bot\app\main_window.py:9959:
+  D:\IMVU-Music-Bot\app\main_window.py:9960:
+  D:\IMVU-Music-Bot\app\main_window.py:9961:
+  D:\IMVU-Music-Bot\app\main_window.py:9962:
+  D:\IMVU-Music-Bot\app\main_window.py:9963:
+  D:\IMVU-Music-Bot\app\main_window.py:9964:
+  D:\IMVU-Music-Bot\app\main_window.py:9965:
+  D:\IMVU-Music-Bot\app\main_window.py:9966:
+  D:\IMVU-Music-Bot\app\main_window.py:9967:
+  D:\IMVU-Music-Bot\app\main_window.py:9968:
+  D:\IMVU-Music-Bot\app\main_window.py:9969:            self.public_stream_url = ""
+  D:\IMVU-Music-Bot\app\main_window.py:9970:
+  D:\IMVU-Music-Bot\app\main_window.py:9971:
+  D:\IMVU-Music-Bot\app\main_window.py:9972:
+  D:\IMVU-Music-Bot\app\main_window.py:9973:
+  D:\IMVU-Music-Bot\app\main_window.py:9974:
+  D:\IMVU-Music-Bot\app\main_window.py:9975:
+  D:\IMVU-Music-Bot\app\main_window.py:9976:
+  D:\IMVU-Music-Bot\app\main_window.py:9977:
+  D:\IMVU-Music-Bot\app\main_window.py:9978:
+  D:\IMVU-Music-Bot\app\main_window.py:9979:
+  D:\IMVU-Music-Bot\app\main_window.py:9980:
+  D:\IMVU-Music-Bot\app\main_window.py:9981:
+  D:\IMVU-Music-Bot\app\main_window.py:9982:
+  D:\IMVU-Music-Bot\app\main_window.py:9983:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 10617
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:10609:
+  D:\IMVU-Music-Bot\app\main_window.py:10610:
+  D:\IMVU-Music-Bot\app\main_window.py:10611:
+  D:\IMVU-Music-Bot\app\main_window.py:10612:
+  D:\IMVU-Music-Bot\app\main_window.py:10613:
+  D:\IMVU-Music-Bot\app\main_window.py:10614:
+  D:\IMVU-Music-Bot\app\main_window.py:10615:
+  D:\IMVU-Music-Bot\app\main_window.py:10616:
+> D:\IMVU-Music-Bot\app\main_window.py:10617:        self.public_stream_input.clear()
+  D:\IMVU-Music-Bot\app\main_window.py:10618:
+  D:\IMVU-Music-Bot\app\main_window.py:10619:
+  D:\IMVU-Music-Bot\app\main_window.py:10620:
+  D:\IMVU-Music-Bot\app\main_window.py:10621:
+  D:\IMVU-Music-Bot\app\main_window.py:10622:
+  D:\IMVU-Music-Bot\app\main_window.py:10623:
+  D:\IMVU-Music-Bot\app\main_window.py:10624:
+  D:\IMVU-Music-Bot\app\main_window.py:10625:
+  D:\IMVU-Music-Bot\app\main_window.py:10626:
+  D:\IMVU-Music-Bot\app\main_window.py:10627:
+  D:\IMVU-Music-Bot\app\main_window.py:10628:
+  D:\IMVU-Music-Bot\app\main_window.py:10629:
+  D:\IMVU-Music-Bot\app\main_window.py:10630:
+  D:\IMVU-Music-Bot\app\main_window.py:10631:
+  D:\IMVU-Music-Bot\app\main_window.py:10632:
+  D:\IMVU-Music-Bot\app\main_window.py:10633:        self.public_stream_url = ""
+  D:\IMVU-Music-Bot\app\main_window.py:10634:
+  D:\IMVU-Music-Bot\app\main_window.py:10635:
+  D:\IMVU-Music-Bot\app\main_window.py:10636:
+  D:\IMVU-Music-Bot\app\main_window.py:10637:
+  D:\IMVU-Music-Bot\app\main_window.py:10638:
+  D:\IMVU-Music-Bot\app\main_window.py:10639:
+  D:\IMVU-Music-Bot\app\main_window.py:10640:
+  D:\IMVU-Music-Bot\app\main_window.py:10641:
+  D:\IMVU-Music-Bot\app\main_window.py:10642:
+  D:\IMVU-Music-Bot\app\main_window.py:10643:
+  D:\IMVU-Music-Bot\app\main_window.py:10644:
+  D:\IMVU-Music-Bot\app\main_window.py:10645:
+  D:\IMVU-Music-Bot\app\main_window.py:10646:
+  D:\IMVU-Music-Bot\app\main_window.py:10647:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 10971
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:10963:        stream_url = str(stream_url or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:10964:
+  D:\IMVU-Music-Bot\app\main_window.py:10965:        if not stream_url:
+  D:\IMVU-Music-Bot\app\main_window.py:10966:            self.public_status.setText("Public Stream: Error")
+  D:\IMVU-Music-Bot\app\main_window.py:10967:            self.log("CLOUDFLARE ERROR: Validated tunnel returned an empty URL.")
+  D:\IMVU-Music-Bot\app\main_window.py:10968:            return
+  D:\IMVU-Music-Bot\app\main_window.py:10969:
+  D:\IMVU-Music-Bot\app\main_window.py:10970:        self.public_stream_url = stream_url
+> D:\IMVU-Music-Bot\app\main_window.py:10971:        self.public_stream_input.setText(stream_url)
+  D:\IMVU-Music-Bot\app\main_window.py:10972:        self.public_status.setText("Public Stream: Ready for IMVU")
+  D:\IMVU-Music-Bot\app\main_window.py:10973:
+  D:\IMVU-Music-Bot\app\main_window.py:10974:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:10975:            "Cloudflare public MP3 stream validated. "
+  D:\IMVU-Music-Bot\app\main_window.py:10976:            f"Updating IMVU immediately: {stream_url}"
+  D:\IMVU-Music-Bot\app\main_window.py:10977:        )
+  D:\IMVU-Music-Bot\app\main_window.py:10978:
+  D:\IMVU-Music-Bot\app\main_window.py:10979:        self.start_imvu_radio_update(stream_url)
+  D:\IMVU-Music-Bot\app\main_window.py:10980:
+  D:\IMVU-Music-Bot\app\main_window.py:10981:
+  D:\IMVU-Music-Bot\app\main_window.py:10982:    def start_imvu_radio_update(self, stream_url):
+  D:\IMVU-Music-Bot\app\main_window.py:10983:
+  D:\IMVU-Music-Bot\app\main_window.py:10984:
+  D:\IMVU-Music-Bot\app\main_window.py:10985:
+  D:\IMVU-Music-Bot\app\main_window.py:10986:
+  D:\IMVU-Music-Bot\app\main_window.py:10987:
+  D:\IMVU-Music-Bot\app\main_window.py:10988:
+  D:\IMVU-Music-Bot\app\main_window.py:10989:
+  D:\IMVU-Music-Bot\app\main_window.py:10990:        self.public_status.setText(
+  D:\IMVU-Music-Bot\app\main_window.py:10991:
+  D:\IMVU-Music-Bot\app\main_window.py:10992:
+  D:\IMVU-Music-Bot\app\main_window.py:10993:
+  D:\IMVU-Music-Bot\app\main_window.py:10994:            "Public Stream: Updating IMVU..."
+  D:\IMVU-Music-Bot\app\main_window.py:10995:
+  D:\IMVU-Music-Bot\app\main_window.py:10996:
+  D:\IMVU-Music-Bot\app\main_window.py:10997:
+  D:\IMVU-Music-Bot\app\main_window.py:10998:        )
+  D:\IMVU-Music-Bot\app\main_window.py:10999:
+  D:\IMVU-Music-Bot\app\main_window.py:11000:
+  D:\IMVU-Music-Bot\app\main_window.py:11001:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 11306
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:11298:
+  D:\IMVU-Music-Bot\app\main_window.py:11299:
+  D:\IMVU-Music-Bot\app\main_window.py:11300:
+  D:\IMVU-Music-Bot\app\main_window.py:11301:
+  D:\IMVU-Music-Bot\app\main_window.py:11302:
+  D:\IMVU-Music-Bot\app\main_window.py:11303:
+  D:\IMVU-Music-Bot\app\main_window.py:11304:
+  D:\IMVU-Music-Bot\app\main_window.py:11305:
+> D:\IMVU-Music-Bot\app\main_window.py:11306:        self.public_stream_input.clear()
+  D:\IMVU-Music-Bot\app\main_window.py:11307:
+  D:\IMVU-Music-Bot\app\main_window.py:11308:
+  D:\IMVU-Music-Bot\app\main_window.py:11309:
+  D:\IMVU-Music-Bot\app\main_window.py:11310:
+  D:\IMVU-Music-Bot\app\main_window.py:11311:
+  D:\IMVU-Music-Bot\app\main_window.py:11312:
+  D:\IMVU-Music-Bot\app\main_window.py:11313:
+  D:\IMVU-Music-Bot\app\main_window.py:11314:
+  D:\IMVU-Music-Bot\app\main_window.py:11315:
+  D:\IMVU-Music-Bot\app\main_window.py:11316:
+  D:\IMVU-Music-Bot\app\main_window.py:11317:
+  D:\IMVU-Music-Bot\app\main_window.py:11318:
+  D:\IMVU-Music-Bot\app\main_window.py:11319:
+  D:\IMVU-Music-Bot\app\main_window.py:11320:
+  D:\IMVU-Music-Bot\app\main_window.py:11321:
+  D:\IMVU-Music-Bot\app\main_window.py:11322:        self.public_status.setText(
+  D:\IMVU-Music-Bot\app\main_window.py:11323:
+  D:\IMVU-Music-Bot\app\main_window.py:11324:
+  D:\IMVU-Music-Bot\app\main_window.py:11325:
+  D:\IMVU-Music-Bot\app\main_window.py:11326:
+  D:\IMVU-Music-Bot\app\main_window.py:11327:
+  D:\IMVU-Music-Bot\app\main_window.py:11328:
+  D:\IMVU-Music-Bot\app\main_window.py:11329:
+  D:\IMVU-Music-Bot\app\main_window.py:11330:            "Public Stream: Stopped"
+  D:\IMVU-Music-Bot\app\main_window.py:11331:
+  D:\IMVU-Music-Bot\app\main_window.py:11332:
+  D:\IMVU-Music-Bot\app\main_window.py:11333:
+  D:\IMVU-Music-Bot\app\main_window.py:11334:
+  D:\IMVU-Music-Bot\app\main_window.py:11335:
+  D:\IMVU-Music-Bot\app\main_window.py:11336:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 11442
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:11434:
+  D:\IMVU-Music-Bot\app\main_window.py:11435:
+  D:\IMVU-Music-Bot\app\main_window.py:11436:
+  D:\IMVU-Music-Bot\app\main_window.py:11437:
+  D:\IMVU-Music-Bot\app\main_window.py:11438:
+  D:\IMVU-Music-Bot\app\main_window.py:11439:
+  D:\IMVU-Music-Bot\app\main_window.py:11440:
+  D:\IMVU-Music-Bot\app\main_window.py:11441:
+> D:\IMVU-Music-Bot\app\main_window.py:11442:        self.public_stream_input.clear()
+  D:\IMVU-Music-Bot\app\main_window.py:11443:
+  D:\IMVU-Music-Bot\app\main_window.py:11444:
+  D:\IMVU-Music-Bot\app\main_window.py:11445:
+  D:\IMVU-Music-Bot\app\main_window.py:11446:
+  D:\IMVU-Music-Bot\app\main_window.py:11447:
+  D:\IMVU-Music-Bot\app\main_window.py:11448:
+  D:\IMVU-Music-Bot\app\main_window.py:11449:
+  D:\IMVU-Music-Bot\app\main_window.py:11450:
+  D:\IMVU-Music-Bot\app\main_window.py:11451:
+  D:\IMVU-Music-Bot\app\main_window.py:11452:
+  D:\IMVU-Music-Bot\app\main_window.py:11453:
+  D:\IMVU-Music-Bot\app\main_window.py:11454:
+  D:\IMVU-Music-Bot\app\main_window.py:11455:
+  D:\IMVU-Music-Bot\app\main_window.py:11456:
+  D:\IMVU-Music-Bot\app\main_window.py:11457:
+  D:\IMVU-Music-Bot\app\main_window.py:11458:        self.public_status.setText(
+  D:\IMVU-Music-Bot\app\main_window.py:11459:
+  D:\IMVU-Music-Bot\app\main_window.py:11460:
+  D:\IMVU-Music-Bot\app\main_window.py:11461:
+  D:\IMVU-Music-Bot\app\main_window.py:11462:
+  D:\IMVU-Music-Bot\app\main_window.py:11463:
+  D:\IMVU-Music-Bot\app\main_window.py:11464:
+  D:\IMVU-Music-Bot\app\main_window.py:11465:
+  D:\IMVU-Music-Bot\app\main_window.py:11466:            "Public Stream: Error"
+  D:\IMVU-Music-Bot\app\main_window.py:11467:
+  D:\IMVU-Music-Bot\app\main_window.py:11468:
+  D:\IMVU-Music-Bot\app\main_window.py:11469:
+  D:\IMVU-Music-Bot\app\main_window.py:11470:
+  D:\IMVU-Music-Bot\app\main_window.py:11471:
+  D:\IMVU-Music-Bot\app\main_window.py:11472:
+
+============================================================
+PATTERN: public_stream_input
+LINE: 11898
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:11890:        url = (
+  D:\IMVU-Music-Bot\app\main_window.py:11891:
+  D:\IMVU-Music-Bot\app\main_window.py:11892:
+  D:\IMVU-Music-Bot\app\main_window.py:11893:
+  D:\IMVU-Music-Bot\app\main_window.py:11894:
+  D:\IMVU-Music-Bot\app\main_window.py:11895:
+  D:\IMVU-Music-Bot\app\main_window.py:11896:
+  D:\IMVU-Music-Bot\app\main_window.py:11897:
+> D:\IMVU-Music-Bot\app\main_window.py:11898:            self.public_stream_input
+  D:\IMVU-Music-Bot\app\main_window.py:11899:
+  D:\IMVU-Music-Bot\app\main_window.py:11900:
+  D:\IMVU-Music-Bot\app\main_window.py:11901:
+  D:\IMVU-Music-Bot\app\main_window.py:11902:
+  D:\IMVU-Music-Bot\app\main_window.py:11903:
+  D:\IMVU-Music-Bot\app\main_window.py:11904:
+  D:\IMVU-Music-Bot\app\main_window.py:11905:
+  D:\IMVU-Music-Bot\app\main_window.py:11906:            .text()
+  D:\IMVU-Music-Bot\app\main_window.py:11907:
+  D:\IMVU-Music-Bot\app\main_window.py:11908:
+  D:\IMVU-Music-Bot\app\main_window.py:11909:
+  D:\IMVU-Music-Bot\app\main_window.py:11910:
+  D:\IMVU-Music-Bot\app\main_window.py:11911:
+  D:\IMVU-Music-Bot\app\main_window.py:11912:
+  D:\IMVU-Music-Bot\app\main_window.py:11913:
+  D:\IMVU-Music-Bot\app\main_window.py:11914:            .strip()
+  D:\IMVU-Music-Bot\app\main_window.py:11915:
+  D:\IMVU-Music-Bot\app\main_window.py:11916:
+  D:\IMVU-Music-Bot\app\main_window.py:11917:
+  D:\IMVU-Music-Bot\app\main_window.py:11918:
+  D:\IMVU-Music-Bot\app\main_window.py:11919:
+  D:\IMVU-Music-Bot\app\main_window.py:11920:
+  D:\IMVU-Music-Bot\app\main_window.py:11921:
+  D:\IMVU-Music-Bot\app\main_window.py:11922:        )
+  D:\IMVU-Music-Bot\app\main_window.py:11923:
+  D:\IMVU-Music-Bot\app\main_window.py:11924:
+  D:\IMVU-Music-Bot\app\main_window.py:11925:
+  D:\IMVU-Music-Bot\app\main_window.py:11926:
+  D:\IMVU-Music-Bot\app\main_window.py:11927:
+  D:\IMVU-Music-Bot\app\main_window.py:11928:
+
+============================================================
+PATTERN: 8765
+LINE: 2886
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:2878:        self.local_stream_input = QLineEdit(
+  D:\IMVU-Music-Bot\app\main_window.py:2879:
+  D:\IMVU-Music-Bot\app\main_window.py:2880:
+  D:\IMVU-Music-Bot\app\main_window.py:2881:
+  D:\IMVU-Music-Bot\app\main_window.py:2882:
+  D:\IMVU-Music-Bot\app\main_window.py:2883:
+  D:\IMVU-Music-Bot\app\main_window.py:2884:
+  D:\IMVU-Music-Bot\app\main_window.py:2885:
+> D:\IMVU-Music-Bot\app\main_window.py:2886:            "http://127.0.0.1:8765/stream.mp3"
+  D:\IMVU-Music-Bot\app\main_window.py:2887:
+  D:\IMVU-Music-Bot\app\main_window.py:2888:
+  D:\IMVU-Music-Bot\app\main_window.py:2889:
+  D:\IMVU-Music-Bot\app\main_window.py:2890:
+  D:\IMVU-Music-Bot\app\main_window.py:2891:
+  D:\IMVU-Music-Bot\app\main_window.py:2892:
+  D:\IMVU-Music-Bot\app\main_window.py:2893:
+  D:\IMVU-Music-Bot\app\main_window.py:2894:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2895:
+  D:\IMVU-Music-Bot\app\main_window.py:2896:
+  D:\IMVU-Music-Bot\app\main_window.py:2897:
+  D:\IMVU-Music-Bot\app\main_window.py:2898:
+  D:\IMVU-Music-Bot\app\main_window.py:2899:
+  D:\IMVU-Music-Bot\app\main_window.py:2900:
+  D:\IMVU-Music-Bot\app\main_window.py:2901:
+  D:\IMVU-Music-Bot\app\main_window.py:2902:
+  D:\IMVU-Music-Bot\app\main_window.py:2903:
+  D:\IMVU-Music-Bot\app\main_window.py:2904:
+  D:\IMVU-Music-Bot\app\main_window.py:2905:
+  D:\IMVU-Music-Bot\app\main_window.py:2906:
+  D:\IMVU-Music-Bot\app\main_window.py:2907:
+  D:\IMVU-Music-Bot\app\main_window.py:2908:
+  D:\IMVU-Music-Bot\app\main_window.py:2909:
+  D:\IMVU-Music-Bot\app\main_window.py:2910:        self.local_stream_input.setReadOnly(
+  D:\IMVU-Music-Bot\app\main_window.py:2911:
+  D:\IMVU-Music-Bot\app\main_window.py:2912:
+  D:\IMVU-Music-Bot\app\main_window.py:2913:
+  D:\IMVU-Music-Bot\app\main_window.py:2914:
+  D:\IMVU-Music-Bot\app\main_window.py:2915:
+  D:\IMVU-Music-Bot\app\main_window.py:2916:
+
+============================================================
+PATTERN: 8765
+LINE: 9897
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:9889:                "Local stream available at: "
+  D:\IMVU-Music-Bot\app\main_window.py:9890:
+  D:\IMVU-Music-Bot\app\main_window.py:9891:
+  D:\IMVU-Music-Bot\app\main_window.py:9892:
+  D:\IMVU-Music-Bot\app\main_window.py:9893:
+  D:\IMVU-Music-Bot\app\main_window.py:9894:
+  D:\IMVU-Music-Bot\app\main_window.py:9895:
+  D:\IMVU-Music-Bot\app\main_window.py:9896:
+> D:\IMVU-Music-Bot\app\main_window.py:9897:                "http://127.0.0.1:8765/stream.mp3"
+  D:\IMVU-Music-Bot\app\main_window.py:9898:
+  D:\IMVU-Music-Bot\app\main_window.py:9899:
+  D:\IMVU-Music-Bot\app\main_window.py:9900:
+  D:\IMVU-Music-Bot\app\main_window.py:9901:
+  D:\IMVU-Music-Bot\app\main_window.py:9902:
+  D:\IMVU-Music-Bot\app\main_window.py:9903:
+  D:\IMVU-Music-Bot\app\main_window.py:9904:
+  D:\IMVU-Music-Bot\app\main_window.py:9905:            )
+  D:\IMVU-Music-Bot\app\main_window.py:9906:
+  D:\IMVU-Music-Bot\app\main_window.py:9907:
+  D:\IMVU-Music-Bot\app\main_window.py:9908:
+  D:\IMVU-Music-Bot\app\main_window.py:9909:
+  D:\IMVU-Music-Bot\app\main_window.py:9910:
+  D:\IMVU-Music-Bot\app\main_window.py:9911:
+  D:\IMVU-Music-Bot\app\main_window.py:9912:
+  D:\IMVU-Music-Bot\app\main_window.py:9913:
+  D:\IMVU-Music-Bot\app\main_window.py:9914:
+  D:\IMVU-Music-Bot\app\main_window.py:9915:
+  D:\IMVU-Music-Bot\app\main_window.py:9916:
+  D:\IMVU-Music-Bot\app\main_window.py:9917:
+  D:\IMVU-Music-Bot\app\main_window.py:9918:
+  D:\IMVU-Music-Bot\app\main_window.py:9919:
+  D:\IMVU-Music-Bot\app\main_window.py:9920:
+  D:\IMVU-Music-Bot\app\main_window.py:9921:            # -------------------------------------------------
+  D:\IMVU-Music-Bot\app\main_window.py:9922:
+  D:\IMVU-Music-Bot\app\main_window.py:9923:
+  D:\IMVU-Music-Bot\app\main_window.py:9924:
+  D:\IMVU-Music-Bot\app\main_window.py:9925:
+  D:\IMVU-Music-Bot\app\main_window.py:9926:
+  D:\IMVU-Music-Bot\app\main_window.py:9927:
+
+============================================================
+PATTERN: singleShot
+LINE: 1467
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:1459:
+  D:\IMVU-Music-Bot\app\main_window.py:1460:
+  D:\IMVU-Music-Bot\app\main_window.py:1461:
+  D:\IMVU-Music-Bot\app\main_window.py:1462:
+  D:\IMVU-Music-Bot\app\main_window.py:1463:        self.log("Application started.")
+  D:\IMVU-Music-Bot\app\main_window.py:1464:
+  D:\IMVU-Music-Bot\app\main_window.py:1465:        # First-run configuration.
+  D:\IMVU-Music-Bot\app\main_window.py:1466:        # Delay until the main window has completed setup.
+> D:\IMVU-Music-Bot\app\main_window.py:1467:        QTimer.singleShot(
+  D:\IMVU-Music-Bot\app\main_window.py:1468:            500,
+  D:\IMVU-Music-Bot\app\main_window.py:1469:            self.check_first_run_setup
+  D:\IMVU-Music-Bot\app\main_window.py:1470:        )
+  D:\IMVU-Music-Bot\app\main_window.py:1471:
+  D:\IMVU-Music-Bot\app\main_window.py:1472:
+  D:\IMVU-Music-Bot\app\main_window.py:1473:
+  D:\IMVU-Music-Bot\app\main_window.py:1474:
+  D:\IMVU-Music-Bot\app\main_window.py:1475:
+  D:\IMVU-Music-Bot\app\main_window.py:1476:
+  D:\IMVU-Music-Bot\app\main_window.py:1477:
+  D:\IMVU-Music-Bot\app\main_window.py:1478:
+  D:\IMVU-Music-Bot\app\main_window.py:1479:
+  D:\IMVU-Music-Bot\app\main_window.py:1480:
+  D:\IMVU-Music-Bot\app\main_window.py:1481:
+  D:\IMVU-Music-Bot\app\main_window.py:1482:
+  D:\IMVU-Music-Bot\app\main_window.py:1483:
+  D:\IMVU-Music-Bot\app\main_window.py:1484:
+  D:\IMVU-Music-Bot\app\main_window.py:1485:
+  D:\IMVU-Music-Bot\app\main_window.py:1486:    # =========================================================
+  D:\IMVU-Music-Bot\app\main_window.py:1487:
+  D:\IMVU-Music-Bot\app\main_window.py:1488:
+  D:\IMVU-Music-Bot\app\main_window.py:1489:
+  D:\IMVU-Music-Bot\app\main_window.py:1490:
+  D:\IMVU-Music-Bot\app\main_window.py:1491:
+  D:\IMVU-Music-Bot\app\main_window.py:1492:
+  D:\IMVU-Music-Bot\app\main_window.py:1493:
+  D:\IMVU-Music-Bot\app\main_window.py:1494:    # UI SETUP
+  D:\IMVU-Music-Bot\app\main_window.py:1495:
+  D:\IMVU-Music-Bot\app\main_window.py:1496:
+  D:\IMVU-Music-Bot\app\main_window.py:1497:
+
+============================================================
+PATTERN: timeout_ms
+LINE: 600
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:592:                    continue
+  D:\IMVU-Music-Bot\app\main_window.py:593:
+  D:\IMVU-Music-Bot\app\main_window.py:594:
+  D:\IMVU-Music-Bot\app\main_window.py:595:
+  D:\IMVU-Music-Bot\app\main_window.py:596:
+  D:\IMVU-Music-Bot\app\main_window.py:597:
+  D:\IMVU-Music-Bot\app\main_window.py:598:
+  D:\IMVU-Music-Bot\app\main_window.py:599:
+> D:\IMVU-Music-Bot\app\main_window.py:600:                result = controller.ensure_joined(timeout_ms=30000)
+  D:\IMVU-Music-Bot\app\main_window.py:601:
+  D:\IMVU-Music-Bot\app\main_window.py:602:
+  D:\IMVU-Music-Bot\app\main_window.py:603:
+  D:\IMVU-Music-Bot\app\main_window.py:604:
+  D:\IMVU-Music-Bot\app\main_window.py:605:
+  D:\IMVU-Music-Bot\app\main_window.py:606:
+  D:\IMVU-Music-Bot\app\main_window.py:607:
+  D:\IMVU-Music-Bot\app\main_window.py:608:                self.succeeded.emit(
+  D:\IMVU-Music-Bot\app\main_window.py:609:
+  D:\IMVU-Music-Bot\app\main_window.py:610:
+  D:\IMVU-Music-Bot\app\main_window.py:611:
+  D:\IMVU-Music-Bot\app\main_window.py:612:                    controller.get_room_url(),
+  D:\IMVU-Music-Bot\app\main_window.py:613:
+  D:\IMVU-Music-Bot\app\main_window.py:614:
+  D:\IMVU-Music-Bot\app\main_window.py:615:
+  D:\IMVU-Music-Bot\app\main_window.py:616:                    bool(result.get("clicked"))
+  D:\IMVU-Music-Bot\app\main_window.py:617:
+  D:\IMVU-Music-Bot\app\main_window.py:618:
+  D:\IMVU-Music-Bot\app\main_window.py:619:
+  D:\IMVU-Music-Bot\app\main_window.py:620:                )
+  D:\IMVU-Music-Bot\app\main_window.py:621:
+  D:\IMVU-Music-Bot\app\main_window.py:622:
+  D:\IMVU-Music-Bot\app\main_window.py:623:
+  D:\IMVU-Music-Bot\app\main_window.py:624:                return
+  D:\IMVU-Music-Bot\app\main_window.py:625:
+  D:\IMVU-Music-Bot\app\main_window.py:626:
+  D:\IMVU-Music-Bot\app\main_window.py:627:
+  D:\IMVU-Music-Bot\app\main_window.py:628:
+  D:\IMVU-Music-Bot\app\main_window.py:629:
+  D:\IMVU-Music-Bot\app\main_window.py:630:
+
+============================================================
+PATTERN: timeout_ms
+LINE: 738
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:730:                raise RuntimeError(
+  D:\IMVU-Music-Bot\app\main_window.py:731:
+  D:\IMVU-Music-Bot\app\main_window.py:732:                    "No IMVU room tab was found in the dedicated bot Chrome session."
+  D:\IMVU-Music-Bot\app\main_window.py:733:
+  D:\IMVU-Music-Bot\app\main_window.py:734:                )
+  D:\IMVU-Music-Bot\app\main_window.py:735:
+  D:\IMVU-Music-Bot\app\main_window.py:736:
+  D:\IMVU-Music-Bot\app\main_window.py:737:
+> D:\IMVU-Music-Bot\app\main_window.py:738:            controller.ensure_joined(timeout_ms=30000)
+  D:\IMVU-Music-Bot\app\main_window.py:739:
+  D:\IMVU-Music-Bot\app\main_window.py:740:            existing_count = controller.prime_chat_listener()
+  D:\IMVU-Music-Bot\app\main_window.py:741:
+  D:\IMVU-Music-Bot\app\main_window.py:742:            self.started_listening.emit(existing_count)
+  D:\IMVU-Music-Bot\app\main_window.py:743:
+  D:\IMVU-Music-Bot\app\main_window.py:744:
+  D:\IMVU-Music-Bot\app\main_window.py:745:
+  D:\IMVU-Music-Bot\app\main_window.py:746:            while not self._stop_requested:
+  D:\IMVU-Music-Bot\app\main_window.py:747:
+  D:\IMVU-Music-Bot\app\main_window.py:748:                messages = controller.wait_for_new_chat_messages(
+  D:\IMVU-Music-Bot\app\main_window.py:749:
+
+============================================================
+PATTERN: timeout_ms
+LINE: 750
+============================================================
+> D:\IMVU-Music-Bot\app\main_window.py:750:                    timeout_ms=750,
+  D:\IMVU-Music-Bot\app\main_window.py:751:
+  D:\IMVU-Music-Bot\app\main_window.py:752:                    poll_interval_ms=250,
+  D:\IMVU-Music-Bot\app\main_window.py:753:
+  D:\IMVU-Music-Bot\app\main_window.py:754:                )
+  D:\IMVU-Music-Bot\app\main_window.py:755:
+  D:\IMVU-Music-Bot\app\main_window.py:756:
+  D:\IMVU-Music-Bot\app\main_window.py:757:
+  D:\IMVU-Music-Bot\app\main_window.py:758:                for message in messages:
+  D:\IMVU-Music-Bot\app\main_window.py:759:
+  D:\IMVU-Music-Bot\app\main_window.py:760:                    if self._stop_requested:
+  D:\IMVU-Music-Bot\app\main_window.py:761:
+  D:\IMVU-Music-Bot\app\main_window.py:762:                        break
+  D:\IMVU-Music-Bot\app\main_window.py:763:
+  D:\IMVU-Music-Bot\app\main_window.py:764:                    username = (message.get("username") or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:765:
+  D:\IMVU-Music-Bot\app\main_window.py:766:                    chat_text = (message.get("message") or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:767:
+  D:\IMVU-Music-Bot\app\main_window.py:768:                    if username and chat_text:
+  D:\IMVU-Music-Bot\app\main_window.py:769:
+  D:\IMVU-Music-Bot\app\main_window.py:770:                        self.message_received.emit(username, chat_text)
+  D:\IMVU-Music-Bot\app\main_window.py:771:
+  D:\IMVU-Music-Bot\app\main_window.py:772:
+  D:\IMVU-Music-Bot\app\main_window.py:773:
+  D:\IMVU-Music-Bot\app\main_window.py:774:        except Exception as error:
+  D:\IMVU-Music-Bot\app\main_window.py:775:
+  D:\IMVU-Music-Bot\app\main_window.py:776:            if not self._stop_requested:
+  D:\IMVU-Music-Bot\app\main_window.py:777:
+  D:\IMVU-Music-Bot\app\main_window.py:778:                print(f"IMVU CHAT LISTENER ERROR: {error}")
+  D:\IMVU-Music-Bot\app\main_window.py:779:
+  D:\IMVU-Music-Bot\app\main_window.py:780:                self.failed.emit(str(error))
+
+============================================================
+PATTERN: timeout_ms
+LINE: 816
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:808:            controller.connect()
+  D:\IMVU-Music-Bot\app\main_window.py:809:
+  D:\IMVU-Music-Bot\app\main_window.py:810:            page = controller.find_imvu_room()
+  D:\IMVU-Music-Bot\app\main_window.py:811:            if not page:
+  D:\IMVU-Music-Bot\app\main_window.py:812:                raise RuntimeError(
+  D:\IMVU-Music-Bot\app\main_window.py:813:                    "No IMVU room tab was found in the dedicated bot Chrome session."
+  D:\IMVU-Music-Bot\app\main_window.py:814:                )
+  D:\IMVU-Music-Bot\app\main_window.py:815:
+> D:\IMVU-Music-Bot\app\main_window.py:816:            controller.ensure_joined(timeout_ms=30000)
+  D:\IMVU-Music-Bot\app\main_window.py:817:            controller.send_chat_message(self.message)
+  D:\IMVU-Music-Bot\app\main_window.py:818:
+  D:\IMVU-Music-Bot\app\main_window.py:819:            print(f"IMVU CHAT SEND: {self.message}")
+  D:\IMVU-Music-Bot\app\main_window.py:820:            self.succeeded.emit(self.message)
+  D:\IMVU-Music-Bot\app\main_window.py:821:
+  D:\IMVU-Music-Bot\app\main_window.py:822:        except Exception as error:
+  D:\IMVU-Music-Bot\app\main_window.py:823:            print(f"IMVU CHAT SEND ERROR: {error}")
+  D:\IMVU-Music-Bot\app\main_window.py:824:            self.failed.emit(self.message, str(error))
+  D:\IMVU-Music-Bot\app\main_window.py:825:
+  D:\IMVU-Music-Bot\app\main_window.py:826:        finally:
+  D:\IMVU-Music-Bot\app\main_window.py:827:            controller.disconnect()
+  D:\IMVU-Music-Bot\app\main_window.py:828:
+  D:\IMVU-Music-Bot\app\main_window.py:829:
+  D:\IMVU-Music-Bot\app\main_window.py:830:class MainWindow(QMainWindow):
+  D:\IMVU-Music-Bot\app\main_window.py:831:
+  D:\IMVU-Music-Bot\app\main_window.py:832:
+  D:\IMVU-Music-Bot\app\main_window.py:833:
+  D:\IMVU-Music-Bot\app\main_window.py:834:
+  D:\IMVU-Music-Bot\app\main_window.py:835:
+  D:\IMVU-Music-Bot\app\main_window.py:836:
+  D:\IMVU-Music-Bot\app\main_window.py:837:
+  D:\IMVU-Music-Bot\app\main_window.py:838:
+  D:\IMVU-Music-Bot\app\main_window.py:839:
+  D:\IMVU-Music-Bot\app\main_window.py:840:
+  D:\IMVU-Music-Bot\app\main_window.py:841:
+  D:\IMVU-Music-Bot\app\main_window.py:842:
+  D:\IMVU-Music-Bot\app\main_window.py:843:
+  D:\IMVU-Music-Bot\app\main_window.py:844:
+  D:\IMVU-Music-Bot\app\main_window.py:845:
+  D:\IMVU-Music-Bot\app\main_window.py:846:    def __init__(self):
+
+============================================================
+PATTERN: poll_interval_ms
+LINE: 752
+============================================================
+  D:\IMVU-Music-Bot\app\main_window.py:744:
+  D:\IMVU-Music-Bot\app\main_window.py:745:
+  D:\IMVU-Music-Bot\app\main_window.py:746:            while not self._stop_requested:
+  D:\IMVU-Music-Bot\app\main_window.py:747:
+  D:\IMVU-Music-Bot\app\main_window.py:748:                messages = controller.wait_for_new_chat_messages(
+  D:\IMVU-Music-Bot\app\main_window.py:749:
+  D:\IMVU-Music-Bot\app\main_window.py:750:                    timeout_ms=750,
+  D:\IMVU-Music-Bot\app\main_window.py:751:
+> D:\IMVU-Music-Bot\app\main_window.py:752:                    poll_interval_ms=250,
+  D:\IMVU-Music-Bot\app\main_window.py:753:
+  D:\IMVU-Music-Bot\app\main_window.py:754:                )
+  D:\IMVU-Music-Bot\app\main_window.py:755:
+  D:\IMVU-Music-Bot\app\main_window.py:756:
+  D:\IMVU-Music-Bot\app\main_window.py:757:
+  D:\IMVU-Music-Bot\app\main_window.py:758:                for message in messages:
+  D:\IMVU-Music-Bot\app\main_window.py:759:
+  D:\IMVU-Music-Bot\app\main_window.py:760:                    if self._stop_requested:
+  D:\IMVU-Music-Bot\app\main_window.py:761:
+  D:\IMVU-Music-Bot\app\main_window.py:762:                        break
+  D:\IMVU-Music-Bot\app\main_window.py:763:
+  D:\IMVU-Music-Bot\app\main_window.py:764:                    username = (message.get("username") or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:765:
+  D:\IMVU-Music-Bot\app\main_window.py:766:                    chat_text = (message.get("message") or "").strip()
+  D:\IMVU-Music-Bot\app\main_window.py:767:
+  D:\IMVU-Music-Bot\app\main_window.py:768:                    if username and chat_text:
+  D:\IMVU-Music-Bot\app\main_window.py:769:
+  D:\IMVU-Music-Bot\app\main_window.py:770:                        self.message_received.emit(username, chat_text)
+  D:\IMVU-Music-Bot\app\main_window.py:771:
+  D:\IMVU-Music-Bot\app\main_window.py:772:
+  D:\IMVU-Music-Bot\app\main_window.py:773:
+  D:\IMVU-Music-Bot\app\main_window.py:774:        except Exception as error:
+  D:\IMVU-Music-Bot\app\main_window.py:775:
+  D:\IMVU-Music-Bot\app\main_window.py:776:            if not self._stop_requested:
+  D:\IMVU-Music-Bot\app\main_window.py:777:
+  D:\IMVU-Music-Bot\app\main_window.py:778:                print(f"IMVU CHAT LISTENER ERROR: {error}")
+  D:\IMVU-Music-Bot\app\main_window.py:779:
+  D:\IMVU-Music-Bot\app\main_window.py:780:                self.failed.emit(str(error))
+  D:\IMVU-Music-Bot\app\main_window.py:781:
+  D:\IMVU-Music-Bot\app\main_window.py:782:        finally:

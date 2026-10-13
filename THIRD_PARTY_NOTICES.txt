@@ -1,0 +1,170 @@
+﻿CROWBOT 1.1.0
+THIRD-PARTY SOFTWARE NOTICES
+===============================================
+
+CrowBot includes or uses third-party open-source software.
+
+This document is provided for attribution and licensing
+information. The respective third-party projects retain all
+rights in their software.
+
+------------------------------------------------
+Qt / PySide6 / Shiboken6
+------------------------------------------------
+
+Components:
+    PySide6 6.11.2
+    Shiboken6 6.11.2
+    Qt 6 libraries distributed with PySide6
+
+Project:
+    Qt for Python / The Qt Project
+
+Licensing:
+    PySide6 and Shiboken6 are available under licensing
+    options including GNU Lesser General Public License
+    version 3 (LGPLv3), GNU General Public License options,
+    and commercial licensing from The Qt Company.
+
+    Individual Qt modules and bundled third-party components
+    may have additional licensing terms.
+
+Official licensing information:
+    https://www.qt.io/licensing/
+    https://doc.qt.io/qt-6/licensing.html
+    https://www.qt.io/development/open-source-lgpl-obligations
+
+------------------------------------------------
+FFmpeg
+------------------------------------------------
+
+Component:
+    FFmpeg 9.0.2
+    Gyan.dev Windows essentials build
+
+CrowBot distributes FFmpeg as a separate executable:
+    bin\ffmpeg.exe
+
+The bundled binary reports that it was configured with,
+among other options:
+
+    --enable-gpl
+    --enable-version3
+
+Accordingly, this particular FFmpeg build contains
+GPL-enabled components and is subject to the applicable
+GNU General Public License version 3 terms.
+
+FFmpeg is a separate third-party program. CrowBot invokes
+the FFmpeg executable for media processing.
+
+Official FFmpeg licensing information:
+    https://ffmpeg.org/legal.html
+    https://ffmpeg.org/doxygen/trunk/md_LICENSE.html
+
+FFmpeg source:
+    https://ffmpeg.org/download.html
+
+Windows build provider:
+    https://www.gyan.dev/ffmpeg/builds/
+
+------------------------------------------------
+cloudflared
+------------------------------------------------
+
+Component:
+    cloudflared 2026.9.3
+
+Project:
+    Cloudflare Tunnel client
+
+License:
+    Apache License 2.0
+
+CrowBot distributes cloudflared as a separate executable:
+    bin\cloudflared.exe
+
+Source:
+    https://github.com/cloudflare/cloudflared
+
+------------------------------------------------
+Playwright for Python
+------------------------------------------------
+
+Component:
+    Playwright for Python 1.63.0
+
+Copyright:
+    Microsoft Corporation and contributors
+
+License:
+    Apache License 2.0
+
+Source:
+    https://github.com/microsoft/playwright-python
+
+------------------------------------------------
+yt-dlp
+------------------------------------------------
+
+Component:
+    yt-dlp 2026.8.19
+
+License:
+    The main yt-dlp project is released under the Unlicense.
+
+yt-dlp incorporates or may use components having their own
+licenses. See the project's THIRD_PARTY_LICENSES.txt for
+additional information.
+
+Source:
+    https://github.com/yt-dlp/yt-dlp
+
+------------------------------------------------
+Requests
+------------------------------------------------
+
+Component:
+    Requests 2.34.2
+
+License:
+    Apache License 2.0
+
+Source:
+    https://github.com/psf/requests
+
+------------------------------------------------
+pyee
+------------------------------------------------
+
+Component:
+    pyee 13.0.1
+
+License:
+    MIT License
+
+Source:
+    https://github.com/jfhbrook/pyee
+
+------------------------------------------------
+Additional Python / Runtime Components
+------------------------------------------------
+
+The packaged application may contain additional Python
+runtime libraries and transitive dependencies required by
+CrowBot, PySide6, Playwright, yt-dlp, and other components.
+
+Those components remain subject to their respective
+copyright notices and license terms.
+
+------------------------------------------------
+No affiliation
+------------------------------------------------
+
+CrowBot is not endorsed by or affiliated with the
+third-party projects identified above merely because their
+software is used or distributed with CrowBot.
+
+===============================================
+END OF THIRD-PARTY NOTICES
+===============================================

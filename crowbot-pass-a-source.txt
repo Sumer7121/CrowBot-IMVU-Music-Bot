@@ -1,0 +1,1677 @@
+==================== COMMANDS.PY ====================
+from urllib.parse import urlparse
+
+from PySide6.QtCore import QObject, QThread, Signal, Slot
+
+from database.users import UserManager
+from music.resolver import MusicResolver
+from music.youtube_owned import YouTubeOwnedProvider
+
+
+# =============================================================
+# BACKGROUND MUSIC RESOLVER
+# =============================================================
+
+class MusicResolveWorker(QThread):
+
+    resolved = Signal(str, str, object)
+    failed = Signal(str, str, str)
+
+    def __init__(
+        self,
+        resolver,
+        query,
+        username,
+        parent=None,
+    ):
+        super().__init__(parent)
+
+        self.resolver = resolver
+        self.query = str(query or "").strip()
+        self.username = str(username or "").strip()
+
+    def run(self):
+
+        try:
+            print()
+            print(
+                "BACKGROUND MUSIC: "
+                f"Preparing '{self.query}' "
+                f"for {self.username}..."
+            )
+
+            result = self.resolver.resolve(
+                self.query,
+                requested_by=self.username,
+            )
+
+            if not result:
+                self.failed.emit(
+                    self.username,
+                    self.query,
+                    (
+                        "No playable tracks "
+                        f"found for: {self.query}"
+                    ),
+                )
+                return
+
+            self.resolved.emit(
+                self.username,
+                self.query,
+                result,
+            )
+
+        except Exception as error:
+
+            self.failed.emit(
+                self.username,
+                self.query,
+                str(error),
+            )
+
+
+# =============================================================
+# COMMAND HANDLER
+# =============================================================
+
+class CommandHandler(QObject):
+
+    # Emitted after a background !play request finishes.
+    #
+    # We will connect this to live IMVU output in the next stage.
+    async_response = Signal(str, str)
+
+    def __init__(
+        self,
+        music_controller,
+        user_manager=None,
+        prefix="!",
+    ):
+        super().__init__()
+
+        self.music_controller = music_controller
+
+        self.user_manager = (
+            user_manager
+            if user_manager
+            else UserManager()
+        )
+
+        self.prefix = prefix or "!"
+
+        # -----------------------------------------------------
+        # UNIFIED MUSIC RESOLVER
+        # -----------------------------------------------------
+
+        self.music_resolver = MusicResolver(
+            timeout=10,
+        )
+
+        # -----------------------------------------------------
+        # YOUTUBE SEARCH PROVIDER
+        # -----------------------------------------------------
+
+        self.youtube_search = YouTubeOwnedProvider()
+
+        # -----------------------------------------------------
+        # FIFO MUSIC PREPARATION
+        # -----------------------------------------------------
+        #
+        # Song requests are prepared one at a time.
+        #
+        # This prevents multiple yt-dlp / FFmpeg preparation
+        # jobs from running simultaneously and guarantees that
+        # requests enter MusicController in request order.
+        #
+        # Example:
+        #
+        #   Request A
+        #   Request B
+        #   Request C
+        #
+        # Preparation:
+        #
+        #   A -> B -> C
+        #
+        # Playback queue therefore remains:
+        #
+        #   A -> B -> C
+        #
+        self.music_prepare_queue = []
+        self.active_music_worker = None
+
+        # -----------------------------------------------------
+        # COMMANDS
+        # -----------------------------------------------------
+
+        self.commands = {
+            "play": self.play,
+            "ytsearch": self.ytsearch,
+            "queue": self.show_queue,
+            "nowplaying": self.now_playing,
+            "skip": self.skip,
+            "pause": self.pause,
+            "resume": self.resume,
+            "stop": self.stop,
+            "clear": self.clear,
+            "remove": self.remove,
+            "help": self.help,
+        }
+
+        self.permissions = {
+            "play": "User",
+            "ytsearch": "User",
+            "queue": "User",
+            "nowplaying": "User",
+            "help": "User",
+            "skip": "DJ",
+            "pause": "DJ",
+            "resume": "DJ",
+            "stop": "Moderator",
+            "remove": "Moderator",
+            "clear": "Moderator",
+        }
+
+    # =========================================================
+    # PREFIX
+    # =========================================================
+
+    def set_prefix(self, prefix):
+
+        prefix = str(prefix or "").strip()
+
+        if not prefix:
+            prefix = "!"
+
+        self.prefix = prefix
+
+    # =========================================================
+    # COMMAND HANDLER
+    # =========================================================
+
+    def handle(
+        self,
+        message,
+        username="Owner",
+    ):
+
+        if not message:
+            return "Empty command."
+
+        message = message.strip()
+
+        if not message.startswith(
+            self.prefix
+        ):
+            return None
+
+        command_text = (
+            message[len(self.prefix):]
+            .strip()
+        )
+
+        if not command_text:
+            return "Enter a command."
+
+        parts = command_text.split()
+
+        command = parts[0].lower()
+        arguments = parts[1:]
+
+        if command not in self.commands:
+
+            return (
+                f"Unknown command: "
+                f"{self.prefix}{command}"
+            )
+
+        required_role = (
+            self.permissions.get(
+                command,
+                "User",
+            )
+        )
+
+        if not self.user_manager.has_permission(
+            username,
+            required_role,
+        ):
+
+            user_role = (
+                self.user_manager.get_role(
+                    username
+                )
+            )
+
+            return (
+                f"Permission denied. "
+                f"{username} has role "
+                f"{user_role}, but "
+                f"{self.prefix}{command} "
+                f"requires {required_role}."
+            )
+
+        return self.commands[command](
+            arguments,
+            username,
+        )
+
+    # =========================================================
+    # URL VALIDATION
+    # =========================================================
+
+    def is_valid_url(
+        self,
+        url,
+    ):
+
+        try:
+
+            parsed = urlparse(url)
+
+            return (
+                parsed.scheme
+                in (
+                    "http",
+                    "https",
+                )
+                and bool(
+                    parsed.netloc
+                )
+            )
+
+        except Exception:
+            return False
+
+    # =========================================================
+    # PLAY
+    # =========================================================
+
+    def play(
+        self,
+        arguments,
+        username,
+    ):
+
+        if not arguments:
+
+            current = (
+                self.music_controller
+                .get_current_song()
+            )
+
+            if current:
+
+                title = current.get(
+                    "title",
+                    "Unknown",
+                )
+
+                return (
+                    f"Currently playing: "
+                    f"{title}"
+                )
+
+            return "Queue is empty."
+
+        first_argument = arguments[0]
+
+        # -----------------------------------------------------
+        # DIRECT URL
+        #
+        # Direct URLs do not require searching/downloading,
+        # so they remain immediate.
+        # -----------------------------------------------------
+
+        if self.is_valid_url(
+            first_argument
+        ):
+
+            url = first_argument
+
+            title = " ".join(
+                arguments[1:]
+            ).strip()
+
+            if not title:
+                title = url
+
+            track = {
+                "title": title,
+                "url": url,
+                "requested_by": username,
+                "source": "direct",
+            }
+
+            added = (
+                self.music_controller
+                .add_song(
+                    track
+                )
+            )
+
+            if not added:
+
+                return (
+                    "Could not add the track "
+                    "to the music queue."
+                )
+
+            current = (
+                self.music_controller
+                .get_current_song()
+            )
+
+            if current == track:
+
+                return (
+                    f"Now playing: "
+                    f"{title}"
+                )
+
+            return (
+                f"Added to queue: "
+                f"{title}"
+            )
+
+        # -----------------------------------------------------
+        # SEARCH QUERY
+        #
+        # yt-dlp resolution happens in a QThread.
+        # -----------------------------------------------------
+
+        query = " ".join(
+            arguments
+        ).strip()
+
+        if not query:
+
+            return (
+                f"Usage: {self.prefix}play "
+                "<song, artist, or URL>"
+            )
+
+        self.start_music_resolve(
+            query,
+            username,
+        )
+
+        # Return immediately.
+        #
+        # This means IMVU chat does not have to wait for
+        # yt-dlp search/download/FFmpeg preparation.
+        return (
+            f"Preparing: {query}"
+        )
+
+    # =========================================================
+    # START BACKGROUND MUSIC RESOLUTION
+    # =========================================================
+
+    def start_music_resolve(
+        self,
+        query,
+        username,
+    ):
+        """
+        Add a music request to the FIFO preparation queue.
+
+        Only one MusicResolveWorker is allowed to run at a time.
+        """
+
+        request = {
+            "query": str(query or "").strip(),
+            "username": str(username or "").strip(),
+        }
+
+        self.music_prepare_queue.append(
+            request
+        )
+
+        position = len(
+            self.music_prepare_queue
+        )
+
+        if self.active_music_worker is not None:
+            position += 1
+
+        print()
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            f"Queued {username}: {query}"
+        )
+
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            f"Preparation position: {position}"
+        )
+
+        self.start_next_music_resolve()
+
+    # =========================================================
+    # START NEXT FIFO REQUEST
+    # =========================================================
+
+    def start_next_music_resolve(
+        self,
+    ):
+        """
+        Start the next queued preparation request.
+
+        If a worker is already running, this method does nothing.
+        """
+
+        if self.active_music_worker is not None:
+            return
+
+        if not self.music_prepare_queue:
+
+            print()
+            print(
+                "BACKGROUND MUSIC FIFO: "
+                "Preparation queue is empty."
+            )
+
+            return
+
+        request = (
+            self.music_prepare_queue.pop(0)
+        )
+
+        query = request.get(
+            "query",
+            "",
+        )
+
+        username = request.get(
+            "username",
+            "",
+        )
+
+        worker = MusicResolveWorker(
+            self.music_resolver,
+            query,
+            username,
+            self,
+        )
+
+        self.active_music_worker = worker
+
+        worker.resolved.connect(
+            self.music_resolve_succeeded
+        )
+
+        worker.failed.connect(
+            self.music_resolve_failed
+        )
+
+        worker.finished.connect(
+            self.music_resolve_finished
+        )
+
+        print()
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            f"Starting {username}: {query}"
+        )
+
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            f"{len(self.music_prepare_queue)} "
+            "request(s) waiting after this one."
+        )
+
+        worker.start()
+
+    # =========================================================
+    # BACKGROUND MUSIC SUCCESS
+    # =========================================================
+
+    @Slot(str, str, object)
+    def music_resolve_succeeded(
+        self,
+        username,
+        query,
+        result,
+    ):
+
+        try:
+
+            track = dict(
+                result
+            )
+
+            track[
+                "requested_by"
+            ] = username
+
+            title = track.get(
+                "title",
+                "Unknown",
+            )
+
+            # This slot runs back on the CommandHandler / Qt
+            # thread, so MusicController remains on the main
+            # application side.
+            added = (
+                self.music_controller
+                .add_song(
+                    track
+                )
+            )
+
+            if not added:
+
+                response = (
+                    "Could not add the track "
+                    "to the music queue."
+                )
+
+                self.async_response.emit(
+                    username,
+                    response,
+                )
+
+                return
+
+            current = (
+                self.music_controller
+                .get_current_song()
+            )
+
+            if current == track:
+
+                response = (
+                    f"Now playing: "
+                    f"{title}"
+                )
+
+            else:
+
+                response = (
+                    f"Added to queue: "
+                    f"{title}"
+                )
+
+            print()
+            print(
+                "BACKGROUND MUSIC FIFO: "
+                f"{response}"
+            )
+
+            self.async_response.emit(
+                username,
+                response,
+            )
+
+        except Exception as error:
+
+            response = (
+                "Music preparation failed: "
+                f"{error}"
+            )
+
+            print()
+            print(
+                "BACKGROUND MUSIC FIFO ERROR: "
+                f"{error}"
+            )
+
+            self.async_response.emit(
+                username,
+                response,
+            )
+
+    # =========================================================
+    # BACKGROUND MUSIC FAILURE
+    # =========================================================
+
+    @Slot(str, str, str)
+    def music_resolve_failed(
+        self,
+        username,
+        query,
+        error,
+    ):
+
+        error = str(
+            error or ""
+        ).strip()
+
+        if error.startswith(
+            "No playable tracks found"
+        ):
+
+            response = error
+
+        else:
+
+            response = (
+                "Music search failed: "
+                f"{error}"
+            )
+
+        print()
+        print(
+            "BACKGROUND MUSIC FIFO ERROR: "
+            f"{query}: {error}"
+        )
+
+        self.async_response.emit(
+            username,
+            response,
+        )
+
+    # =========================================================
+    # FIFO WORKER FINISHED
+    # =========================================================
+
+    @Slot()
+    def music_resolve_finished(
+        self,
+    ):
+        """
+        Clean up the completed worker and automatically start
+        the next request in FIFO order.
+        """
+
+        worker = self.active_music_worker
+
+        self.active_music_worker = None
+
+        if worker is not None:
+            worker.deleteLater()
+
+        print()
+        print(
+            "BACKGROUND MUSIC FIFO: "
+            "Worker finished."
+        )
+
+        if self.music_prepare_queue:
+
+            print(
+                "BACKGROUND MUSIC FIFO: "
+                f"Starting next request. "
+                f"{len(self.music_prepare_queue)} "
+                "request(s) waiting."
+            )
+
+        self.start_next_music_resolve()
+    # =========================================================
+    # YOUTUBE SEARCH
+    # =========================================================
+
+    def ytsearch(
+        self,
+        arguments,
+        username,
+    ):
+
+        query = " ".join(
+            arguments
+        ).strip()
+
+        if not query:
+
+            return (
+                f"Usage: "
+                f"{self.prefix}ytsearch "
+                "<song or artist>"
+            )
+
+        print()
+        print(
+            "IMVU YTSEARCH: "
+            f"{username}: {query}"
+        )
+
+        try:
+
+            results = (
+                self.youtube_search
+                .search_candidates(
+                    query,
+                    limit=5,
+                )
+            )
+
+        except Exception as error:
+
+            print(
+                "IMVU YTSEARCH ERROR: "
+                f"{error}"
+            )
+
+            return (
+                "YouTube search failed: "
+                f"{error}"
+            )
+
+        if not results:
+
+            return (
+                "No YouTube results "
+                f"found for: {query}"
+            )
+
+        lines = [
+            f"YouTube results for "
+            f"{query}:"
+        ]
+
+        for number, result in enumerate(
+            results[:3],
+            start=1,
+        ):
+
+            title = result.get(
+                "title",
+                "Unknown",
+            )
+
+            channel = result.get(
+                "channel",
+                "Unknown",
+            )
+
+            video_id = result.get(
+                "id",
+                "",
+            )
+
+            lines.append(
+                f"{number}. {title} "
+                f"- {channel} "
+                f"[{video_id}]"
+            )
+
+        return "\n".join(
+            lines
+        )
+
+    # =========================================================
+    # QUEUE
+    # =========================================================
+
+    def show_queue(
+        self,
+        arguments,
+        username,
+    ):
+
+        queue = (
+            self.music_controller
+            .get_queue()
+        )
+
+        if not queue:
+            return "Queue is empty."
+
+        lines = []
+
+        for number, track in enumerate(
+            queue,
+            start=1,
+        ):
+
+            title = track.get(
+                "title",
+                "Unknown",
+            )
+
+            requester = track.get(
+                "requested_by",
+                "Unknown",
+            )
+
+            lines.append(
+                f"{number}. {title} "
+                f"(requested by "
+                f"{requester})"
+            )
+
+        return "\n".join(
+            lines
+        )
+
+    # =========================================================
+    # NOW PLAYING
+    # =========================================================
+
+    def now_playing(
+        self,
+        arguments,
+        username,
+    ):
+
+        song = (
+            self.music_controller
+            .get_current_song()
+        )
+
+        if song:
+
+            title = song.get(
+                "title",
+                "Unknown",
+            )
+
+            requester = song.get(
+                "requested_by",
+                "Unknown",
+            )
+
+            if (
+                self.music_controller
+                .queue
+                .is_paused
+            ):
+
+                return (
+                    f"Paused: {title} "
+                    f"(requested by "
+                    f"{requester})"
+                )
+
+            return (
+                f"Now playing: {title} "
+                f"(requested by "
+                f"{requester})"
+            )
+
+        return (
+            "Nothing is playing."
+        )
+
+    # =========================================================
+    # SKIP
+    # =========================================================
+
+    def skip(
+        self,
+        arguments,
+        username,
+    ):
+
+        if (
+            self.music_controller
+            .skip()
+        ):
+
+            song = (
+                self.music_controller
+                .get_current_song()
+            )
+
+            if song:
+
+                title = song.get(
+                    "title",
+                    "Unknown",
+                )
+
+                return (
+                    "Skipped. "
+                    f"Now playing: {title}"
+                )
+
+        return "Queue is empty."
+
+    # =========================================================
+    # PAUSE
+    # =========================================================
+
+    def pause(
+        self,
+        arguments,
+        username,
+    ):
+
+        if (
+            self.music_controller
+            .pause()
+        ):
+
+            return "Music paused."
+
+        return (
+            "Nothing is currently "
+            "playing."
+        )
+
+    # =========================================================
+    # RESUME
+    # =========================================================
+
+    def resume(
+        self,
+        arguments,
+        username,
+    ):
+
+        if (
+            self.music_controller
+            .resume()
+        ):
+
+            return "Music resumed."
+
+        return (
+            "Nothing is currently "
+            "playing."
+        )
+
+    # =========================================================
+    # STOP
+    # =========================================================
+
+    def stop(
+        self,
+        arguments,
+        username,
+    ):
+
+        self.music_controller.stop()
+
+        return "Music stopped."
+
+    # =========================================================
+    # CLEAR
+    # =========================================================
+
+    def clear(
+        self,
+        arguments,
+        username,
+    ):
+
+        self.music_controller.clear_queue()
+
+        return "Queue cleared."
+
+    # =========================================================
+    # REMOVE
+    # =========================================================
+
+    def remove(
+        self,
+        arguments,
+        username,
+    ):
+
+        if not arguments:
+
+            return (
+                "Usage: "
+                f"{self.prefix}remove "
+                "<number>"
+            )
+
+        try:
+
+            number = int(
+                arguments[0]
+            )
+
+        except ValueError:
+
+            return (
+                "Queue number must "
+                "be a number."
+            )
+
+        index = number - 1
+
+        song = (
+            self.music_controller
+            .remove_song(
+                index
+            )
+        )
+
+        if song:
+
+            title = song.get(
+                "title",
+                "Unknown",
+            )
+
+            return (
+                f"Removed: {title}"
+            )
+
+        return (
+            "Invalid queue number."
+        )
+
+    # =========================================================
+    # HELP
+    # =========================================================
+
+    def help(
+        self,
+        arguments,
+        username,
+    ):
+
+        return (
+            f"{self.prefix}play "
+            "<song/artist or URL>\n"
+
+            f"{self.prefix}ytsearch "
+            "<song/artist>\n"
+
+            f"{self.prefix}queue\n"
+
+            f"{self.prefix}nowplaying\n"
+
+            f"{self.prefix}skip\n"
+
+            f"{self.prefix}pause\n"
+
+            f"{self.prefix}resume\n"
+
+            f"{self.prefix}stop\n"
+
+            f"{self.prefix}remove "
+            "<number>\n"
+
+            f"{self.prefix}clear\n"
+
+            f"{self.prefix}help"
+        )
+
+
+
+
+==================== RADIO METHODS ====================
+    def media_button(self):
+
+
+
+    # =========================================================
+
+    # MEDIA / RADIO STREAMING
+
+    # =========================================================
+
+
+
+        return True
+
+        
+
+        send_button.click(timeout=timeout_ms)
+
+
+
+            )
+
+                "the message was entered."
+
+                "The IMVU SEND button remained disabled after "
+
+            raise RuntimeError(
+
+        if send_button.is_disabled():
+
+
+
+        self.page.wait_for_timeout(50)
+
+        chat_input.fill(message)
+
+
+
+            )
+
+                "The IMVU SEND button exists but is not visible."
+
+            raise RuntimeError(
+
+        if not send_button.is_visible():
+
+        send_button = send_button.first
+
+
+
+            )
+
+                "The IMVU SEND button was not found."
+
+            raise RuntimeError(
+
+        if send_button.count() == 0:
+
+        send_button = self.chat_send_button()
+
+
+
+            )
+
+                "The IMVU chat textarea exists but is not visible."
+
+            raise RuntimeError(
+
+        if not chat_input.is_visible():
+
+        chat_input = chat_input.first
+
+
+
+            )
+
+                "The IMVU chat textarea was not found."
+
+            raise RuntimeError(
+
+        if chat_input.count() == 0:
+
+        chat_input = self.chat_input()
+
+
+
+            )
+
+                "The IMVU chat message cannot be empty."
+
+            raise ValueError(
+
+        if not message:
+
+        message = str(message or "").strip()
+
+
+
+            )
+
+                "No IMVU room page has been selected."
+
+            raise RuntimeError(
+
+        if not self.page:
+
+    def send_chat_message(self, message, timeout_ms=5000):
+
+
+
+        return self.page.locator("button.btn-send")
+
+
+
+            )
+
+                "No IMVU room page has been selected."
+
+            raise RuntimeError(
+
+        if not self.page:
+
+    def chat_send_button(self):
+
+
+
+        )
+
+            'textarea[placeholder="Say something..."]'
+
+        return self.page.locator(
+
+
+
+            )
+
+                "No IMVU room page has been selected."
+
+            raise RuntimeError(
+
+        if not self.page:
+
+    def chat_input(self):
+
+
+
+    # =========================================================
+
+    # OUTBOUND CHAT
+
+    # =========================================================
+
+
+
+        return []
+
+
+
+            elapsed += wait_ms
+
+
+
+                break
+
+            except Exception:
+
+                self.page.wait_for_timeout(wait_ms)
+
+            try:
+
+
+
+                break
+
+            if wait_ms <= 0:
+
+
+
+            )
+
+                timeout_ms - elapsed,
+
+                poll_interval_ms,
+
+            wait_ms = min(
+
+
+
+                pass
+
+                # or closes. Keep the long-lived listener alive.
+
+                # IMVU can rebuild the room/chat DOM while Media opens
+
+            except Exception:
+
+                    return messages
+
+                if messages:
+
+                messages = self.get_new_chat_messages()
+
+            try:
+
+        while elapsed < timeout_ms:
+
+
+
+        elapsed = 0
+
+
+
+            )
+
+                "No IMVU room page has been selected."
+
+            raise RuntimeError(
+
+        if not self.page:
+
+        """
+
+        the Media panel is closed and chat becomes available again.
+
+        not as a listener failure. Polling resumes automatically when
+
+        An empty chat DOM is therefore treated as a temporary UI state,
+
+        Opening IMVU Media can temporarily remove/hide the chat DOM.
+
+
+
+        Poll for new external messages.
+
+        """
+
+    ):
+
+        poll_interval_ms=250,
+
+        timeout_ms=1000,
+
+        self,
+
+    def wait_for_new_chat_messages(
+
+
+
+        return new_messages
+
+
+
+            new_messages.append(message)
+
+
+
+                continue
+
+            if message.get("is_me"):
+
+
+
+            self.seen_chat_entries.add(signature)
+
+
+
+                continue
+
+            if signature in self.seen_chat_entries:
+
+
+
+                )
+
+                    ]
+
+                        message.get("message", ""),
+
+                        message.get("username", ""),
+
+                        message.get("timestamp", ""),
+
+                        message.get("user_id", ""),
+
+                    [
+
+                signature = "|".join(
+
+            else:
+
+                signature = entry_id
+
+            if entry_id:
+
+
+
+            entry_id = message.get("entry_id")
+
+        for message in messages:
+
+
+
+        new_messages = []
+
+        messages = self.get_visible_chat_messages(include_own=True)
+
+    def get_new_chat_messages(self):
+
+
+
+        return len(self.seen_chat_entries)
+
+
+
+                self.seen_chat_entries.add(entry_id)
+
+            if entry_id:
+
+            entry_id = message.get("entry_id")
+
+        for message in messages:
+
+
+
+        messages = self.get_visible_chat_messages(include_own=True)
+
+    def prime_chat_listener(self):
+
+
+==================== LIVE CHAT HANDLER ====================
+  D:\IMVU-Music-Bot\app\main_window.py:2295:
+  D:\IMVU-Music-Bot\app\main_window.py:2296:
+  D:\IMVU-Music-Bot\app\main_window.py:2297:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2298:
+  D:\IMVU-Music-Bot\app\main_window.py:2299:        # Background music completion responses
+> D:\IMVU-Music-Bot\app\main_window.py:2300:        self.command_handler.async_response.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:2301:            self.handle_async_command_response
+  D:\IMVU-Music-Bot\app\main_window.py:2302:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2303:
+  D:\IMVU-Music-Bot\app\main_window.py:2304:
+  D:\IMVU-Music-Bot\app\main_window.py:2305:
+  D:\IMVU-Music-Bot\app\main_window.py:2306:
+  D:\IMVU-Music-Bot\app\main_window.py:2307:
+  D:\IMVU-Music-Bot\app\main_window.py:2308:
+  D:\IMVU-Music-Bot\app\main_window.py:2309:
+  D:\IMVU-Music-Bot\app\main_window.py:2310:
+  D:\IMVU-Music-Bot\app\main_window.py:2311:
+  D:\IMVU-Music-Bot\app\main_window.py:2312:
+  D:\IMVU-Music-Bot\app\main_window.py:2313:
+  D:\IMVU-Music-Bot\app\main_window.py:2314:
+  D:\IMVU-Music-Bot\app\main_window.py:2315:
+  D:\IMVU-Music-Bot\app\main_window.py:2316:
+  D:\IMVU-Music-Bot\app\main_window.py:2317:
+  D:\IMVU-Music-Bot\app\main_window.py:2318:        # -----------------------------------------------------
+  D:\IMVU-Music-Bot\app\main_window.py:2319:
+  D:\IMVU-Music-Bot\app\main_window.py:2320:
+  D:\IMVU-Music-Bot\app\main_window.py:2321:
+  D:\IMVU-Music-Bot\app\main_window.py:2322:
+  D:\IMVU-Music-Bot\app\main_window.py:2323:
+  D:\IMVU-Music-Bot\app\main_window.py:2324:
+  D:\IMVU-Music-Bot\app\main_window.py:2325:
+  D:\IMVU-Music-Bot\app\main_window.py:2326:        # RADIO
+  D:\IMVU-Music-Bot\app\main_window.py:2327:
+  D:\IMVU-Music-Bot\app\main_window.py:2328:
+  D:\IMVU-Music-Bot\app\main_window.py:2329:
+  D:\IMVU-Music-Bot\app\main_window.py:2330:
+  D:\IMVU-Music-Bot\app\main_window.py:2331:
+  D:\IMVU-Music-Bot\app\main_window.py:2332:
+  D:\IMVU-Music-Bot\app\main_window.py:2333:
+  D:\IMVU-Music-Bot\app\main_window.py:2334:        # -----------------------------------------------------
+  D:\IMVU-Music-Bot\app\main_window.py:2335:
+  D:\IMVU-Music-Bot\app\main_window.py:2336:
+  D:\IMVU-Music-Bot\app\main_window.py:2337:
+  D:\IMVU-Music-Bot\app\main_window.py:2338:
+  D:\IMVU-Music-Bot\app\main_window.py:2339:
+  D:\IMVU-Music-Bot\app\main_window.py:2340:
+  D:\IMVU-Music-Bot\app\main_window.py:2341:
+  D:\IMVU-Music-Bot\app\main_window.py:2342:
+  D:\IMVU-Music-Bot\app\main_window.py:2343:
+  D:\IMVU-Music-Bot\app\main_window.py:2344:
+  D:\IMVU-Music-Bot\app\main_window.py:2345:
+  D:\IMVU-Music-Bot\app\main_window.py:2346:
+  D:\IMVU-Music-Bot\app\main_window.py:2347:
+  D:\IMVU-Music-Bot\app\main_window.py:2348:
+  D:\IMVU-Music-Bot\app\main_window.py:2349:
+  D:\IMVU-Music-Bot\app\main_window.py:2350:        self.start_radio_button.clicked.connect(
+  D:\IMVU-Music-Bot\app\main_window.py:2351:
+  D:\IMVU-Music-Bot\app\main_window.py:2352:
+  D:\IMVU-Music-Bot\app\main_window.py:2353:
+  D:\IMVU-Music-Bot\app\main_window.py:2354:
+  D:\IMVU-Music-Bot\app\main_window.py:2355:
+  D:\IMVU-Music-Bot\app\main_window.py:2356:
+  D:\IMVU-Music-Bot\app\main_window.py:2357:
+  D:\IMVU-Music-Bot\app\main_window.py:2358:            self.start_radio
+  D:\IMVU-Music-Bot\app\main_window.py:2359:
+  D:\IMVU-Music-Bot\app\main_window.py:2360:
+  D:\IMVU-Music-Bot\app\main_window.py:2361:
+  D:\IMVU-Music-Bot\app\main_window.py:2362:
+  D:\IMVU-Music-Bot\app\main_window.py:2363:
+  D:\IMVU-Music-Bot\app\main_window.py:2364:
+  D:\IMVU-Music-Bot\app\main_window.py:2365:
+  D:\IMVU-Music-Bot\app\main_window.py:2366:        )
+  D:\IMVU-Music-Bot\app\main_window.py:2367:
+  D:\IMVU-Music-Bot\app\main_window.py:2368:
+  D:\IMVU-Music-Bot\app\main_window.py:2369:
+  D:\IMVU-Music-Bot\app\main_window.py:2370:
+  D:\IMVU-Music-Bot\app\main_window.py:2371:
+  D:\IMVU-Music-Bot\app\main_window.py:2372:
+  D:\IMVU-Music-Bot\app\main_window.py:2373:
+  D:\IMVU-Music-Bot\app\main_window.py:2374:
+  D:\IMVU-Music-Bot\app\main_window.py:2375:
+  D:\IMVU-Music-Bot\app\main_window.py:2376:
+  D:\IMVU-Music-Bot\app\main_window.py:2377:
+  D:\IMVU-Music-Bot\app\main_window.py:2378:
+  D:\IMVU-Music-Bot\app\main_window.py:2379:
+  D:\IMVU-Music-Bot\app\main_window.py:2380:
+  D:\IMVU-Music-Bot\app\main_window.py:4857:
+  D:\IMVU-Music-Bot\app\main_window.py:4858:
+  D:\IMVU-Music-Bot\app\main_window.py:4859:
+  D:\IMVU-Music-Bot\app\main_window.py:4860:
+  D:\IMVU-Music-Bot\app\main_window.py:4861:
+> D:\IMVU-Music-Bot\app\main_window.py:4862:    def handle_imvu_error(
+  D:\IMVU-Music-Bot\app\main_window.py:4863:
+  D:\IMVU-Music-Bot\app\main_window.py:4864:
+  D:\IMVU-Music-Bot\app\main_window.py:4865:
+  D:\IMVU-Music-Bot\app\main_window.py:4866:
+  D:\IMVU-Music-Bot\app\main_window.py:4867:
+  D:\IMVU-Music-Bot\app\main_window.py:4868:
+  D:\IMVU-Music-Bot\app\main_window.py:4869:
+  D:\IMVU-Music-Bot\app\main_window.py:4870:        self,
+  D:\IMVU-Music-Bot\app\main_window.py:4871:
+  D:\IMVU-Music-Bot\app\main_window.py:4872:
+  D:\IMVU-Music-Bot\app\main_window.py:4873:
+  D:\IMVU-Music-Bot\app\main_window.py:4874:
+  D:\IMVU-Music-Bot\app\main_window.py:4875:
+  D:\IMVU-Music-Bot\app\main_window.py:4876:
+  D:\IMVU-Music-Bot\app\main_window.py:4877:
+  D:\IMVU-Music-Bot\app\main_window.py:4878:        message
+  D:\IMVU-Music-Bot\app\main_window.py:4879:
+  D:\IMVU-Music-Bot\app\main_window.py:4880:
+  D:\IMVU-Music-Bot\app\main_window.py:4881:
+  D:\IMVU-Music-Bot\app\main_window.py:4882:
+  D:\IMVU-Music-Bot\app\main_window.py:4883:
+  D:\IMVU-Music-Bot\app\main_window.py:4884:
+  D:\IMVU-Music-Bot\app\main_window.py:4885:
+  D:\IMVU-Music-Bot\app\main_window.py:4886:    ):
+  D:\IMVU-Music-Bot\app\main_window.py:4887:
+  D:\IMVU-Music-Bot\app\main_window.py:4888:
+  D:\IMVU-Music-Bot\app\main_window.py:4889:
+  D:\IMVU-Music-Bot\app\main_window.py:4890:
+  D:\IMVU-Music-Bot\app\main_window.py:4891:
+  D:\IMVU-Music-Bot\app\main_window.py:4892:
+  D:\IMVU-Music-Bot\app\main_window.py:4893:
+  D:\IMVU-Music-Bot\app\main_window.py:4894:
+  D:\IMVU-Music-Bot\app\main_window.py:4895:
+  D:\IMVU-Music-Bot\app\main_window.py:4896:
+  D:\IMVU-Music-Bot\app\main_window.py:4897:
+  D:\IMVU-Music-Bot\app\main_window.py:4898:
+  D:\IMVU-Music-Bot\app\main_window.py:4899:
+  D:\IMVU-Music-Bot\app\main_window.py:4900:
+  D:\IMVU-Music-Bot\app\main_window.py:4901:
+  D:\IMVU-Music-Bot\app\main_window.py:4902:        self.connection_status.setText(
+  D:\IMVU-Music-Bot\app\main_window.py:4903:
+  D:\IMVU-Music-Bot\app\main_window.py:4904:
+  D:\IMVU-Music-Bot\app\main_window.py:4905:
+  D:\IMVU-Music-Bot\app\main_window.py:4906:
+  D:\IMVU-Music-Bot\app\main_window.py:4907:
+  D:\IMVU-Music-Bot\app\main_window.py:4908:
+  D:\IMVU-Music-Bot\app\main_window.py:4909:
+  D:\IMVU-Music-Bot\app\main_window.py:4910:            "Error"
+  D:\IMVU-Music-Bot\app\main_window.py:4911:
+  D:\IMVU-Music-Bot\app\main_window.py:4912:
+  D:\IMVU-Music-Bot\app\main_window.py:4913:
+  D:\IMVU-Music-Bot\app\main_window.py:4914:
+  D:\IMVU-Music-Bot\app\main_window.py:4915:
+  D:\IMVU-Music-Bot\app\main_window.py:4916:
+  D:\IMVU-Music-Bot\app\main_window.py:4917:
+  D:\IMVU-Music-Bot\app\main_window.py:4918:        )
+  D:\IMVU-Music-Bot\app\main_window.py:4919:
+  D:\IMVU-Music-Bot\app\main_window.py:4920:
+  D:\IMVU-Music-Bot\app\main_window.py:4921:
+  D:\IMVU-Music-Bot\app\main_window.py:4922:
+  D:\IMVU-Music-Bot\app\main_window.py:4923:
+  D:\IMVU-Music-Bot\app\main_window.py:4924:
+  D:\IMVU-Music-Bot\app\main_window.py:4925:
+  D:\IMVU-Music-Bot\app\main_window.py:4926:
+  D:\IMVU-Music-Bot\app\main_window.py:4927:
+  D:\IMVU-Music-Bot\app\main_window.py:4928:
+  D:\IMVU-Music-Bot\app\main_window.py:4929:
+  D:\IMVU-Music-Bot\app\main_window.py:4930:
+  D:\IMVU-Music-Bot\app\main_window.py:4931:
+  D:\IMVU-Music-Bot\app\main_window.py:4932:
+  D:\IMVU-Music-Bot\app\main_window.py:4933:
+  D:\IMVU-Music-Bot\app\main_window.py:4934:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:4935:
+  D:\IMVU-Music-Bot\app\main_window.py:4936:
+  D:\IMVU-Music-Bot\app\main_window.py:4937:
+  D:\IMVU-Music-Bot\app\main_window.py:4938:
+  D:\IMVU-Music-Bot\app\main_window.py:4939:
+  D:\IMVU-Music-Bot\app\main_window.py:4940:
+  D:\IMVU-Music-Bot\app\main_window.py:4941:
+  D:\IMVU-Music-Bot\app\main_window.py:4942:            f"IMVU ERROR: {message}"
+  D:\IMVU-Music-Bot\app\main_window.py:4961:
+  D:\IMVU-Music-Bot\app\main_window.py:4962:
+  D:\IMVU-Music-Bot\app\main_window.py:4963:
+  D:\IMVU-Music-Bot\app\main_window.py:4964:
+  D:\IMVU-Music-Bot\app\main_window.py:4965:
+> D:\IMVU-Music-Bot\app\main_window.py:4966:    def handle_imvu_chat(
+  D:\IMVU-Music-Bot\app\main_window.py:4967:
+  D:\IMVU-Music-Bot\app\main_window.py:4968:
+  D:\IMVU-Music-Bot\app\main_window.py:4969:
+  D:\IMVU-Music-Bot\app\main_window.py:4970:
+  D:\IMVU-Music-Bot\app\main_window.py:4971:
+  D:\IMVU-Music-Bot\app\main_window.py:4972:
+  D:\IMVU-Music-Bot\app\main_window.py:4973:
+  D:\IMVU-Music-Bot\app\main_window.py:4974:        self,
+  D:\IMVU-Music-Bot\app\main_window.py:4975:
+  D:\IMVU-Music-Bot\app\main_window.py:4976:
+  D:\IMVU-Music-Bot\app\main_window.py:4977:
+  D:\IMVU-Music-Bot\app\main_window.py:4978:
+  D:\IMVU-Music-Bot\app\main_window.py:4979:
+  D:\IMVU-Music-Bot\app\main_window.py:4980:
+  D:\IMVU-Music-Bot\app\main_window.py:4981:
+  D:\IMVU-Music-Bot\app\main_window.py:4982:        username,
+  D:\IMVU-Music-Bot\app\main_window.py:4983:
+  D:\IMVU-Music-Bot\app\main_window.py:4984:
+  D:\IMVU-Music-Bot\app\main_window.py:4985:
+  D:\IMVU-Music-Bot\app\main_window.py:4986:
+  D:\IMVU-Music-Bot\app\main_window.py:4987:
+  D:\IMVU-Music-Bot\app\main_window.py:4988:
+  D:\IMVU-Music-Bot\app\main_window.py:4989:
+  D:\IMVU-Music-Bot\app\main_window.py:4990:        message
+  D:\IMVU-Music-Bot\app\main_window.py:4991:
+  D:\IMVU-Music-Bot\app\main_window.py:4992:
+  D:\IMVU-Music-Bot\app\main_window.py:4993:
+  D:\IMVU-Music-Bot\app\main_window.py:4994:
+  D:\IMVU-Music-Bot\app\main_window.py:4995:
+  D:\IMVU-Music-Bot\app\main_window.py:4996:
+  D:\IMVU-Music-Bot\app\main_window.py:4997:
+  D:\IMVU-Music-Bot\app\main_window.py:4998:    ):
+  D:\IMVU-Music-Bot\app\main_window.py:4999:
+  D:\IMVU-Music-Bot\app\main_window.py:5000:
+  D:\IMVU-Music-Bot\app\main_window.py:5001:
+  D:\IMVU-Music-Bot\app\main_window.py:5002:
+  D:\IMVU-Music-Bot\app\main_window.py:5003:
+  D:\IMVU-Music-Bot\app\main_window.py:5004:
+  D:\IMVU-Music-Bot\app\main_window.py:5005:
+  D:\IMVU-Music-Bot\app\main_window.py:5006:
+  D:\IMVU-Music-Bot\app\main_window.py:5007:
+  D:\IMVU-Music-Bot\app\main_window.py:5008:
+  D:\IMVU-Music-Bot\app\main_window.py:5009:
+  D:\IMVU-Music-Bot\app\main_window.py:5010:
+  D:\IMVU-Music-Bot\app\main_window.py:5011:
+  D:\IMVU-Music-Bot\app\main_window.py:5012:
+  D:\IMVU-Music-Bot\app\main_window.py:5013:
+  D:\IMVU-Music-Bot\app\main_window.py:5014:        self.log(
+  D:\IMVU-Music-Bot\app\main_window.py:5015:
+  D:\IMVU-Music-Bot\app\main_window.py:5016:
+  D:\IMVU-Music-Bot\app\main_window.py:5017:
+  D:\IMVU-Music-Bot\app\main_window.py:5018:
+  D:\IMVU-Music-Bot\app\main_window.py:5019:
+  D:\IMVU-Music-Bot\app\main_window.py:5020:
+  D:\IMVU-Music-Bot\app\main_window.py:5021:
+  D:\IMVU-Music-Bot\app\main_window.py:5022:            f"IMVU CHAT: "
+  D:\IMVU-Music-Bot\app\main_window.py:5023:
+  D:\IMVU-Music-Bot\app\main_window.py:5024:
+  D:\IMVU-Music-Bot\app\main_window.py:5025:
+  D:\IMVU-Music-Bot\app\main_window.py:5026:
+  D:\IMVU-Music-Bot\app\main_window.py:5027:
+  D:\IMVU-Music-Bot\app\main_window.py:5028:
+  D:\IMVU-Music-Bot\app\main_window.py:5029:
+  D:\IMVU-Music-Bot\app\main_window.py:5030:            f"{username}: "
+  D:\IMVU-Music-Bot\app\main_window.py:5031:
+  D:\IMVU-Music-Bot\app\main_window.py:5032:
+  D:\IMVU-Music-Bot\app\main_window.py:5033:
+  D:\IMVU-Music-Bot\app\main_window.py:5034:
+  D:\IMVU-Music-Bot\app\main_window.py:5035:
+  D:\IMVU-Music-Bot\app\main_window.py:5036:
+  D:\IMVU-Music-Bot\app\main_window.py:5037:
+  D:\IMVU-Music-Bot\app\main_window.py:5038:            f"{message}"
+  D:\IMVU-Music-Bot\app\main_window.py:5039:
+  D:\IMVU-Music-Bot\app\main_window.py:5040:
+  D:\IMVU-Music-Bot\app\main_window.py:5041:
+  D:\IMVU-Music-Bot\app\main_window.py:5042:
+  D:\IMVU-Music-Bot\app\main_window.py:5043:
+  D:\IMVU-Music-Bot\app\main_window.py:5044:
+  D:\IMVU-Music-Bot\app\main_window.py:5045:
+  D:\IMVU-Music-Bot\app\main_window.py:5046:        )

@@ -1,0 +1,838 @@
+﻿import json
+import shutil
+import subprocess
+import sys
+import threading
+import time
+
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import quote, unquote
+
+
+# =============================================================
+# CONFIGURATION
+# =============================================================
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+TEMP_DIR = PROJECT_ROOT / "data" / "youtube_temp"
+TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# -------------------------------------------------------------
+# TEMPORARY AUDIO SERVER
+# -------------------------------------------------------------
+
+HTTP_HOST = "127.0.0.1"
+HTTP_PORT = 8766
+
+
+# -------------------------------------------------------------
+# FFMPEG
+# -------------------------------------------------------------
+
+BUNDLED_FFMPEG = PROJECT_ROOT / "bin" / "ffmpeg.exe"
+
+if BUNDLED_FFMPEG.exists():
+    FFMPEG_DIR = BUNDLED_FFMPEG.parent
+else:
+    system_ffmpeg = shutil.which("ffmpeg")
+
+    if system_ffmpeg:
+        FFMPEG_DIR = Path(system_ffmpeg).parent
+    else:
+        FFMPEG_DIR = PROJECT_ROOT / "bin"
+
+
+# =============================================================
+# REUSABLE HTTP SERVER
+# =============================================================
+
+class ReusableHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+# =============================================================
+# YOUTUBE PROVIDER
+# =============================================================
+
+class YouTubeOwnedProvider:
+
+    def __init__(self):
+        self.http_server = None
+        self.http_thread = None
+
+        self.lock = threading.RLock()
+
+        self.track_info = {}
+        self.cleanup_started = set()
+
+        self._purge_old_temp_files()
+
+
+    # =========================================================
+    # YT-DLP COMMAND
+    # =========================================================
+
+    def _ytdlp(self):
+
+        executable = shutil.which("yt-dlp")
+
+        if executable:
+            return [executable]
+
+        return [
+            sys.executable,
+            "-m",
+            "yt_dlp",
+        ]
+
+
+    # =========================================================
+    # FAST YT-DLP SEARCH
+    # =========================================================
+
+    def search_candidates(
+        self,
+        query,
+        limit=10,
+    ):
+
+        query = str(query or "").strip()
+
+        if not query:
+            return []
+
+        print()
+        print("========================================")
+        print(f"YTDLP SEARCH: {query}")
+        print("========================================")
+
+        command = (
+            self._ytdlp()
+            + [
+                f"ytsearch{limit}:{query}",
+                "--flat-playlist",
+                "--dump-json",
+                "--skip-download",
+                "--no-warnings",
+                "--socket-timeout",
+                "15",
+            ]
+        )
+
+        try:
+            process = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=45,
+            )
+
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError(
+                "yt-dlp YouTube search timed out."
+            ) from error
+
+        if process.returncode != 0:
+            raise RuntimeError(
+                process.stderr.strip()
+                or "yt-dlp YouTube search failed."
+            )
+
+        results = []
+
+        for line in process.stdout.splitlines():
+
+            line = line.strip()
+
+            if not line:
+                continue
+
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            video_id = str(
+                data.get("id", "")
+            ).strip()
+
+            if not video_id:
+                continue
+
+            title = str(
+                data.get("title", "Unknown")
+            ).strip()
+
+            channel = str(
+                data.get("channel")
+                or data.get("uploader")
+                or "Unknown"
+            ).strip()
+
+            channel_id = str(
+                data.get("channel_id")
+                or data.get("uploader_id")
+                or ""
+            ).strip()
+
+            duration = data.get("duration", 0)
+
+            try:
+                duration = int(duration or 0)
+            except (TypeError, ValueError):
+                duration = 0
+
+            youtube_url = (
+                data.get("webpage_url")
+                or data.get("url")
+            )
+
+            if (
+                not youtube_url
+                or not str(youtube_url).startswith("http")
+            ):
+                youtube_url = (
+                    "https://www.youtube.com/"
+                    f"watch?v={video_id}"
+                )
+
+            results.append(
+                {
+                    "id": video_id,
+                    "title": title,
+                    "channel": channel,
+                    "channel_id": channel_id,
+                    "duration": duration,
+                    "youtube_url": youtube_url,
+                }
+            )
+
+        return results
+
+
+    # =========================================================
+    # GET EXACT VIDEO METADATA
+    # =========================================================
+
+    def _get_video_metadata(
+        self,
+        candidate,
+    ):
+
+        youtube_url = candidate["youtube_url"]
+
+        command = (
+            self._ytdlp()
+            + [
+                youtube_url,
+                "--skip-download",
+                "--no-playlist",
+                "--dump-single-json",
+                "--no-warnings",
+                "--socket-timeout",
+                "15",
+            ]
+        )
+
+        try:
+            process = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=45,
+            )
+
+        except subprocess.TimeoutExpired:
+            return None
+
+        if process.returncode != 0:
+            return None
+
+        try:
+            data = json.loads(process.stdout)
+        except json.JSONDecodeError:
+            return None
+
+        metadata = dict(candidate)
+
+        metadata["channel"] = str(
+            data.get("channel")
+            or data.get("uploader")
+            or candidate.get("channel", "Unknown")
+        ).strip()
+
+        metadata["channel_id"] = str(
+            data.get("channel_id")
+            or data.get("uploader_id")
+            or candidate.get("channel_id", "")
+        ).strip()
+
+        metadata["title"] = str(
+            data.get("title")
+            or candidate.get("title", "Unknown")
+        ).strip()
+
+        duration = (
+            data.get("duration")
+            or candidate.get("duration", 0)
+        )
+
+        try:
+            duration = int(duration or 0)
+        except (TypeError, ValueError):
+            duration = 0
+
+        metadata["duration"] = duration
+
+        return metadata
+
+
+    # =========================================================
+    # MAIN SEARCH
+    # =========================================================
+
+    def search(
+        self,
+        query,
+        requested_by=None,
+    ):
+
+        candidates = self.search_candidates(
+            query,
+            limit=10,
+        )
+
+        if not candidates:
+            return None
+
+        selected = None
+
+        for candidate in candidates:
+
+            metadata = self._get_video_metadata(
+                candidate
+            )
+
+            if not metadata:
+                continue
+
+            selected = metadata
+            break
+
+        if not selected:
+            return None
+
+        return self._prepare_track(
+            selected,
+            query,
+            requested_by,
+        )
+
+
+    # =========================================================
+    # PREPARE TRACK
+    # =========================================================
+
+    def _prepare_track(
+        self,
+        candidate,
+        query,
+        requested_by,
+    ):
+
+        video_id = candidate["id"]
+        title = candidate["title"]
+        channel = candidate["channel"]
+
+        duration = candidate.get(
+            "duration",
+            0,
+        )
+
+        youtube_url = candidate["youtube_url"]
+
+        print()
+        print("YTDLP: Preparing audio...")
+
+        mp3_path = self._download_mp3(
+            video_id,
+            youtube_url,
+        )
+
+        self._start_http_server()
+
+        self._register_track(
+            mp3_path,
+            duration,
+        )
+
+        local_url = self._build_local_url(
+            mp3_path
+        )
+
+        return {
+            "id": video_id,
+            "title": title,
+            "track_title": title,
+            "artist": channel,
+            "duration": duration,
+            "url": local_url,
+            "youtube_url": youtube_url,
+            "provider": "youtube",
+            "source": "youtube",
+            "search_query": query,
+            "requested_by": requested_by,
+            "temporary_file": str(mp3_path),
+        }
+
+
+    # =========================================================
+    # DOWNLOAD / CONVERT
+    # =========================================================
+
+    def _download_mp3(
+        self,
+        video_id,
+        youtube_url,
+    ):
+
+        final_mp3 = TEMP_DIR / f"{video_id}.mp3"
+
+        output_template = str(
+            TEMP_DIR / f"{video_id}.%(ext)s"
+        )
+
+        if final_mp3.exists():
+            try:
+                final_mp3.unlink()
+            except OSError:
+                pass
+
+        print()
+        print("YTDLP: Downloading audio...")
+
+        command = (
+            self._ytdlp()
+            + [
+                youtube_url,
+                "--extract-audio",
+                "--audio-format",
+                "mp3",
+                "--audio-quality",
+                "192K",
+                "--ffmpeg-location",
+                str(FFMPEG_DIR),
+                "--output",
+                output_template,
+                "--no-playlist",
+                "--no-warnings",
+            ]
+        )
+
+        try:
+            process = subprocess.run(
+                command,
+                timeout=600,
+            )
+
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError(
+                "yt-dlp audio download timed out."
+            ) from error
+
+        if process.returncode != 0:
+            raise RuntimeError(
+                "yt-dlp download or conversion failed."
+            )
+
+        if not final_mp3.exists():
+
+            candidates = list(
+                TEMP_DIR.glob(
+                    f"{video_id}*.mp3"
+                )
+            )
+
+            if candidates:
+                final_mp3 = candidates[0]
+
+        if not final_mp3.exists():
+            raise RuntimeError(
+                "MP3 was not created."
+            )
+
+        return final_mp3
+
+
+    # =========================================================
+    # TEMP HTTP SERVER :8766
+    # =========================================================
+
+    def _start_http_server(self):
+
+        with self.lock:
+
+            if self.http_server:
+                return
+
+            provider = self
+
+            class Handler(SimpleHTTPRequestHandler):
+
+                def __init__(
+                    self,
+                    *args,
+                    **kwargs,
+                ):
+                    super().__init__(
+                        *args,
+                        directory=str(TEMP_DIR),
+                        **kwargs,
+                    )
+
+                def log_message(
+                    self,
+                    format,
+                    *args,
+                ):
+                    print(
+                        "YOUTUBE HTTP:",
+                        format % args,
+                    )
+
+                def do_GET(self):
+
+                    filename = (
+                        self.path
+                        .split("?", 1)[0]
+                        .lstrip("/")
+                    )
+
+                    filename = unquote(
+                        filename
+                    )
+
+                    provider._file_requested(
+                        filename
+                    )
+
+                    try:
+                        super().do_GET()
+
+                    except (
+                        ConnectionAbortedError,
+                        ConnectionResetError,
+                        BrokenPipeError,
+                    ):
+                        pass
+
+            try:
+                self.http_server = ReusableHTTPServer(
+                    (
+                        HTTP_HOST,
+                        HTTP_PORT,
+                    ),
+                    Handler,
+                )
+
+            except OSError as error:
+                raise RuntimeError(
+                    "Could not start temporary "
+                    "YouTube server on port "
+                    f"{HTTP_PORT}. "
+                    "Close any old test server first. "
+                    f"{error}"
+                ) from error
+
+            self.http_thread = threading.Thread(
+                target=self.http_server.serve_forever,
+                daemon=True,
+                name="YouTubeTempHTTP",
+            )
+
+            self.http_thread.start()
+
+            print()
+            print(
+                "YTDLP: Temporary HTTP "
+                "server started:"
+            )
+
+            print(
+                f"http://{HTTP_HOST}:"
+                f"{HTTP_PORT}/"
+            )
+
+
+    # =========================================================
+    # LOCAL URL
+    # =========================================================
+
+    def _build_local_url(
+        self,
+        mp3_path,
+    ):
+
+        filename = quote(
+            Path(mp3_path).name
+        )
+
+        return (
+            f"http://{HTTP_HOST}:"
+            f"{HTTP_PORT}/"
+            f"{filename}"
+        )
+
+
+    # =========================================================
+    # TRACK REGISTRATION
+    # =========================================================
+
+    def _register_track(
+        self,
+        mp3_path,
+        duration,
+    ):
+
+        filename = Path(
+            mp3_path
+        ).name
+
+        with self.lock:
+
+            self.track_info[filename] = {
+                "path": Path(mp3_path),
+                "duration": int(
+                    duration or 0
+                ),
+            }
+
+
+    # =========================================================
+    # FILE REQUEST
+    # =========================================================
+
+    def _file_requested(
+        self,
+        filename,
+    ):
+
+        with self.lock:
+
+            info = self.track_info.get(
+                filename
+            )
+
+            if not info:
+                return
+
+            if filename in self.cleanup_started:
+                return
+
+            self.cleanup_started.add(
+                filename
+            )
+
+        threading.Thread(
+            target=self._cleanup_after_playback,
+            args=(
+                filename,
+                info["path"],
+                info["duration"],
+            ),
+            daemon=True,
+            name=(
+                "YouTubeCleanup-"
+                f"{filename}"
+            ),
+        ).start()
+
+
+    # =========================================================
+    # AUTOMATIC CLEANUP
+    # =========================================================
+
+    def _cleanup_after_playback(
+        self,
+        filename,
+        path,
+        duration,
+    ):
+
+        if duration > 0:
+            wait_seconds = duration + 60
+        else:
+            wait_seconds = 3600
+
+        print(
+            "YOUTUBE CLEANUP: "
+            f"{filename} scheduled "
+            f"in {wait_seconds}s."
+        )
+
+        time.sleep(wait_seconds)
+
+        deleted = False
+
+        # Windows may temporarily keep the file open.
+        # Retry for up to 12 minutes.
+        for attempt in range(1, 721):
+
+            try:
+
+                if not path.exists():
+                    deleted = True
+                    break
+
+                path.unlink()
+
+                print(
+                    "YOUTUBE CLEANUP: "
+                    f"Deleted {filename}"
+                )
+
+                deleted = True
+                break
+
+            except PermissionError:
+
+                if attempt == 1:
+                    print(
+                        "YOUTUBE CLEANUP: "
+                        f"{filename} is still in use. "
+                        "Waiting..."
+                    )
+
+                time.sleep(1)
+
+            except OSError as error:
+
+                print(
+                    "YOUTUBE CLEANUP: "
+                    f"Could not delete "
+                    f"{filename}: {error}"
+                )
+
+                time.sleep(1)
+
+        with self.lock:
+
+            self.track_info.pop(
+                filename,
+                None,
+            )
+
+            self.cleanup_started.discard(
+                filename
+            )
+
+        if not deleted and path.exists():
+
+            print(
+                "YOUTUBE CLEANUP: "
+                f"Giving up deleting "
+                f"{filename} for now."
+            )
+
+
+    # =========================================================
+    # PURGE OLD TEMP FILES
+    # =========================================================
+
+    def _purge_old_temp_files(
+        self,
+        max_age_seconds=21600,
+    ):
+
+        try:
+            now = time.time()
+
+            for path in TEMP_DIR.iterdir():
+
+                if not path.is_file():
+                    continue
+
+                try:
+                    age = (
+                        now
+                        - path.stat().st_mtime
+                    )
+
+                    if age >= max_age_seconds:
+                        path.unlink()
+
+                        print(
+                            "YOUTUBE CLEANUP: "
+                            f"Removed old temp file: "
+                            f"{path.name}"
+                        )
+
+                except OSError:
+                    pass
+
+        except OSError:
+            pass
+
+
+    # =========================================================
+    # MANUAL CLEANUP
+    # =========================================================
+
+    def cleanup(self):
+
+        print()
+        print(
+            "YTDLP: Cleaning temporary "
+            "YouTube provider..."
+        )
+
+        with self.lock:
+
+            server = self.http_server
+
+            self.http_server = None
+            self.http_thread = None
+
+        if server:
+
+            try:
+                server.shutdown()
+            except Exception:
+                pass
+
+            try:
+                server.server_close()
+            except Exception:
+                pass
+
+        print(
+            "YTDLP: Temporary server stopped."
+        )
+
+
+    # =========================================================
+    # CLOSE
+    # =========================================================
+
+    def close(self):
+        self.cleanup()
+
+
+    # =========================================================
+    # DESTRUCTOR
+    # =========================================================
+
+    def __del__(self):
+
+        try:
+            self.cleanup()
+        except Exception:
+            pass

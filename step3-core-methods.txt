@@ -1,0 +1,1090 @@
+
+============================================================
+SIGNAL CONNECTIONS
+LINES 6200 - 6280
+============================================================
+6200: 
+6201: 
+6202: 
+6203: 
+6204: 
+6205: 
+6206:     def connect_signals(self):
+6207: 
+6208: 
+6209: 
+6210: 
+6211: 
+6212: 
+6213: 
+6214: 
+6215: 
+6216: 
+6217: 
+6218: 
+6219: 
+6220: 
+6221: 
+6222:         # -----------------------------------------------------
+6223: 
+6224: 
+6225: 
+6226: 
+6227: 
+6228: 
+6229: 
+6230:         # IMVU
+6231: 
+6232: 
+6233: 
+6234: 
+6235: 
+6236: 
+6237: 
+6238:         # -----------------------------------------------------
+6239: 
+6240: 
+6241: 
+6242: 
+6243: 
+6244: 
+6245: 
+6246: 
+6247: 
+6248: 
+6249: 
+6250: 
+6251: 
+6252: 
+6253: 
+6254:         self.connect_button.clicked.connect(
+6255: 
+6256: 
+6257: 
+6258: 
+6259: 
+6260: 
+6261: 
+6262:             self.connect_imvu
+6263: 
+6264: 
+6265: 
+6266: 
+6267: 
+6268: 
+6269: 
+6270:         )
+6271: 
+6272: 
+6273: 
+6274: 
+6275: 
+6276: 
+6277: 
+6278: 
+6279: 
+6280: 
+
+============================================================
+CONNECT + AUTO JOIN
+LINES 8171 - 8405
+============================================================
+8171:     def connect_imvu(self):
+8172:         username = self.username_input.text().strip()
+8173:         room_id = self.room_input.text().strip()
+8174: 
+8175:         if not room_id:
+8176:             QMessageBox.warning(
+8177:                 self,
+8178:                 "Missing Room ID",
+8179:                 "Enter an IMVU Room ID, for example 379262025-7.",
+8180:             )
+8181:             return
+8182: 
+8183:         raw_room = room_id.strip()
+8184: 
+8185:         if "/room-" in raw_room:
+8186:             room_id = raw_room.split("/room-", 1)[1]
+8187:             room_id = room_id.split("/", 1)[0]
+8188:             room_id = room_id.split("?", 1)[0]
+8189:             room_id = room_id.split("#", 1)[0]
+8190:         else:
+8191:             room_id = raw_room.strip("/")
+8192:             if room_id.startswith("room-"):
+8193:                 room_id = room_id[5:]
+8194: 
+8195:         room_id = room_id.strip()
+8196: 
+8197:         if not room_id:
+8198:             QMessageBox.warning(
+8199:                 self,
+8200:                 "Invalid Room ID",
+8201:                 "Enter a valid IMVU Room ID, for example 379262025-7.",
+8202:             )
+8203:             return
+8204: 
+8205:         room_url = f"https://www.imvu.com/next/chat/room-{room_id}/"
+8206:         self.room_input.setText(room_id)
+8207: 
+8208:         try:
+8209:             self.stop_imvu_chat_listener()
+8210: 
+8211:             self.connection_status.setText("Opening Bot Chrome...")
+8212:             self.client_status.setText("Client: Dedicated Chrome (CDP)")
+8213: 
+8214:             self._ensure_dedicated_bot_chrome()
+8215:             opened_url = self._open_room_in_dedicated_chrome(room_url)
+8216: 
+8217:             self.connection_status.setText("IMVU Opened")
+8218:             self.client_status.setText("Client: Dedicated Chrome (CDP)")
+8219: 
+8220:             self.log(
+8221:                 "Opened IMVU using dedicated bot Chrome. "
+8222:                 f"Bot username setting: {username or 'Not set'}. "
+8223:                 f"Room ID: {room_id}."
+8224:             )
+8225:             self.log(f"Opened IMVU room: {opened_url or room_url}")
+8226: 
+8227:             self.start_imvu_auto_join()
+8228: 
+8229:         except Exception as error:
+8230:             self.connection_status.setText("Error")
+8231:             self.client_status.setText("Client: Dedicated Chrome (CDP)")
+8232:             self.log(f"IMVU CLIENT ERROR: {error}")
+8233:             QMessageBox.warning(
+8234:                 self,
+8235:                 "IMVU Client Error",
+8236:                 str(error),
+8237:             )
+8238: 
+8239: 
+8240:     def start_imvu_auto_join(self):
+8241: 
+8242: 
+8243: 
+8244:         self.connection_status.setText("Joining Room...")
+8245: 
+8246: 
+8247: 
+8248:         self.log("IMVU: Starting automatic room join...")
+8249: 
+8250: 
+8251: 
+8252: 
+8253: 
+8254: 
+8255: 
+8256:         worker = IMVUJoinWorker(self)
+8257: 
+8258: 
+8259: 
+8260: 
+8261: 
+8262: 
+8263: 
+8264:         worker.succeeded.connect(
+8265: 
+8266: 
+8267: 
+8268:             self.imvu_auto_join_succeeded
+8269: 
+8270: 
+8271: 
+8272:         )
+8273: 
+8274: 
+8275: 
+8276:         worker.failed.connect(
+8277: 
+8278: 
+8279: 
+8280:             self.imvu_auto_join_failed
+8281: 
+8282: 
+8283: 
+8284:         )
+8285: 
+8286: 
+8287: 
+8288:         worker.finished.connect(
+8289: 
+8290: 
+8291: 
+8292:             lambda w=worker: self.cleanup_imvu_join_worker(w)
+8293: 
+8294: 
+8295: 
+8296:         )
+8297: 
+8298: 
+8299: 
+8300: 
+8301: 
+8302: 
+8303: 
+8304:         self.imvu_join_workers.append(worker)
+8305: 
+8306: 
+8307: 
+8308:         worker.start()
+8309: 
+8310: 
+8311: 
+8312: 
+8313: 
+8314: 
+8315: 
+8316: 
+8317: 
+8318: 
+8319: 
+8320:     def cleanup_imvu_join_worker(self, worker):
+8321: 
+8322: 
+8323: 
+8324:         if worker in self.imvu_join_workers:
+8325: 
+8326: 
+8327: 
+8328:             self.imvu_join_workers.remove(worker)
+8329: 
+8330: 
+8331: 
+8332: 
+8333: 
+8334: 
+8335: 
+8336:         worker.deleteLater()
+8337: 
+8338: 
+8339: 
+8340: 
+8341: 
+8342: 
+8343: 
+8344: 
+8345: 
+8346: 
+8347: 
+8348:     def imvu_auto_join_succeeded(self, room_url, clicked):
+8349: 
+8350: 
+8351: 
+8352:         self.connection_status.setText("Joined Room")
+8353: 
+8354: 
+8355: 
+8356: 
+8357: 
+8358: 
+8359: 
+8360:         if clicked:
+8361: 
+8362: 
+8363: 
+8364:             self.log(
+8365: 
+8366: 
+8367: 
+8368:                 f"IMVU: Automatically joined room: {room_url}"
+8369: 
+8370: 
+8371: 
+8372:             )
+8373: 
+8374: 
+8375: 
+8376:         else:
+8377: 
+8378: 
+8379: 
+8380:             self.log(
+8381: 
+8382: 
+8383: 
+8384:                 f"IMVU: Room already joined: {room_url}"
+8385: 
+8386: 
+8387: 
+8388:             )
+8389: 
+8390: 
+8391: 
+8392:         self.start_imvu_chat_listener()
+8393: 
+8394: 
+8395: 
+8396: 
+8397: 
+8398:     def imvu_auto_join_failed(self, message):
+8399: 
+8400: 
+8401: 
+8402:         self.connection_status.setText("Join Failed")
+8403: 
+8404: 
+8405: 
+
+============================================================
+CHAT LISTENER + DISCONNECT
+LINES 8454 - 8568
+============================================================
+8454:     def start_imvu_chat_listener(self):
+8455: 
+8456:         if self.imvu_chat_worker is not None and self.imvu_chat_worker.isRunning():
+8457: 
+8458:             self.log("IMVU CHAT: Listener is already running.")
+8459: 
+8460:             return
+8461: 
+8462: 
+8463: 
+8464:         self.log("IMVU CHAT: Starting live room listener...")
+8465: 
+8466:         worker = IMVUChatWorker(self)
+8467: 
+8468:         self.imvu_chat_worker = worker
+8469: 
+8470:         worker.message_received.connect(self.receive_live_imvu_chat)
+8471: 
+8472:         worker.started_listening.connect(self.imvu_chat_listener_started)
+8473: 
+8474:         worker.failed.connect(self.imvu_chat_listener_failed)
+8475: 
+8476:         worker.finished.connect(self.imvu_chat_listener_finished)
+8477: 
+8478:         worker.start()
+8479: 
+8480: 
+8481: 
+8482:     def stop_imvu_chat_listener(self, wait_ms=3000):
+8483: 
+8484:         worker = self.imvu_chat_worker
+8485: 
+8486:         if worker is None:
+8487: 
+8488:             return
+8489: 
+8490:         if worker.isRunning():
+8491: 
+8492:             worker.stop()
+8493: 
+8494:             worker.wait(wait_ms)
+8495: 
+8496:         if not worker.isRunning():
+8497: 
+8498:             worker.deleteLater()
+8499: 
+8500:             self.imvu_chat_worker = None
+8501: 
+8502: 
+8503: 
+8504:     def imvu_chat_listener_started(self, existing_count):
+8505: 
+8506:         self.log(
+8507: 
+8508:             "IMVU CHAT: Live listener active. "
+8509: 
+8510:             f"Ignoring {existing_count} existing chat entries."
+8511: 
+8512:         )
+8513: 
+8514: 
+8515: 
+8516:     def imvu_chat_listener_failed(self, message):
+8517: 
+8518:         self.log(f"IMVU CHAT LISTENER ERROR: {message}")
+8519: 
+8520: 
+8521: 
+8522:     def imvu_chat_listener_finished(self):
+8523: 
+8524:         worker = self.imvu_chat_worker
+8525: 
+8526:         if worker is not None and not worker.isRunning():
+8527: 
+8528:             worker.deleteLater()
+8529: 
+8530:             self.imvu_chat_worker = None
+8531: 
+8532: 
+8533: 
+8534:     def receive_live_imvu_chat(self, username, message):
+8535:         """
+8536:         Process a live IMVU chat message.
+8537: 
+8538:         The shared IMVU command handler controls the MusicController,
+8539:         queue, and RadioStreamServer.
+8540: 
+8541:         The public Cloudflare stream is a persistent station URL.
+8542:         Song changes happen internally and must NOT restart the radio
+8543:         transport or reload the IMVU Radio Streaming URL.
+8544:         """
+8545:         self._processing_live_imvu_chat = True
+8546: 
+8547:         try:
+8548:             self.imvu_manager.receive_chat(username, message)
+8549:         finally:
+8550:             self._processing_live_imvu_chat = False
+8551: 
+8552:     def disconnect_imvu(self):
+8553: 
+8554: 
+8555: 
+8556:         self.stop_imvu_chat_listener()
+8557: 
+8558: 
+8559: 
+8560: 
+8561: 
+8562: 
+8563: 
+8564:         # The official IMVU client/browser owns the login session.
+8565: 
+8566: 
+8567: 
+8568:         # We only clear this application's displayed client status.
+
+============================================================
+START RADIO - BEGINNING
+LINES 9401 - 9525
+============================================================
+9401:     def start_radio(self):
+9402: 
+9403: 
+9404: 
+9405: 
+9406: 
+9407: 
+9408: 
+9409: 
+9410: 
+9411: 
+9412: 
+9413: 
+9414: 
+9415: 
+9416: 
+9417:         url = (
+9418: 
+9419: 
+9420: 
+9421: 
+9422: 
+9423: 
+9424: 
+9425:             self.radio_url_input
+9426: 
+9427: 
+9428: 
+9429: 
+9430: 
+9431: 
+9432: 
+9433:             .text()
+9434: 
+9435: 
+9436: 
+9437: 
+9438: 
+9439: 
+9440: 
+9441:             .strip()
+9442: 
+9443: 
+9444: 
+9445: 
+9446: 
+9447: 
+9448: 
+9449:         )
+9450: 
+9451: 
+9452: 
+9453: 
+9454: 
+9455: 
+9456: 
+9457: 
+9458: 
+9459: 
+9460: 
+9461: 
+9462: 
+9463: 
+9464: 
+9465:         if not url:
+9466: 
+9467: 
+9468: 
+9469: 
+9470: 
+9471: 
+9472: 
+9473: 
+9474: 
+9475: 
+9476: 
+9477: 
+9478: 
+9479: 
+9480: 
+9481:             QMessageBox.warning(
+9482: 
+9483: 
+9484: 
+9485: 
+9486: 
+9487: 
+9488: 
+9489:                 self,
+9490: 
+9491: 
+9492: 
+9493: 
+9494: 
+9495: 
+9496: 
+9497:                 "Missing URL",
+9498: 
+9499: 
+9500: 
+9501: 
+9502: 
+9503: 
+9504: 
+9505:                 "Enter a radio stream URL."
+9506: 
+9507: 
+9508: 
+9509: 
+9510: 
+9511: 
+9512: 
+9513:             )
+9514: 
+9515: 
+9516: 
+9517: 
+9518: 
+9519: 
+9520: 
+9521: 
+9522: 
+9523: 
+9524: 
+9525: 
+
+============================================================
+START RADIO END + STOP RADIO
+LINES 10290 - 10470
+============================================================
+10290: 
+10291: 
+10292: 
+10293: 
+10294: 
+10295: 
+10296: 
+10297:                 "Radio Error",
+10298: 
+10299: 
+10300: 
+10301: 
+10302: 
+10303: 
+10304: 
+10305:                 str(error)
+10306: 
+10307: 
+10308: 
+10309: 
+10310: 
+10311: 
+10312: 
+10313:             )
+10314: 
+10315: 
+10316: 
+10317: 
+10318: 
+10319: 
+10320: 
+10321: 
+10322: 
+10323: 
+10324: 
+10325: 
+10326: 
+10327: 
+10328: 
+10329:             self.log(
+10330: 
+10331: 
+10332: 
+10333: 
+10334: 
+10335: 
+10336: 
+10337:                 f"RADIO ERROR: {error}"
+10338: 
+10339: 
+10340: 
+10341: 
+10342: 
+10343: 
+10344: 
+10345:             )
+10346: 
+10347: 
+10348: 
+10349: 
+10350: 
+10351: 
+10352: 
+10353: 
+10354: 
+10355: 
+10356: 
+10357: 
+10358: 
+10359: 
+10360: 
+10361:     def stop_radio(self):
+10362: 
+10363: 
+10364: 
+10365: 
+10366: 
+10367: 
+10368: 
+10369: 
+10370: 
+10371: 
+10372: 
+10373: 
+10374: 
+10375: 
+10376: 
+10377:         # -----------------------------------------------------
+10378: 
+10379: 
+10380: 
+10381: 
+10382: 
+10383: 
+10384: 
+10385:         # STOP CLOUDFLARE
+10386: 
+10387: 
+10388: 
+10389: 
+10390: 
+10391: 
+10392: 
+10393:         # -----------------------------------------------------
+10394: 
+10395: 
+10396: 
+10397: 
+10398: 
+10399: 
+10400: 
+10401: 
+10402: 
+10403: 
+10404: 
+10405: 
+10406: 
+10407: 
+10408: 
+10409:         if self.cloudflare_tunnel.is_running():
+10410: 
+10411: 
+10412: 
+10413: 
+10414: 
+10415: 
+10416: 
+10417: 
+10418: 
+10419: 
+10420: 
+10421: 
+10422: 
+10423: 
+10424: 
+10425:             self.cloudflare_tunnel.stop()
+10426: 
+10427: 
+10428: 
+10429: 
+10430: 
+10431: 
+10432: 
+10433: 
+10434: 
+10435: 
+10436: 
+10437: 
+10438: 
+10439: 
+10440: 
+10441:         # -----------------------------------------------------
+10442: 
+10443: 
+10444: 
+10445: 
+10446: 
+10447: 
+10448: 
+10449:         # STOP LOCAL PLAYBACK
+10450: 
+10451: 
+10452: 
+10453: 
+10454: 
+10455: 
+10456: 
+10457:         # -----------------------------------------------------
+10458: 
+10459: 
+10460: 
+10461: 
+10462: 
+10463: 
+10464: 
+10465: 
+10466: 
+10467: 
+10468: 
+10469: 
+10470: 
+
+============================================================
+CLOUDFLARE + IMVU RADIO UPDATE
+LINES 10953 - 11275
+============================================================
+10953:     def cloudflare_started(self, stream_url):
+10954:         """
+10955:         cloudflare.py emits tunnel_started only after the public HTTPS
+10956:         /stream.mp3 endpoint has been DNS-resolved and actual MP3 bytes
+10957:         have been received through the tunnel.
+10958: 
+10959:         Do not perform a second urllib readiness test here. The old duplicate
+10960:         test could fail inside this long-running Python process even after
+10961:         cloudflare.py had already validated the same public stream with curl.
+10962:         """
+10963:         stream_url = str(stream_url or "").strip()
+10964: 
+10965:         if not stream_url:
+10966:             self.public_status.setText("Public Stream: Error")
+10967:             self.log("CLOUDFLARE ERROR: Validated tunnel returned an empty URL.")
+10968:             return
+10969: 
+10970:         self.public_stream_url = stream_url
+10971:         self.public_stream_input.setText(stream_url)
+10972:         self.public_status.setText("Public Stream: Ready for IMVU")
+10973: 
+10974:         self.log(
+10975:             "Cloudflare public MP3 stream validated. "
+10976:             f"Updating IMVU immediately: {stream_url}"
+10977:         )
+10978: 
+10979:         self.start_imvu_radio_update(stream_url)
+10980: 
+10981: 
+10982:     def start_imvu_radio_update(self, stream_url):
+10983: 
+10984: 
+10985: 
+10986: 
+10987: 
+10988: 
+10989: 
+10990:         self.public_status.setText(
+10991: 
+10992: 
+10993: 
+10994:             "Public Stream: Updating IMVU..."
+10995: 
+10996: 
+10997: 
+10998:         )
+10999: 
+11000: 
+11001: 
+11002: 
+11003: 
+11004: 
+11005: 
+11006:         self.log(
+11007: 
+11008: 
+11009: 
+11010:             "Updating IMVU Radio Streaming with the new Cloudflare URL..."
+11011: 
+11012: 
+11013: 
+11014:         )
+11015: 
+11016: 
+11017: 
+11018: 
+11019: 
+11020: 
+11021: 
+11022:         print("IMVU: Starting automatic Radio Streaming update...")
+11023: 
+11024: 
+11025: 
+11026: 
+11027: 
+11028: 
+11029: 
+11030:         worker = IMVURadioUpdateWorker(
+11031: 
+11032: 
+11033: 
+11034:             stream_url,
+11035: 
+11036: 
+11037: 
+11038:             self
+11039: 
+11040: 
+11041: 
+11042:         )
+11043: 
+11044: 
+11045: 
+11046: 
+11047: 
+11048: 
+11049: 
+11050:         worker.succeeded.connect(
+11051: 
+11052: 
+11053: 
+11054:             self.imvu_radio_update_succeeded
+11055: 
+11056: 
+11057: 
+11058:         )
+11059: 
+11060: 
+11061: 
+11062: 
+11063: 
+11064: 
+11065: 
+11066:         worker.failed.connect(
+11067: 
+11068: 
+11069: 
+11070:             self.imvu_radio_update_failed
+11071: 
+11072: 
+11073: 
+11074:         )
+11075: 
+11076: 
+11077: 
+11078: 
+11079: 
+11080: 
+11081: 
+11082:         worker.finished.connect(
+11083: 
+11084: 
+11085: 
+11086:             lambda w=worker: self.cleanup_imvu_radio_worker(w)
+11087: 
+11088: 
+11089: 
+11090:         )
+11091: 
+11092: 
+11093: 
+11094: 
+11095: 
+11096: 
+11097: 
+11098:         self.imvu_radio_workers.append(worker)
+11099: 
+11100: 
+11101: 
+11102:         worker.start()
+11103: 
+11104: 
+11105: 
+11106: 
+11107: 
+11108: 
+11109: 
+11110: 
+11111: 
+11112: 
+11113: 
+11114:     def cleanup_imvu_radio_worker(self, worker):
+11115: 
+11116: 
+11117: 
+11118: 
+11119: 
+11120: 
+11121: 
+11122:         if worker in self.imvu_radio_workers:
+11123: 
+11124: 
+11125: 
+11126:             self.imvu_radio_workers.remove(worker)
+11127: 
+11128: 
+11129: 
+11130: 
+11131: 
+11132: 
+11133: 
+11134:         worker.deleteLater()
+11135: 
+11136: 
+11137: 
+11138: 
+11139: 
+11140: 
+11141: 
+11142: 
+11143: 
+11144: 
+11145: 
+11146:     def imvu_radio_update_succeeded(
+11147: 
+11148: 
+11149: 
+11150:         self,
+11151: 
+11152: 
+11153: 
+11154:         stream_url,
+11155: 
+11156: 
+11157: 
+11158:         previous_url
+11159: 
+11160: 
+11161: 
+11162:     ):
+11163: 
+11164: 
+11165: 
+11166: 
+11167: 
+11168: 
+11169: 
+11170:         self.public_status.setText(
+11171: 
+11172: 
+11173: 
+11174:             "Public Stream: Loaded in IMVU"
+11175: 
+11176: 
+11177: 
+11178:         )
+11179: 
+11180: 
+11181: 
+11182: 
+11183: 
+11184: 
+11185: 
+11186:         self.log(
+11187: 
+11188: 
+11189: 
+11190:             "IMVU Radio Streaming updated successfully. "
+11191: 
+11192: 
+11193: 
+11194:             f"New URL: {stream_url}"
+11195: 
+11196: 
+11197: 
+11198:         )
+11199: 
+11200: 
+11201: 
+11202: 
+11203: 
+11204: 
+11205: 
+11206:         print("IMVU: Automatic Radio Streaming update succeeded.")
+11207: 
+11208: 
+11209: 
+11210: 
+11211: 
+11212: 
+11213: 
+11214: 
+11215: 
+11216: 
+11217: 
+11218:     def imvu_radio_update_failed(self, message):
+11219: 
+11220: 
+11221: 
+11222: 
+11223: 
+11224: 
+11225: 
+11226:         self.public_status.setText(
+11227: 
+11228: 
+11229: 
+11230:             "Public Stream: IMVU Update Failed"
+11231: 
+11232: 
+11233: 
+11234:         )
+11235: 
+11236: 
+11237: 
+11238: 
+11239: 
+11240: 
+11241: 
+11242:         self.log(
+11243: 
+11244: 
+11245: 
+11246:             f"IMVU RADIO UPDATE ERROR: {message}"
+11247: 
+11248: 
+11249: 
+11250:         )
+11251: 
+11252: 
+11253: 
+11254: 
+11255: 
+11256: 
+11257: 
+11258:         print(f"IMVU RADIO UPDATE ERROR: {message}")
+11259: 
+11260: 
+11261: 
+11262: 
+11263: 
+11264: 
+11265: 
+11266: 
+11267: 
+11268: 
+11269: 
+11270: 
+11271: 
+11272: 
+11273: 
+11274:     def cloudflare_stopped(self):
+11275: 
