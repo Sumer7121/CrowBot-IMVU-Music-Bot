@@ -2018,6 +2018,8 @@ class CommandHandler(QObject):
             f"{self.prefix}accept | "
             f"{self.prefix}move <1-9> | "
             f"{self.prefix}tttboard | "
-            f"{self.prefix}tttend\\n"\n            f"{self.prefix}five | {self.prefix}fiveaccept | "\n            f"{self.prefix}fivemove E5 | {self.prefix}fiveboard | "\n            f"{self.prefix}fiveend"
+            f"{self.prefix}tttend\n"
+            f"{self.prefix}five | {self.prefix}fiveaccept | "
+            f"{self.prefix}fivemove E5 | {self.prefix}fiveboard | "
+            f"{self.prefix}fiveend"
         )
-
