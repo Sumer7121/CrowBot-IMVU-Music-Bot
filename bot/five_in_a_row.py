@@ -37,14 +37,17 @@ class FiveInARow:
             "moves": 0,
         }
         self.pending = None
-        return f"Five in a Row: X {first} vs O {username}. X starts! Drop with !fivemove 1-9.\n{self.render()}"
+        return f"🔴 {first} vs 🟡 {username} | 🔴 starts! Drop with !fivemove 1-9.\n{self.render()}"
 
     def render(self):
+        """Graphical emoji coin board suitable for plain IMVU chat."""
         if not self.game:
             return "No active Five in a Row game."
-        rows = ["  1 2 3 4 5 6 7 8 9"]
-        for y, row in enumerate(self.game["board"], 1):
-            rows.append(f"{y} " + " ".join(row))
+        symbols = {".": "⚪", "X": "🔴", "O": "🟡"}
+        board = self.game["board"]
+        rows = ["🎮 FIVE IN A ROW | DROP COINS"]
+        rows.extend("".join(symbols[cell] for cell in row) for row in board)
+        rows.append("1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣9️⃣")
         return "\n".join(rows)
 
     def move(self, username, position):
