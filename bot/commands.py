@@ -1980,7 +1980,7 @@ class CommandHandler(QObject):
 
     def five_move(self, arguments, username):
         if not arguments:
-            return f"Usage: {self.prefix}fivemove E5"
+            return f"Usage: {self.prefix}fivemove 5 (drop into column 5)"
         return self.five_game.move(self._remember_user(username), arguments[0])
 
     def five_board(self, arguments, username):
@@ -1993,33 +1993,41 @@ class CommandHandler(QObject):
     # HELP
     # =========================================================
 
-    def help(
-        self,
-        arguments,
-        username,
-    ):
+    def help(self, arguments, username):
+        """Short, category-based menus to avoid flooding IMVU chat."""
+        topic = arguments[0].lower() if arguments else ""
+        p = self.prefix
+        menus = {
+            "music": (
+                "🎵 CROWBOT | MUSIC\n"
+                f"{p}play <song/artist> • {p}ytsearch <song>\n"
+                f"{p}queue • {p}np • {p}skip • {p}remove <#>\n"
+                f"{p}pause • {p}resume • {p}stop • {p}clear"
+            ),
+            "games": (
+                "🎮 CROWBOT | GAMES\n"
+                f"FIVE IN A ROW (drop coins): {p}five • {p}fiveaccept\n"
+                f"{p}fivemove <column 1-9> • {p}fiveboard • {p}fiveend\n"
+                f"TIC-TAC-TOE: {p}ttt • {p}accept • {p}move <1-9>\n"
+                f"{p}tttboard • {p}tttend"
+            ),
+            "fun": (
+                "🎭 CROWBOT | FUN\n"
+                f"{p}joke • {p}roast [name] • {p}truth\n"
+                f"{p}dare • {p}tod"
+            ),
+            "system": (
+                "⚙️ CROWBOT | SYSTEM\n"
+                f"{p}reconnect - restart the IMVU chat listener\n"
+                f"{p}help - main menu"
+            ),
+        }
+        if topic in menus:
+            return menus[topic]
         return (
-            "CROWBOT COMMANDS\n"
-            f"{self.prefix}play <song/artist or URL> | "
-            f"{self.prefix}queue | "
-            f"{self.prefix}nowplaying | "
-            f"{self.prefix}skip\n"
-            f"{self.prefix}pause | "
-            f"{self.prefix}resume | "
-            f"{self.prefix}stop | "
-            f"{self.prefix}remove <number> | "
-            f"{self.prefix}clear\n"
-            f"{self.prefix}joke | "
-            f"{self.prefix}roast [username] | "
-            f"{self.prefix}truth | "
-            f"{self.prefix}dare | "
-            f"{self.prefix}tod\n"
-            f"{self.prefix}ttt | "
-            f"{self.prefix}accept | "
-            f"{self.prefix}move <1-9> | "
-            f"{self.prefix}tttboard | "
-            f"{self.prefix}tttend\n"
-            f"{self.prefix}five | {self.prefix}fiveaccept | "
-            f"{self.prefix}fivemove E5 | {self.prefix}fiveboard | "
-            f"{self.prefix}fiveend"
+            "🐦 CROWBOT | COMMAND CENTER\n"
+            f"🎵 {p}help music - songs and queue\n"
+            f"🎮 {p}help games - Five in a Row + TTT\n"
+            f"🎭 {p}help fun - roasts, truth or dare\n"
+            f"⚙️ {p}help system - reconnect"
         )
