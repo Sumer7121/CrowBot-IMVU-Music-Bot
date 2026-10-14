@@ -810,10 +810,14 @@ class IMVUWebController:
 
 
     def saved_looks(self, slot=None):
-        """Find unnamed cards in the right-hand OUTFITS panel of the room."""
+        """Scroll the room's OUTFITS drawer and choose an unnamed outfit by number.
+
+        Numbering follows the visible grid top-to-bottom, left-to-right.
+        Count and selection share the same scan. The UI must expose cards and
+        a scroll container; otherwise avoid unsafe clicks.
+        """
         if not self.page:
             raise RuntimeError("No IMVU room tab selected.")
-        page = self.page
         try:
             index = None if slot is None else int(str(slot).strip()) - 1
         except (TypeError, ValueError):
@@ -821,59 +825,121 @@ class IMVUWebController:
         if index is not None and index < 0:
             return "👗 Outfit numbers start at 1."
 
-        # IMVU renders the right sidebar as a grid of picture cards with
-        # visible 'Outfit' labels, followed by 'inventory' in each footer.
-        # Identify card bounding rectangles at runtime rather than guessing
-        # unverified test IDs. Restrict matches to the right sidebar.
-        data = page.evaluate("""() => {
+        page = self.page
+        script = """(action) => {
           const visible = el => {
-            const r = el.getBoundingClientRect();
-            const s = getComputedStyle(el);
-            return r.width > 0 && r.height > 0 &&
-              s.display !== 'none' && s.visibility !== 'hidden';
+            const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+            return r.width > 0 && r.height > 0 && s.display !== 'none'
+              && s.visibility !== 'hidden';
           };
-          const headings = [...document.querySelectorAll('*')].filter(el =>
-            el.children.length === 0 &&
-            el.textContent.trim().toUpperCase() === 'OUTFITS' && visible(el));
-          if (!headings.length) return {found:false, cards:[]};
-          const results = [];
+          const header = [...document.querySelectorAll('*')].find(el =>
+            el.children.length === 0 && el.textContent.trim().toUpperCase()
+              === 'OUTFITS' && visible(el));
+          if (!header) return {error:'panel'};
           const labels = [...document.querySelectorAll('*')].filter(el =>
-            el.children.length === 0 &&
-            el.textContent.trim() === 'Outfit' && visible(el));
+            el.children.length === 0 && el.textContent.trim() === 'Outfit'
+            && visible(el));
+          const candidates = [];
           for (const label of labels) {
             let node = label;
-            for (let level = 0; level < 6 && node; level++, node = node.parentElement) {
+            for (let n = 0; n < 7 && node; n++, node = node.parentElement) {
               const r = node.getBoundingClientRect();
-              if (r.width >= 95 && r.width <= 250 &&
-                  r.height >= 140 && r.height <= 390 &&
-                  r.left > innerWidth * 0.60 &&
-                  node.querySelector('img,canvas,video')) {
-                const key = [Math.round(r.left),Math.round(r.top)].join(':');
-                if (!results.some(o => o.key === key)) {
-                  results.push({key, x:r.left+r.width/2,
-                    y:r.top+Math.min(65,r.height/3), top:r.top,left:r.left});
-                }
+              if (r.width >= 95 && r.width <= 250 && r.height >= 140
+                  && r.height <= 390 && r.left > innerWidth * .60
+                  && node.querySelector('img,canvas,video')) {
+                candidates.push(node);
                 break;
               }
             }
           }
-          results.sort((a,b) => (Math.abs(a.top-b.top)<35 ?
-            a.left-b.left : a.top-b.top));
-          return {found:true, cards:results};
-        }""")
-        if not data["found"]:
-            return "👗 Please open the OUTFITS sidebar in the IMVU room first."
-        cards = data["cards"]
-        if not cards:
-            return ("👗 OUTFITS is open, but the thumbnail cards were not "
-                    "recognized. Nothing was clicked.")
-        if index is None:
-            return f"👗 {len(cards)} visible outfits. Use !look 1 through !look {len(cards)}."
-        if index >= len(cards):
-            return f"👗 Outfit {index+1} isn't visible. Use 1–{len(cards)}."
-        card = cards[index]
-        page.mouse.click(card["x"], card["y"])
-        return f"👗 Selected outfit #{index+1}. Check the avatar for the change."
+          // Identify the scroll container from a card, or from the heading.
+          const base = candidates[0] || header;
+          let scroller = base;
+          while (scroller && scroller !== document.body) {
+            const css = getComputedStyle(scroller);
+            if (scroller.scrollHeight > scroller.clientHeight + 40 &&
+                /auto|scroll/.test(css.overflowY) &&
+                scroller.getBoundingClientRect().left > innerWidth * .55)
+              break;
+            scroller = scroller.parentElement;
+          }
+          if (!scroller || scroller === document.body)
+            return {error:'scroll'};
+          if (action === 'top') scroller.scrollTop = 0;
+          if (action === 'next')
+            scroller.scrollTop = Math.min(
+              scroller.scrollTop + Math.max(120, scroller.clientHeight * .65),
+              scroller.scrollHeight - scroller.clientHeight);
+          if (action === 'restore') scroller.scrollTop = 0;
+          const sc = scroller.getBoundingClientRect();
+          const items = candidates.map(node => {
+            const r = node.getBoundingClientRect();
+            return {
+              // Absolute scroll-space coordinates stay stable across scrolling.
+              key: Math.round((r.top-sc.top+scroller.scrollTop)/12) +
+                   ':' + Math.round((r.left-sc.left)/12),
+              orderY: r.top-sc.top+scroller.scrollTop,
+              orderX: r.left-sc.left,
+              x: r.left+r.width/2,
+              y: r.top+Math.min(65,r.height/3),
+              clickable: r.bottom > sc.top && r.top < sc.bottom
+            };
+          });
+          return {
+            items, top:scroller.scrollTop,
+            max:Math.max(0, scroller.scrollHeight-scroller.clientHeight)
+          };
+        }"""
+        try:
+            page.evaluate(script, "top")
+            page.wait_for_timeout(200)
+            seen = {}
+            previous_top = -1
+            for _ in range(120):
+                data = page.evaluate(script, "")
+                if data.get("error") == "panel":
+                    return "👗 Open the OUTFITS sidebar first."
+                if data.get("error"):
+                    return "👗 Couldn't identify the scrolling outfit grid. No outfit changed."
+                for card in data["items"]:
+                    seen[card["key"]] = (card["orderY"], card["orderX"])
+                new_top = data["top"]
+                if new_top >= data["max"] - 2 or new_top == previous_top:
+                    break
+                previous_top = new_top
+                page.evaluate(script, "next")
+                page.wait_for_timeout(180)
+            else:
+                return "👗 Outfit list was still loading; retry !looks."
+
+            ordered = sorted(seen, key=lambda k: (round(seen[k][0] / 40),
+                                                  seen[k][1], seen[k][0]))
+            count = len(ordered)
+            if not count:
+                return "👗 No outfit thumbnails detected."
+            if index is None:
+                page.evaluate(script, "restore")
+                return f"👗 Found {count} outfits. Use !look 1 through !look {count}."
+            if index >= count:
+                page.evaluate(script, "restore")
+                return f"👗 Choose an outfit from 1–{count}."
+            wanted = ordered[index]
+            page.evaluate(script, "top")
+            page.wait_for_timeout(150)
+            for _ in range(120):
+                data = page.evaluate(script, "")
+                for card in data.get("items", []):
+                    if card["key"] == wanted and card["clickable"]:
+                        page.mouse.click(card["x"], card["y"])
+                        return (f"👗 Clicked outfit #{index+1}. "
+                                "Check whether IMVU applied it.")
+                if data.get("error") or data["top"] >= data["max"] - 2:
+                    break
+                page.evaluate(script, "next")
+                page.wait_for_timeout(180)
+            return "👗 That outfit could not be located after scrolling; nothing clicked."
+        except Exception as error:
+            return f"👗 Outfit scan failed: {error}"
 
     def media_button(self):
 
