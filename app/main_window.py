@@ -1,4 +1,5 @@
 from PySide6.QtCore import QTimer
+import os
 import socket
 import subprocess
 import time
@@ -4794,6 +4795,42 @@ class MainWindow(QMainWindow):
 
 
 
+    def reconnect_chat_listener(self, username):
+        """Restart the live IMVU chat listener without stopping music or radio."""
+        authorized = {
+            name.strip().casefold()
+            for name in os.environ.get("CROWBOT_ADMIN_USERS", "").split(",")
+            if name.strip()
+        }
+        if not authorized or username.strip().casefold() not in authorized:
+            self.log(f"CROWBOT: Reconnect rejected for {username}.")
+            return "Reconnect is restricted to configured bot administrators."
+
+        if getattr(self, "_chat_reconnect_pending", False):
+            return "CrowBot chat is already reconnecting."
+
+        self._chat_reconnect_pending = True
+        self.log(f"CROWBOT: Chat reconnect requested by {username}.")
+        # Allow the outgoing acknowledgement to be queued before stopping
+        # the reader. The sender uses its own controller/session.
+        QTimer.singleShot(1200, self._finish_chat_reconnect)
+        return "CrowBot is reconnecting its chat listener..."
+
+    def _finish_chat_reconnect(self):
+        """Safely resume chat after the old listener thread has exited."""
+        try:
+            self.stop_imvu_chat_listener(wait_ms=5000)
+            worker = self.imvu_chat_worker
+            if worker is not None and worker.isRunning():
+                self.log("CROWBOT: Reconnect aborted; old listener is still running.")
+                return
+            self.start_imvu_chat_listener()
+            self.log("CROWBOT: Chat listener restart requested.")
+        except Exception as error:
+            self.log(f"CROWBOT: Reconnect failed: {error}")
+        finally:
+            self._chat_reconnect_pending = False
+
     def receive_live_imvu_chat(self, username, message):
         """
         Process a live IMVU chat message.
@@ -4817,6 +4854,12 @@ class MainWindow(QMainWindow):
         )
 
         user_key = username.lower()
+
+        # Handle the privileged reconnect before public room commands.
+        if message.casefold() == f"{prefix}reconnect".casefold():
+            response = self.reconnect_chat_listener(username)
+            self.send_bot_response_to_imvu(response)
+            return
 
         # Welcome on first ordinary message from this user.
         if (
