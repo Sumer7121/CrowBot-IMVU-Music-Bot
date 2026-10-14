@@ -2030,4 +2030,41 @@ class CommandHandler(QObject):
             f"🎮 {p}help games - Five in a Row + TTT\n"
             f"🎭 {p}help fun - roasts, truth or dare\n"
             f"⚙️ {p}help system - reconnect"
+        )    def help(self, arguments, username):
+        """Compact, category-based chat help menus."""
+        topic = arguments[0].lower() if arguments else ""
+        p = self.prefix
+        menus = {
+            "music": (
+                "CROWBOT | MUSIC\n"
+                f"{p}play <song> | {p}ytsearch <song>\n"
+                f"{p}queue | {p}np | {p}skip | {p}remove <#>\n"
+                f"{p}pause | {p}resume | {p}stop | {p}clear"
+            ),
+            "games": (
+                "CROWBOT | GAMES\n"
+                f"FIVE IN A ROW (drop coins): {p}five | {p}fiveaccept\n"
+                f"{p}fivemove <column 1-9> | {p}fiveboard | {p}fiveend\n"
+                f"TIC-TAC-TOE: {p}ttt | {p}accept | {p}move <1-9>\n"
+                f"{p}tttboard | {p}tttend"
+            ),
+            "fun": (
+                "CROWBOT | FUN\n"
+                f"{p}joke | {p}roast [name] | {p}truth\n"
+                f"{p}dare | {p}tod"
+            ),
+            "system": (
+                "CROWBOT | SYSTEM\n"
+                f"{p}reconnect - restart IMVU chat listener\n"
+                f"{p}help - main menu"
+            ),
+        }
+        if topic in menus:
+            return menus[topic]
+        return (
+            "CROWBOT | COMMAND CENTER\n"
+            f"MUSIC: {p}help music\n"
+            f"GAMES: {p}help games\n"
+            f"FUN: {p}help fun\n"
+            f"SYSTEM: {p}help system"
         )
