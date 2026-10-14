@@ -1,10 +1,8 @@
-"""Gravity-based Five in a Row game for IMVU chat.
-
-One instance belongs to one room's CommandHandler.
-"""
-class FiveInARow:
-    SIZE = 9
-    WIN_LENGTH = 5
+"""Connect Four: seven columns, six rows, gravity, four in a row."""
+class ConnectFour:
+    WIDTH = 7
+    HEIGHT = 6
+    WIN_LENGTH = 4
 
     def __init__(self):
         self.pending = None
@@ -16,80 +14,75 @@ class FiveInARow:
 
     def start(self, username):
         if self.game:
-            return "Five in a Row is already running. Type !fiveboard."
+            return "🎮 Connect 4 is active. Use !board."
         if self.pending:
-            return f"Challenge from {self.pending} is waiting. Another player can type !fiveaccept."
+            return f"🎮 {self.pending} is waiting! Use !join."
         self.pending = str(username).strip()
-        return f"Five in a Row! {self.pending} challenges the room. Type !fiveaccept to join."
+        return f"🎮 CONNECT 4 | {self.pending} challenges the room!\nType !join to play."
 
     def accept(self, username):
         if self.game:
-            return "A Five in a Row game is already running."
+            return "🎮 Game already in progress."
         if not self.pending:
-            return "No challenge pending. Type !five to start."
+            return "No challenge. Type !c4."
         if self._same(username, self.pending):
             return "Another player must accept your challenge."
         first = self.pending
         self.game = {
             "players": (first, str(username).strip()),
-            "board": [["."] * self.SIZE for _ in range(self.SIZE)],
+            "board": [["."] * self.WIDTH for _ in range(self.HEIGHT)],
             "turn": 0,
             "moves": 0,
         }
         self.pending = None
-        return f"🔴 {first} vs 🟡 {username} | 🔴 starts! Drop with !fivemove 1-9.\n{self.render()}"
+        return f"🔴 {first} vs 🟡 {username}\n🔴 goes first — !drop 1-7\n{self.render()}"
 
     def render(self):
-        """Graphical emoji coin board suitable for plain IMVU chat."""
         if not self.game:
-            return "No active Five in a Row game."
+            return "No Connect 4 game. Type !c4."
         symbols = {".": "⚪", "X": "🔴", "O": "🟡"}
-        board = self.game["board"]
-        rows = ["🎮 FIVE IN A ROW | DROP COINS"]
-        rows.extend("".join(symbols[cell] for cell in row) for row in board)
-        rows.append("1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣9️⃣")
+        rows = ["🎮 CONNECT 4"]
+        rows.extend("".join(symbols[v] for v in row) for row in self.game["board"])
+        rows.append("1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣")
         return "\n".join(rows)
 
     def move(self, username, position):
         game = self.game
         if not game:
-            return "No active game. Type !five to start."
+            return "No game. Type !c4."
         current = game["turn"]
         if not self._same(username, game["players"][current]):
-            return f"Not your turn. Waiting for {game['players'][current]}."
-        position = str(position).strip().upper()
-        if len(position) != 1 or position not in "123456789ABCDEFGHI":
-            return "Choose a column 1-9 (or A-I), e.g. !fivemove 5."
-        x = (int(position) - 1) if position.isdigit() else (ord(position) - ord("A"))
+            return f"⏳ Waiting for {game['players'][current]}."
+        position = str(position).strip()
+        if len(position) != 1 or position not in "1234567":
+            return "Choose a column: !drop 1-7."
+        x = int(position) - 1
         board = game["board"]
-        # A coin always falls to the lowest available row in this column.
-        y = next((row for row in range(self.SIZE - 1, -1, -1)
-                  if board[row][x] == "."), None)
+        y = next((r for r in range(self.HEIGHT - 1, -1, -1) if board[r][x] == "."), None)
         if y is None:
-            return "That column is full. Choose another one."
+            return "⚠️ Column full. Pick another."
         mark = "X" if current == 0 else "O"
         board[y][x] = mark
         game["moves"] += 1
-        board_text = self.render()
+        result = self.render()
         if self._won(board, x, y, mark):
-            winner = game["players"][current]
             self.game = None
-            return f"Five in a Row winner: {winner}!\n{board_text}"
-        if game["moves"] == self.SIZE * self.SIZE:
+            return f"🏆 {game['players'][current]} wins CONNECT 4!\n{result}"
+        if game["moves"] == self.WIDTH * self.HEIGHT:
             self.game = None
-            return f"Five in a Row is a draw!\n{board_text}"
+            return f"🤝 Draw! GG.\n{result}"
         game["turn"] = 1 - current
-        return f"{username} dropped in column {x + 1}. Next: {game['players'][game['turn']]}\n{board_text}"
+        return f"{username} dropped {position} • {game['players'][game['turn']]} next\n{result}"
 
     def _won(self, board, x, y, mark):
         for dx, dy in ((1, 0), (0, 1), (1, 1), (1, -1)):
             count = 1
-            for direction in (-1, 1):
-                nx, ny = x + dx * direction, y + dy * direction
-                while 0 <= nx < self.SIZE and 0 <= ny < self.SIZE and board[ny][nx] == mark:
+            for sign in (-1, 1):
+                nx, ny = x + sign * dx, y + sign * dy
+                while 0 <= nx < self.WIDTH and 0 <= ny < self.HEIGHT and board[ny][nx] == mark:
                     count += 1
-                    nx += dx * direction
-                    ny += dy * direction
+                    nx += sign * dx
+                    ny += sign * dy
             if count >= self.WIN_LENGTH:
                 return True
         return False
@@ -99,10 +92,13 @@ class FiveInARow:
             if not any(self._same(username, p) for p in self.game["players"]):
                 return "Only a player can end the game."
             self.game = None
-            return "Five in a Row ended."
+            return "🛑 Connect 4 ended."
         if self.pending:
             if not self._same(username, self.pending):
                 return "Only the challenger can cancel."
             self.pending = None
-            return "Five in a Row challenge cancelled."
-        return "No active Five in a Row game."
+            return "🛑 Challenge cancelled."
+        return "No Connect 4 game."
+
+# Keep existing imports compatible while transitioning.
+FiveInARow = ConnectFour
