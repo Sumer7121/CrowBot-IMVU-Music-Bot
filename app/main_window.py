@@ -4797,15 +4797,6 @@ class MainWindow(QMainWindow):
 
     def reconnect_chat_listener(self, username):
         """Restart the live IMVU chat listener without stopping music or radio."""
-        authorized = {
-            name.strip().casefold()
-            for name in os.environ.get("CROWBOT_ADMIN_USERS", "").split(",")
-            if name.strip()
-        }
-        if not authorized or username.strip().casefold() not in authorized:
-            self.log(f"CROWBOT: Reconnect rejected for {username}.")
-            return "Reconnect is restricted to configured bot administrators."
-
         if getattr(self, "_chat_reconnect_pending", False):
             return "CrowBot chat is already reconnecting."
 
