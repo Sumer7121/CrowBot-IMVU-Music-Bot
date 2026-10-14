@@ -1394,6 +1394,8 @@ class MainWindow(QMainWindow):
 
         self.imvu_chat_worker = None
         self.imvu_chat_send_workers = []
+        self._outgoing_chat_queue = []
+        self._outgoing_chat_active = False
         self._processing_live_imvu_chat = False
 
         # =====================================================
@@ -5431,35 +5433,32 @@ class MainWindow(QMainWindow):
 
     def send_bot_response_to_imvu(self, response):
         message = str(response or "").strip()
-
         if not message:
             return
+        self._outgoing_chat_queue.append(message)
+        self._send_next_chat_response()
 
+    def _send_next_chat_response(self):
+        # Only one Playwright sender may use the shared IMVU chat input.
+        if self._outgoing_chat_active or not self._outgoing_chat_queue:
+            return
+        message = self._outgoing_chat_queue.pop(0)
+        self._outgoing_chat_active = True
         worker = IMVUChatSendWorker(message, self)
-
-        worker.succeeded.connect(
-            self.imvu_chat_send_succeeded
-        )
-        worker.failed.connect(
-            self.imvu_chat_send_failed
-        )
+        worker.succeeded.connect(self.imvu_chat_send_succeeded)
+        worker.failed.connect(self.imvu_chat_send_failed)
         worker.finished.connect(
             lambda w=worker: self.cleanup_imvu_chat_send_worker(w)
         )
-
         self.imvu_chat_send_workers.append(worker)
-
-        self.log(
-            f"IMVU CHAT SEND: Queued bot response: {message}"
-        )
-
         worker.start()
 
     def cleanup_imvu_chat_send_worker(self, worker):
         if worker in self.imvu_chat_send_workers:
             self.imvu_chat_send_workers.remove(worker)
-
         worker.deleteLater()
+        self._outgoing_chat_active = False
+        self._send_next_chat_response()
 
     def imvu_chat_send_succeeded(self, message):
         self.log(
