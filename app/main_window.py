@@ -895,6 +895,11 @@ class MainWindow(QMainWindow):
 
         # Users welcomed during this CrowBot application session.
         self._welcomed_users = set()
+        # Random collectibles appear only while IMVU chat is connected.
+        self.collectible_timer = QTimer(self)
+        self.collectible_timer.setSingleShot(True)
+        self.collectible_timer.timeout.connect(self._spawn_collectible)
+
 
 
 
@@ -4715,6 +4720,24 @@ class MainWindow(QMainWindow):
 
 
 
+    def _schedule_collectible(self):
+        """Random 3–7 minute delay; only when a listener is running."""
+        import random
+        worker = self.imvu_chat_worker
+        if worker is not None and worker.isRunning():
+            self.collectible_timer.start(random.randint(180000, 420000))
+
+    def _spawn_collectible(self):
+        worker = self.imvu_chat_worker
+        if worker is None or not worker.isRunning():
+            return
+        drops = self.command_handler.collectibles
+        drops.expired()
+        announcement = drops.spawn()
+        if announcement:
+            self.send_bot_response_to_imvu(announcement)
+        self._schedule_collectible()
+
     def start_imvu_chat_listener(self):
 
         if self.imvu_chat_worker is not None and self.imvu_chat_worker.isRunning():
@@ -4740,11 +4763,12 @@ class MainWindow(QMainWindow):
         worker.finished.connect(self.imvu_chat_listener_finished)
 
         worker.start()
-
+        self._schedule_collectible()
 
 
     def stop_imvu_chat_listener(self, wait_ms=3000):
 
+        self.collectible_timer.stop()
         worker = self.imvu_chat_worker
 
         if worker is None:
