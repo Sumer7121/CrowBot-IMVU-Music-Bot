@@ -9,6 +9,7 @@ from music.youtube_owned import YouTubeOwnedProvider
 from bot.five_in_a_row import FiveInARow
 from bot.party_games import PartyGames
 from bot import party_prompts as prompts
+from bot.social_reactions import SocialReactions
 
 
 # =============================================================
@@ -205,6 +206,8 @@ class CommandHandler(QObject):
             "rm": self.remove,
             "j": self.joke,
             "joke18": self.adult_joke,
+            "meme": self.meme,
+            "memes": self.meme,
             "tr": self.truth,
             "d": self.dare,
             "tt": self.tic_tac_toe,
@@ -294,6 +297,7 @@ class CommandHandler(QObject):
         self.ttt_game = None
         self.five_game = FiveInARow()
         self.party_games = PartyGames()
+        self.social = SocialReactions()
         self.adult_jokes = False
 
         # -----------------------------------------------------
@@ -1405,11 +1409,11 @@ class CommandHandler(QObject):
 
     def joke(self, arguments, username):
         self._remember_user(username)
-        return "😂 JOKE\n" + random.choice(prompts.JOKES_SFW)
+        return "😂 JOKE\n" + self.social.pick("jokes_sfw", prompts.JOKES_SFW)
 
     def adult_joke(self, arguments, username):
         self._remember_user(username)
-        return "🌶️ LATE-NIGHT JOKE (mild)\n" + random.choice(prompts.JOKES_ADULT)
+        return "🌶️ LATE-NIGHT JOKE (mild)\n" + self.social.pick("jokes_adult", prompts.JOKES_ADULT)
 
     # =========================================================
     # ROAST
@@ -1436,9 +1440,7 @@ class CommandHandler(QObject):
         if error:
             return error
 
-        roast_text = random.choice(
-            prompts.ROASTS
-        ).format(
+        roast_text = self.social.pick("roasts", prompts.ROASTS).format(
             name=target
         )
 
@@ -1471,9 +1473,7 @@ class CommandHandler(QObject):
         if error:
             return error
 
-        prompt = random.choice(
-            prompts.TOD_TRUTHS
-        )
+        prompt = self.social.pick("truths", prompts.TOD_TRUTHS)
 
         return (
             "🎯 TRUTH\n"
@@ -1505,9 +1505,7 @@ class CommandHandler(QObject):
         if error:
             return error
 
-        prompt = random.choice(
-            prompts.TOD_DARES
-        )
+        prompt = self.social.pick("dares", prompts.TOD_DARES)
 
         return (
             "🔥 DARE\n"
@@ -2039,9 +2037,12 @@ class CommandHandler(QObject):
     def game_scores(self, arguments, username):
         return self.party_games.leaderboard()
 
+    def meme(self, arguments, username):
+        return self.social.meme()
+
     def question(self, arguments, username):
         self._remember_user(username)
-        return "💬 QUESTION\n" + random.choice(prompts.QUESTIONS)
+        return "💬 QUESTION\n" + self.social.pick("questions", prompts.QUESTIONS)
 
     def spin_bottle(self, arguments, username):
         """Pick two distinct observed chatters, or spin among named participants."""
@@ -2099,6 +2100,7 @@ class CommandHandler(QObject):
                 f"{p}tod @name — truth or dare\n"
                 f"{p}roast @name — playful roast\n"
                 f"{p}j — clean joke\n"
+                f"{p}meme — dashed meme\n"
                 f"{p}joke18 — cheeky joke\n"
                 f"{p}question — icebreaker\n"
                 f"{p}spin @A @B — bottle"
