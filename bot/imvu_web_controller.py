@@ -810,61 +810,54 @@ class IMVUWebController:
 
 
     def saved_looks(self, slot=None):
-        """Use numeric saved-look slots, not names, with cautious UI checks.
+        """Control the OUTFITS drawer already shown inside the IMVU room.
 
-        IMVU's saved looks may be unnamed; rely on visible look cards only.
-        If the page structure is unrecognized, do not click an arbitrary item.
+        Never navigate to Home / Inventory. Outfit thumbnails are ordered
+        visually in the panel. Only click when a recognizable panel is present.
         """
-        if not self.context:
-            raise RuntimeError("Connect to bot Chrome first.")
-        index = None
+        if not self.page:
+            raise RuntimeError("Select an IMVU room tab first.")
         if slot is not None:
             try:
                 index = int(str(slot).strip()) - 1
-            except (TypeError, ValueError):
-                return "🎭 Use !look 1, !look 2, etc. — saved looks have no names."
+            except (ValueError, TypeError):
+                return "👗 Use !look 1, !look 2, etc."
             if index < 0:
-                return "🎭 Look number must start at 1."
+                return "👗 Outfit numbers start at 1."
+        else:
+            index = None
 
-        inventory = self.context.new_page()
-        try:
-            inventory.goto("https://www.imvu.com/next/home/",
-                           wait_until="domcontentloaded", timeout=30000)
-            inventory.get_by_text("Inventory", exact=True).first.click(timeout=15000)
-            inventory.get_by_text("Looks", exact=True).first.click(timeout=12000)
-            inventory.wait_for_timeout(1200)
+        page = self.page
+        # In IMVU Next's room UI the right-side panel reads OUTFITS.
+        # Select the card layout only if this panel is visibly present.
+        header = page.get_by_text("OUTFITS", exact=True)
+        if header.count() == 0 or not header.first.is_visible():
+            return "👗 Open the OUTFITS panel on the right side of the room first."
 
-            # Count only visible elements clearly identified as saved-look cards.
-            cards = inventory.locator(
-                '[data-testid="saved-look-card"], '
-                '[data-testid="look-card"], '
-                '[data-testid*="saved-look-item"]'
+        # The screenshot shows a two-column thumbnail grid. Use image-backed
+        # cards whose footer says 'Outfit' and 'inventory', not unrelated images.
+        cards = page.locator("div").filter(
+            has=page.get_by_text("Outfit", exact=True)
+        )
+        # Find only direct-sized cards inside the active OUTFITS panel.
+        # A stable DOM selector isn't confirmed yet, so fail closed.
+        recognized = page.locator('[data-testid="outfit-card"], [data-testid="saved-outfit-card"]')
+        count = recognized.count()
+        if count == 0:
+            return (
+                "👗 OUTFITS panel detected, but its card selector is unknown. "
+                "Open Chrome DevTools, inspect one outfit tile, and share its HTML. "
+                "No outfit changed."
             )
-            count = cards.count()
-            if not count:
-                return ("🎭 Saved looks have no names. I couldn't identify the "
-                        "look tiles in this version of IMVU. No outfit changed.")
-            if index is None:
-                return (f"🎭 {count} saved looks available.\n"
-                        f"Use !look 1 through !look {count} (left-to-right order).")
-            if index >= count:
-                return f"⚠️ Look {index+1} not found. Choose 1–{count}."
-
-            tile = cards.nth(index)
-            if not tile.is_visible():
-                return f"⚠️ Look {index+1} isn't visible. No outfit changed."
-            tile.click(timeout=7000)
-            for label in ("Wear", "Wear Look", "Put On", "Apply Look"):
-                button = inventory.get_by_role("button", name=label, exact=True)
-                if button.count() == 1 and button.first.is_visible() and button.first.is_enabled():
-                    button.first.click(timeout=7000)
-                    return f"👗 Selected saved look #{index+1}."
-            return ("⚠️ No verified Wear/Apply control appeared. "
-                    "No outfit change was confirmed.")
-        except Exception as error:
-            return f"⚠️ Saved Looks unavailable: {error}"
-        finally:
-            inventory.close()
+        if index is None:
+            return f"👗 {count} outfits found. Use !look 1 to !look {count}."
+        if index >= count:
+            return f"👗 Choose outfit 1–{count}."
+        card = recognized.nth(index)
+        if not card.is_visible():
+            return "👗 Outfit tile not visible; nothing changed."
+        card.click(timeout=5000)
+        return f"👗 Clicked outfit #{index + 1}. Confirm that IMVU applied it."
 
     def media_button(self):
 
