@@ -810,54 +810,70 @@ class IMVUWebController:
 
 
     def saved_looks(self, slot=None):
-        """Control the OUTFITS drawer already shown inside the IMVU room.
-
-        Never navigate to Home / Inventory. Outfit thumbnails are ordered
-        visually in the panel. Only click when a recognizable panel is present.
-        """
+        """Find unnamed cards in the right-hand OUTFITS panel of the room."""
         if not self.page:
-            raise RuntimeError("Select an IMVU room tab first.")
-        if slot is not None:
-            try:
-                index = int(str(slot).strip()) - 1
-            except (ValueError, TypeError):
-                return "👗 Use !look 1, !look 2, etc."
-            if index < 0:
-                return "👗 Outfit numbers start at 1."
-        else:
-            index = None
-
+            raise RuntimeError("No IMVU room tab selected.")
         page = self.page
-        # In IMVU Next's room UI the right-side panel reads OUTFITS.
-        # Select the card layout only if this panel is visibly present.
-        header = page.get_by_text("OUTFITS", exact=True)
-        if header.count() == 0 or not header.first.is_visible():
-            return "👗 Open the OUTFITS panel on the right side of the room first."
+        try:
+            index = None if slot is None else int(str(slot).strip()) - 1
+        except (TypeError, ValueError):
+            return "👗 Use !look 1, !look 2, etc."
+        if index is not None and index < 0:
+            return "👗 Outfit numbers start at 1."
 
-        # The screenshot shows a two-column thumbnail grid. Use image-backed
-        # cards whose footer says 'Outfit' and 'inventory', not unrelated images.
-        cards = page.locator("div").filter(
-            has=page.get_by_text("Outfit", exact=True)
-        )
-        # Find only direct-sized cards inside the active OUTFITS panel.
-        # A stable DOM selector isn't confirmed yet, so fail closed.
-        recognized = page.locator('[data-testid="outfit-card"], [data-testid="saved-outfit-card"]')
-        count = recognized.count()
-        if count == 0:
-            return (
-                "👗 OUTFITS panel detected, but its card selector is unknown. "
-                "Open Chrome DevTools, inspect one outfit tile, and share its HTML. "
-                "No outfit changed."
-            )
+        # IMVU renders the right sidebar as a grid of picture cards with
+        # visible 'Outfit' labels, followed by 'inventory' in each footer.
+        # Identify card bounding rectangles at runtime rather than guessing
+        # unverified test IDs. Restrict matches to the right sidebar.
+        data = page.evaluate("""() => {
+          const visible = el => {
+            const r = el.getBoundingClientRect();
+            const s = getComputedStyle(el);
+            return r.width > 0 && r.height > 0 &&
+              s.display !== 'none' && s.visibility !== 'hidden';
+          };
+          const headings = [...document.querySelectorAll('*')].filter(el =>
+            el.children.length === 0 &&
+            el.textContent.trim().toUpperCase() === 'OUTFITS' && visible(el));
+          if (!headings.length) return {found:false, cards:[]};
+          const results = [];
+          const labels = [...document.querySelectorAll('*')].filter(el =>
+            el.children.length === 0 &&
+            el.textContent.trim() === 'Outfit' && visible(el));
+          for (const label of labels) {
+            let node = label;
+            for (let level = 0; level < 6 && node; level++, node = node.parentElement) {
+              const r = node.getBoundingClientRect();
+              if (r.width >= 95 && r.width <= 250 &&
+                  r.height >= 140 && r.height <= 390 &&
+                  r.left > innerWidth * 0.60 &&
+                  node.querySelector('img,canvas,video')) {
+                const key = [Math.round(r.left),Math.round(r.top)].join(':');
+                if (!results.some(o => o.key === key)) {
+                  results.push({key, x:r.left+r.width/2,
+                    y:r.top+Math.min(65,r.height/3), top:r.top,left:r.left});
+                }
+                break;
+              }
+            }
+          }
+          results.sort((a,b) => (Math.abs(a.top-b.top)<35 ?
+            a.left-b.left : a.top-b.top));
+          return {found:true, cards:results};
+        }""")
+        if not data["found"]:
+            return "👗 Please open the OUTFITS sidebar in the IMVU room first."
+        cards = data["cards"]
+        if not cards:
+            return ("👗 OUTFITS is open, but the thumbnail cards were not "
+                    "recognized. Nothing was clicked.")
         if index is None:
-            return f"👗 {count} outfits found. Use !look 1 to !look {count}."
-        if index >= count:
-            return f"👗 Choose outfit 1–{count}."
-        card = recognized.nth(index)
-        if not card.is_visible():
-            return "👗 Outfit tile not visible; nothing changed."
-        card.click(timeout=5000)
-        return f"👗 Clicked outfit #{index + 1}. Confirm that IMVU applied it."
+            return f"👗 {len(cards)} visible outfits. Use !look 1 through !look {len(cards)}."
+        if index >= len(cards):
+            return f"👗 Outfit {index+1} isn't visible. Use 1–{len(cards)}."
+        card = cards[index]
+        page.mouse.click(card["x"], card["y"])
+        return f"👗 Selected outfit #{index+1}. Check the avatar for the change."
 
     def media_button(self):
 
