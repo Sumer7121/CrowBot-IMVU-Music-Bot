@@ -174,11 +174,28 @@ class CommandHandler(QObject):
             "tttboard": self.tic_tac_toe_board,
             "tttend": self.tic_tac_toe_end,
 
+            "c4": self.five_start,
+            "join": self.five_accept,
+            "drop": self.five_move,
+            "board": self.five_board,
+            "end4": self.five_end,
             "five": self.five_start,
             "fiveaccept": self.five_accept,
             "fivemove": self.five_move,
             "fiveboard": self.five_board,
             "fiveend": self.five_end,
+            "h": self.help,
+            "p": self.play,
+            "q": self.show_queue,
+            "s": self.skip,
+            "pa": self.pause,
+            "r": self.resume,
+            "rm": self.remove,
+            "j": self.joke,
+            "tr": self.truth,
+            "d": self.dare,
+            "tt": self.tic_tac_toe,
+            "m": self.tic_tac_toe_move,
             "help": self.help,
         }
 
@@ -1980,7 +1997,7 @@ class CommandHandler(QObject):
 
     def five_move(self, arguments, username):
         if not arguments:
-            return f"Usage: {self.prefix}fivemove 5 (drop into column 5)"
+            return f"Use {self.prefix}drop 1-7"
         return self.five_game.move(self._remember_user(username), arguments[0])
 
     def five_board(self, arguments, username):
@@ -1994,40 +2011,42 @@ class CommandHandler(QObject):
     # =========================================================
 
     def help(self, arguments, username):
-        """Short category menus avoid flooding room chat."""
+        """Short command menus sized for IMVU chat."""
         topic = arguments[0].lower() if arguments else ""
         p = self.prefix
         menus = {
             "music": (
-                "🎵 CROWBOT MUSIC\n"
-                f"{p}play <song> | {p}ytsearch <song>\n"
-                f"{p}queue | {p}np | {p}skip | {p}remove <#>\n"
-                f"{p}pause | {p}resume | {p}stop | {p}clear"
+                "🎵 MUSIC\n"
+                f"{p}p song | {p}q | {p}np | {p}s\n"
+                f"{p}pa | {p}r | {p}rm # | {p}clear\n"
+                f"Full: {p}play, {p}ytsearch"
             ),
             "games": (
-                "🎮 CROWBOT GAMES\n"
-                f"🔴🟡 FIVE IN A ROW: {p}five | {p}fiveaccept\n"
-                f"{p}fivemove 5 (drop in column 5) | {p}fiveboard | {p}fiveend\n"
-                f"❌⭕ TTT: {p}ttt | {p}accept | {p}move 1-9\n"
+                "🎮 GAMES\n"
+                f"🔴🟡 CONNECT 4: {p}c4 | {p}join | {p}drop 1-7\n"
+                f"{p}board | {p}end4\n"
+                f"❌⭕ TTT: {p}tt | {p}accept | {p}m 1-9\n"
                 f"{p}tttboard | {p}tttend"
             ),
             "fun": (
-                "🎭 CROWBOT FUN\n"
-                f"{p}joke | {p}roast [name] | {p}truth\n"
-                f"{p}dare | {p}tod"
+                "🎭 FUN\n"
+                f"{p}j joke | {p}roast name | {p}tr truth\n"
+                f"{p}d dare | {p}tod"
             ),
             "system": (
-                "⚙️ CROWBOT SYSTEM\n"
+                "⚙️ SYSTEM\n"
                 f"{p}reconnect - restart chat listener\n"
-                f"{p}help - main menu"
+                f"{p}h - home"
             ),
         }
+        names = {"m": "music", "g": "games", "f": "fun", "sys": "system"}
+        topic = names.get(topic, topic)
         if topic in menus:
             return menus[topic]
         return (
-            "🐦 CROWBOT COMMAND CENTER\n"
-            f"🎵 {p}help music - songs and queue\n"
-            f"🎮 {p}help games - Five in a Row + TTT\n"
-            f"🎭 {p}help fun - roasts and truth or dare\n"
-            f"⚙️ {p}help system - reconnect"
+            "🐦 CROWBOT COMMANDS\n"
+            f"🎵 {p}h m - music\n"
+            f"🎮 {p}h g - games\n"
+            f"🎭 {p}h f - fun\n"
+            f"⚙️ {p}h sys - system"
         )
