@@ -10,6 +10,7 @@ from bot.five_in_a_row import FiveInARow
 from bot.party_games import PartyGames
 from bot import party_prompts as prompts
 from bot.social_reactions import SocialReactions
+from bot.collectibles import CollectibleDrops
 
 
 # =============================================================
@@ -193,6 +194,9 @@ class CommandHandler(QObject):
             "g": self.guess_answer,
             "rps": self.rock_paper_scissors,
             "top": self.game_scores,
+            "catch": self.catch_collectible,
+            "collection": self.show_collection,
+            "cats": self.show_collection,
             "spin": self.spin_bottle,
             "question": self.question,
             "questions": self.question,
@@ -298,6 +302,7 @@ class CommandHandler(QObject):
         self.five_game = FiveInARow()
         self.party_games = PartyGames()
         self.social = SocialReactions()
+        self.collectibles = CollectibleDrops()
         self.adult_jokes = False
 
         # -----------------------------------------------------
@@ -2040,6 +2045,12 @@ class CommandHandler(QObject):
     def meme(self, arguments, username):
         return self.social.meme()
 
+    def catch_collectible(self, arguments, username):
+        return self.collectibles.catch(username)
+
+    def show_collection(self, arguments, username):
+        return self.collectibles.collection(username)
+
     def question(self, arguments, username):
         self._remember_user(username)
         return "💬 QUESTION\n" + self.social.pick("questions", prompts.QUESTIONS)
@@ -2093,7 +2104,9 @@ class CommandHandler(QObject):
                 f"{p}guess — number game\n"
                 f"{p}rps rock — RPS\n"
                 f"{p}spin @A @B — bottle\n"
-                f"{p}top — scores"
+                f"{p}top — scores\n"
+                f"{p}catch — claim random drop\n"
+                f"{p}collection — owned characters"
             ),
             "fun": (
                 "🎭 PARTY\n"
