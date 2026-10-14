@@ -2122,7 +2122,7 @@ class CommandHandler(QObject):
                 "⚙️ SYSTEM\n"
                 f"{p}reconnect — restart chat\n"
                 f"{p}looks — saved looks\n"
-                f"{p}look <name> — change look\n"
+                f"{p}look <number> — switch look\n"
                 f"{p}h — commands"
             ),
         }
