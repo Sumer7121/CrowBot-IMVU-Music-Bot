@@ -8,6 +8,7 @@ from music.resolver import MusicResolver
 from music.youtube_owned import YouTubeOwnedProvider
 from bot.five_in_a_row import FiveInARow
 from bot.party_games import PartyGames
+from bot import party_prompts as prompts
 
 
 # =============================================================
@@ -191,6 +192,10 @@ class CommandHandler(QObject):
             "g": self.guess_answer,
             "rps": self.rock_paper_scissors,
             "top": self.game_scores,
+            "spin": self.spin_bottle,
+            "question": self.question,
+            "questions": self.question,
+            "qotd": self.question,
             "h": self.help,
             "p": self.play,
             "q": self.show_queue,
@@ -199,6 +204,7 @@ class CommandHandler(QObject):
             "r": self.resume,
             "rm": self.remove,
             "j": self.joke,
+            "joke18": self.adult_joke,
             "tr": self.truth,
             "d": self.dare,
             "tt": self.tic_tac_toe,
@@ -288,6 +294,7 @@ class CommandHandler(QObject):
         self.ttt_game = None
         self.five_game = FiveInARow()
         self.party_games = PartyGames()
+        self.adult_jokes = False
 
         # -----------------------------------------------------
         # OBSERVED IMVU USERS
@@ -399,6 +406,9 @@ class CommandHandler(QObject):
         arguments,
         username,
     ):
+
+        if arguments == ["m"]:
+            return self.help(["music"], username)
 
         if not arguments:
 
@@ -1393,20 +1403,13 @@ class CommandHandler(QObject):
     # JOKE
     # =========================================================
 
-    def joke(
-        self,
-        arguments,
-        username,
-    ):
+    def joke(self, arguments, username):
+        self._remember_user(username)
+        return "😂 JOKE\n" + random.choice(prompts.JOKES_SFW)
 
-        self._remember_user(
-            username
-        )
-
-        return (
-            "😂 JOKE\n"
-            f"{random.choice(self.jokes)}"
-        )
+    def adult_joke(self, arguments, username):
+        self._remember_user(username)
+        return "🌶️ LATE-NIGHT JOKE (mild)\n" + random.choice(prompts.JOKES_ADULT)
 
     # =========================================================
     # ROAST
@@ -1434,7 +1437,7 @@ class CommandHandler(QObject):
             return error
 
         roast_text = random.choice(
-            self.roasts
+            prompts.ROASTS
         ).format(
             name=target
         )
@@ -1469,7 +1472,7 @@ class CommandHandler(QObject):
             return error
 
         prompt = random.choice(
-            self.truths
+            prompts.TOD_TRUTHS
         )
 
         return (
@@ -1503,7 +1506,7 @@ class CommandHandler(QObject):
             return error
 
         prompt = random.choice(
-            self.dares
+            prompts.TOD_DARES
         )
 
         return (
@@ -2036,43 +2039,82 @@ class CommandHandler(QObject):
     def game_scores(self, arguments, username):
         return self.party_games.leaderboard()
 
+    def question(self, arguments, username):
+        self._remember_user(username)
+        return "💬 QUESTION\n" + random.choice(prompts.QUESTIONS)
+
+    def spin_bottle(self, arguments, username):
+        """Pick two distinct observed chatters, or spin among named participants."""
+        self._remember_user(username)
+        names = []
+        if arguments:
+            for item in arguments:
+                for name in item.split(","):
+                    name = name.strip().lstrip("@")
+                    if name and name.casefold() not in [n.casefold() for n in names]:
+                        names.append(name)
+        else:
+            names = list(self.known_users.values())
+        if len(names) < 2:
+            return f"🍾 SPIN | Need 2+ players. Use {self.prefix}spin @Alex @Sam"
+        first, second = random.sample(names, 2)
+        return f"🍾 SPIN THE BOTTLE\n🌀 {first} ➜ {second}!\n🎯 {second}: {random.choice(prompts.QUESTIONS)}"
+
     # =========================================================
     # HELP
     # =========================================================
 
     def help(self, arguments, username):
-        """Compact help: short main menu, topic-specific details."""
+        """One command per line. !p m also opens the music menu."""
         p = self.prefix
-        topic = (arguments[0].casefold() if arguments else "")
+        topic = arguments[0].casefold() if arguments else ""
         topic = {"m": "music", "g": "games", "f": "fun", "sys": "system"}.get(topic, topic)
         menus = {
             "music": (
                 "🎵 MUSIC\n"
-                f"{p}p <song> | {p}q | {p}np | {p}s\n"
-                f"{p}pa | {p}r | {p}rm # | {p}clear"
+                f"{p}p <song> — request song\n"
+                f"{p}q — queue\n"
+                f"{p}np — now playing\n"
+                f"{p}s — skip\n"
+                f"{p}pa — pause\n"
+                f"{p}r — resume\n"
+                f"{p}rm <#> — remove\n"
+                f"{p}clear — clear queue"
             ),
             "games": (
                 "🎮 GAMES\n"
-                f"🔴 C4: {p}c4 | {p}join | {p}drop 1-7 | {p}board | {p}end4\n"
-                f"⭕ TTT: {p}tt | {p}accept | {p}m 1-9\n"
-                f"🧠 {p}quiz → {p}a answer | 🎲 {p}guess → {p}g 1-20\n"
-                f"✊ {p}rps rock/paper/scissors | 🏆 {p}top"
+                f"{p}c4 — Connect 4\n"
+                f"{p}join — join C4\n"
+                f"{p}drop <1-7> — drop coin\n"
+                f"{p}board — show C4\n"
+                f"{p}tt — Tic-Tac-Toe\n"
+                f"{p}quiz — trivia\n"
+                f"{p}guess — number game\n"
+                f"{p}rps rock — RPS\n"
+                f"{p}spin @A @B — bottle\n"
+                f"{p}top — scores"
             ),
             "fun": (
-                "🎭 FUN\n"
-                f"{p}j | {p}roast name | {p}tr | {p}d | {p}tod"
+                "🎭 PARTY\n"
+                f"{p}tod @name — truth or dare\n"
+                f"{p}roast @name — playful roast\n"
+                f"{p}j — clean joke\n"
+                f"{p}joke18 — cheeky joke\n"
+                f"{p}question — icebreaker\n"
+                f"{p}spin @A @B — bottle"
             ),
             "system": (
                 "⚙️ SYSTEM\n"
-                f"{p}reconnect | {p}h"
+                f"{p}reconnect — restart chat\n"
+                f"{p}h — commands"
             ),
         }
         if topic in menus:
             return menus[topic]
         return (
             "🐦 CROWBOT\n"
-            f"🎵 {p}h m  Music\n"
-            f"🎮 {p}h g  Games\n"
-            f"🎭 {p}h f  Fun\n"
-            f"⚙️ {p}h sys  System"
+            f"{p}h m — music\n"
+            f"{p}h g — games\n"
+            f"{p}h f — party\n"
+            f"{p}h sys — system"
         )
