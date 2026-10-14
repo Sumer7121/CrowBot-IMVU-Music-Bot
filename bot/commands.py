@@ -2056,21 +2056,16 @@ class CommandHandler(QObject):
         return "💬 QUESTION\n" + self.social.pick("questions", prompts.QUESTIONS)
 
     def spin_bottle(self, arguments, username):
-        """Pick two distinct observed chatters, or spin among named participants."""
+        """Spin toward one randomly chosen observed room chatter."""
         self._remember_user(username)
-        names = []
-        if arguments:
-            for item in arguments:
-                for name in item.split(","):
-                    name = name.strip().lstrip("@")
-                    if name and name.casefold() not in [n.casefold() for n in names]:
-                        names.append(name)
-        else:
-            names = list(self.known_users.values())
-        if len(names) < 2:
-            return f"🍾 SPIN | Need 2+ players. Use {self.prefix}spin @Alex @Sam"
-        first, second = random.sample(names, 2)
-        return f"🍾 SPIN THE BOTTLE\n🌀 {first} ➜ {second}!\n🎯 {second}: {random.choice(prompts.QUESTIONS)}"
+        # The sender is a participant, but prefer someone else if possible.
+        names = list(self.known_users.values())
+        eligible = [name for name in names if name.casefold() != str(username).casefold()]
+        if not eligible:
+            return "🍾 SPIN THE BOTTLE\nNeed another person to chat before spinning!"
+        target = random.choice(eligible)
+        question = self.social.pick("spin_questions", prompts.QUESTIONS)
+        return f"🍾 SPIN THE BOTTLE\n🌀 Bottle points to @{target}!\n💬 {question}"
 
     # =========================================================
     # HELP
@@ -2108,7 +2103,7 @@ class CommandHandler(QObject):
                 f"{p}quiz — trivia\n"
                 f"{p}guess — number game\n"
                 f"{p}rps rock — RPS\n"
-                f"{p}spin @A @B — bottle\n"
+                f"{p}spin — random player\n"
                 f"{p}top — scores\n"
                 f"{p}catch — claim random drop\n"
                 f"{p}collection — owned characters"
@@ -2121,7 +2116,7 @@ class CommandHandler(QObject):
                 f"{p}meme — dashed meme\n"
                 f"{p}joke18 — cheeky joke\n"
                 f"{p}question — icebreaker\n"
-                f"{p}spin @A @B — bottle"
+                f"{p}spin — random player"
             ),
             "system": (
                 "⚙️ SYSTEM\n"
