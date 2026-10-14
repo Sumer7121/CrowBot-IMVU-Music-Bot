@@ -1,60 +1,62 @@
 import unittest
-from bot.five_in_a_row import FiveInARow
+from bot.five_in_a_row import ConnectFour
 
 
-class FiveInARowTests(unittest.TestCase):
+class ConnectFourTests(unittest.TestCase):
     def setUp(self):
-        self.game = FiveInARow()
+        self.game = ConnectFour()
         self.game.start("Alice")
         self.game.accept("Bob")
 
-    def test_inviter_cannot_accept_own_challenge(self):
-        game = FiveInARow()
+    def test_standard_board(self):
+        board = self.game.game["board"]
+        self.assertEqual((len(board), len(board[0])), (6, 7))
+
+    def test_cannot_accept_own_game(self):
+        game = ConnectFour()
         game.start("Alice")
         self.assertIn("Another player", game.accept("alice"))
 
-    def test_gravity_and_stacking(self):
-        self.game.move("Alice", "5")
-        self.assertEqual(self.game.game["board"][8][4], "X")
-        self.game.move("Bob", "5")
-        self.assertEqual(self.game.game["board"][7][4], "O")
+    def test_gravity_and_stack(self):
+        self.game.move("Alice", "4")
+        self.assertEqual(self.game.game["board"][5][3], "X")
+        self.game.move("Bob", "4")
+        self.assertEqual(self.game.game["board"][4][3], "O")
 
-    def test_turn_and_invalid_column(self):
-        self.assertIn("Not your turn", self.game.move("Bob", "1"))
-        self.assertIn("Choose a column", self.game.move("Alice", "Z9"))
-        self.assertIn("Next: Bob", self.game.move("Alice", "1"))
+    def test_turn_and_column_validation(self):
+        self.assertIn("Waiting for", self.game.move("Bob", "2"))
+        self.assertIn("Choose a column", self.game.move("Alice", "8"))
+        self.assertIn("Bob next", self.game.move("Alice", "2"))
 
     def test_horizontal_win(self):
-        for x in "1234":
+        for x in "123":
             self.game.move("Alice", x)
-            self.game.move("Bob", "9")
-        self.assertIn("winner: Alice", self.game.move("Alice", "5"))
+            self.game.move("Bob", "7")
+        self.assertIn("wins CONNECT 4", self.game.move("Alice", "4"))
 
     def test_vertical_win(self):
-        for _ in range(4):
+        for _ in range(3):
             self.game.move("Alice", "1")
-            self.game.move("Bob", "9")
-        self.assertIn("winner: Alice", self.game.move("Alice", "1"))
+            self.game.move("Bob", "7")
+        self.assertIn("wins CONNECT 4", self.game.move("Alice", "1"))
 
-    def test_diagonal_detection(self):
-        board = [["."] * 9 for _ in range(9)]
-        for i in range(5):
-            board[8-i][i] = "X"
-        self.assertTrue(self.game._won(board, 4, 4, "X"))
+    def test_diagonal_win_detection(self):
+        board = [["."] * 7 for _ in range(6)]
+        for i in range(4):
+            board[5 - i][i] = "X"
+        self.assertTrue(self.game._won(board, 3, 2, "X"))
 
-    def test_column_full(self):
-        board = self.game.game["board"]
-        for row in board:
+    def test_full_column(self):
+        for row in self.game.game["board"]:
             row[0] = "X"
-        self.assertIn("column is full", self.game.move("Alice", "1"))
+        self.assertIn("Column full", self.game.move("Alice", "1"))
 
-    def test_graphical_board(self):
-        board = self.game.render()
-        self.assertIn("⚪", board)
+    def test_emoji_board(self):
+        self.assertIn("⚪", self.game.render())
         self.game.move("Alice", "1")
         self.assertIn("🔴", self.game.render())
 
-    def test_end_restricted_to_players(self):
+    def test_end_only_players(self):
         self.assertIn("Only a player", self.game.end("Guest"))
         self.assertIn("ended", self.game.end("Alice"))
 
