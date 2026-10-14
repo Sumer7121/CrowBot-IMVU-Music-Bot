@@ -809,6 +809,38 @@ class IMVUWebController:
 
 
 
+    def restore_chat_panel(self):
+        """Return IMVU to chat after the wardrobe temporarily replaces it."""
+        if not self.page:
+            return False
+        page = self.page
+        for selector in (
+            '[data-nav="chat-button"]',
+            '[data-nav="chat"]',
+            'button[aria-label="Chat" i]',
+            '[title="Chat" i]',
+            '[aria-label*="chat" i]',
+        ):
+            try:
+                buttons = page.locator(selector)
+                for idx in range(min(buttons.count(), 4)):
+                    button = buttons.nth(idx)
+                    if button.is_visible():
+                        button.click(timeout=2500)
+                        page.wait_for_timeout(250)
+                        if page.locator('[data-chat-entry]').count() or (
+                            page.locator('textarea[placeholder="Say something..."]').count()
+                        ):
+                            return True
+            except Exception:
+                continue
+        try:
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            return bool(page.locator('textarea[placeholder="Say something..."]').count())
+        except Exception:
+            return False
+
     def saved_looks(self, slot=None):
         """Scroll the room's OUTFITS drawer and choose an unnamed outfit by number.
 
@@ -988,6 +1020,9 @@ class IMVUWebController:
             return "👗 That outfit could not be located after scrolling; nothing clicked."
         except Exception as error:
             return f"👗 Outfit scan failed: {error}"
+
+        finally:
+            self.restore_chat_panel()
 
     def media_button(self):
 
