@@ -779,26 +779,6 @@ class IMVUChatWorker(QThread):
 
 
 
-class IMVULookWorker(QThread):
-    result_ready = Signal(str)
-
-    def __init__(self, name=None, parent=None):
-        super().__init__(parent)
-        self.name = name
-
-    def run(self):
-        controller = IMVUWebController()
-        try:
-            controller.connect()
-            if not controller.find_imvu_room():
-                raise RuntimeError('No active IMVU room tab found.')
-            self.result_ready.emit(controller.saved_looks(self.name))
-        except Exception as error:
-            self.result_ready.emit(f"Saved Looks error: {error}")
-        finally:
-            controller.disconnect()
-
-
 class IMVUChatSendWorker(QThread):
     """Send one generated bot response into the active IMVU Web room."""
 
@@ -1414,7 +1394,6 @@ class MainWindow(QMainWindow):
 
         self.imvu_chat_worker = None
         self.imvu_chat_send_workers = []
-        self.imvu_look_workers = []
         self._outgoing_chat_queue = []
         self._outgoing_chat_active = False
         self._processing_live_imvu_chat = False
@@ -4901,16 +4880,6 @@ class MainWindow(QMainWindow):
         if mention_reply:
             self.send_bot_response_to_imvu(mention_reply)
 
-        # Inventory control runs in its own worker so chat stays responsive.
-        if message.casefold() == f"{prefix}looks".casefold():
-            self._start_look_worker(None)
-            return
-        if message.casefold().startswith(f"{prefix}look ".casefold()):
-            look_name = message[len(prefix) + 5:].strip()
-            if look_name:
-                self._start_look_worker(look_name)
-            return
-
         # Handle the reconnect command before public room commands.
         if message.casefold() == f"{prefix}reconnect".casefold():
             response = self.reconnect_chat_listener(username)
@@ -5461,18 +5430,6 @@ class MainWindow(QMainWindow):
         # Simulated chat and local command-console tests stay local.
         if self._processing_live_imvu_chat:
             self.send_bot_response_to_imvu(response)
-
-    def _start_look_worker(self, name):
-        worker = IMVULookWorker(name, self)
-        self.imvu_look_workers.append(worker)
-        worker.result_ready.connect(self.send_bot_response_to_imvu)
-        worker.finished.connect(lambda w=worker: self._cleanup_look_worker(w))
-        worker.start()
-
-    def _cleanup_look_worker(self, worker):
-        if worker in self.imvu_look_workers:
-            self.imvu_look_workers.remove(worker)
-        worker.deleteLater()
 
     def send_bot_response_to_imvu(self, response):
         message = str(response or "").strip()
