@@ -243,124 +243,87 @@ class IMVUWebController:
 
 
     def ensure_joined(self, timeout_ms=30000):
+        """Wait for IMVU room UI before deciding whether JOIN is required.
 
+        DOMContentLoaded alone is not enough: the IMVU SPA renders JOIN later.
+        Only treat the room as joined after verified in-room controls appear.
+        """
         if not self.page:
+            raise RuntimeError("No IMVU room page has been selected.")
 
+        import time
+        deadline = time.monotonic() + timeout_ms / 1000.0
+        try:
+            self.page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
+        except Exception as error:
+            raise RuntimeError(f"IMVU room page did not load: {error}") from error
+
+        readiness_js = """() => {
+            const visible = el => {
+                if (!el) return false;
+                const style = window.getComputedStyle(el);
+                return style.visibility !== 'hidden' &&
+                    style.display !== 'none' && el.getClientRects().length > 0;
+            };
+            const join = document.querySelector('button.join-cta') ||
+                Array.from(document.querySelectorAll('button'))
+                    .find(b => b.textContent.trim().toUpperCase() === 'JOIN');
+            if (visible(join)) {
+                return join.disabled ? 'join-loading' : 'join-ready';
+            }
+            const chat = document.querySelector(
+                'textarea[placeholder="Say something..."]'
+            );
+            const media = document.querySelector('li[data-nav="media-button"]');
+            if (visible(chat) && visible(media)) return 'already-joined';
+            return 'loading';
+        }"""
+
+        # Wait for the SPA to render JOIN or verified in-room chat + media.
+        state = "loading"
+        while time.monotonic() < deadline:
+            try:
+                state = self.page.evaluate(readiness_js)
+            except Exception:
+                state = "loading"
+            if state in ("join-ready", "already-joined"):
+                break
+            self.page.wait_for_timeout(200)
+        else:
             raise RuntimeError(
-
-                "No IMVU room page has been selected."
-
+                "Timed out waiting for IMVU JOIN button or in-room controls. "
+                "Check whether the page is still loading or requires login."
             )
 
-
-
-        self.page.wait_for_load_state(
-
-            "domcontentloaded",
-
-            timeout=timeout_ms,
-
-        )
-
-        self.page.wait_for_timeout(1000)
-
-
-
-        if not self.join_button_visible():
-
-            # IMVU can retain a dead temporary radio URL from an earlier
-            # session. Clear only its error modal before chat starts.
+        if state == "already-joined":
             self.dismiss_radio_stream_error()
-
             return {
-
-                "joined": True,
-
-                "clicked": False,
-
-                "status": "already_joined",
-
-                "room_url": self.get_room_url(),
-
+                "joined": True, "clicked": False,
+                "status": "already_joined", "room_url": self.get_room_url(),
             }
 
-
-
+        remaining_ms = max(500, int((deadline - time.monotonic()) * 1000))
         button = self.join_button().first
+        button.wait_for(state="visible", timeout=remaining_ms)
+        button.click(timeout=remaining_ms)
 
+        # Confirm a genuine joined room, not merely a vanished JOIN button.
+        while time.monotonic() < deadline:
+            try:
+                if self.page.evaluate(readiness_js) == "already-joined":
+                    self.dismiss_radio_stream_error()
+                    return {
+                        "joined": True, "clicked": True,
+                        "status": "joined", "room_url": self.get_room_url(),
+                    }
+            except Exception:
+                pass
+            self.page.wait_for_timeout(250)
 
-
-        try:
-
-            button.scroll_into_view_if_needed()
-
-        except Exception:
-
-            pass
-
-
-
-        button.click(timeout=timeout_ms)
-
-
-
-        try:
-
-            button.wait_for(
-
-                state="hidden",
-
-                timeout=timeout_ms,
-
-            )
-
-        except Exception:
-
-            if self.join_button_visible():
-
-                raise RuntimeError(
-
-                    "JOIN was clicked, but IMVU still shows the "
-
-                    "JOIN control. The room may not have finished "
-
-                    "joining or IMVU may have displayed a prompt."
-
-                )
-
-
-
-        self.page.wait_for_timeout(1500)
-
-        # Dismiss the error caused by IMVU retrying a persisted dead radio URL.
-        self.dismiss_radio_stream_error()
-
-
-
-        if self.join_button_visible():
-
-            raise RuntimeError(
-
-                "IMVU still shows the JOIN control after the "
-
-                "automatic join attempt."
-
-            )
-
-
-
-        return {
-
-            "joined": True,
-
-            "clicked": True,
-
-            "status": "joined",
-
-            "room_url": self.get_room_url(),
-
-        }
-
+        raise RuntimeError(
+            "JOIN was clicked, but IMVU in-room controls did not appear "
+            "before the timeout."
+        )
 
 
     # =========================================================
