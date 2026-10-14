@@ -4846,7 +4846,15 @@ class MainWindow(QMainWindow):
 
         user_key = username.lower()
 
-        # Handle the privileged reconnect before public room commands.
+        # React to CrowBot/bot mentions without blocking normal commands.
+        # Throttle per user and ignore command-prefixed messages.
+        mention_reply = self.command_handler.social.mention(
+            username, message, prefix
+        )
+        if mention_reply:
+            self.send_bot_response_to_imvu(mention_reply)
+
+        # Handle the reconnect command before public room commands.
         if message.casefold() == f"{prefix}reconnect".casefold():
             response = self.reconnect_chat_listener(username)
             self.send_bot_response_to_imvu(response)
