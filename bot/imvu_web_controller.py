@@ -533,87 +533,42 @@ class IMVUWebController:
 
 
 
+    def _chat_identity(self, message):
+        entry_id = str(message.get("entry_id") or "").strip()
+        if entry_id:
+            return "id:" + entry_id
+        # When IMVU omits an ID, use position + content as a fallback.
+        # This avoids treating identical text from different rendered entries
+        # as the same message.
+        return "fallback:" + "|".join(
+            str(message.get(key) or "") for key in
+            ("user_id", "timestamp", "username", "message", "_position")
+        )
+
     def prime_chat_listener(self):
-
         messages = self.get_visible_chat_messages(include_own=True)
-
-
-
-        for message in messages:
-
-            entry_id = message.get("entry_id")
-
-            if entry_id:
-
-                self.seen_chat_entries.add(entry_id)
-
-
-
+        for index, message in enumerate(messages):
+            message["_position"] = index
+            self.seen_chat_entries.add(self._chat_identity(message))
         return len(self.seen_chat_entries)
 
-
-
     def get_new_chat_messages(self):
-
         messages = self.get_visible_chat_messages(include_own=True)
-
-        new_messages = []
-
-
-
-        for message in messages:
-
-            entry_id = message.get("entry_id")
-
-
-
-            if entry_id:
-
-                signature = entry_id
-
-            else:
-
-                signature = "|".join(
-
-                    [
-
-                        message.get("user_id", ""),
-
-                        message.get("timestamp", ""),
-
-                        message.get("username", ""),
-
-                        message.get("message", ""),
-
-                    ]
-
-                )
-
-
-
+        result = []
+        for index, message in enumerate(messages):
+            message["_position"] = index
+            signature = self._chat_identity(message)
             if signature in self.seen_chat_entries:
-
                 continue
-
-
-
             self.seen_chat_entries.add(signature)
-
-
-
-            if message.get("is_me"):
-
-                continue
-
-
-
-            new_messages.append(message)
-
-
-
-        return new_messages
-
-
+            if not message.get("is_me"):
+                result.append(message)
+        # Bound memory while maintaining a large window of recent IDs.
+        if len(self.seen_chat_entries) > 25000:
+            self.seen_chat_entries = set(
+                list(self.seen_chat_entries)[-15000:]
+            )
+        return result
 
     def wait_for_new_chat_messages(
 
@@ -621,7 +576,7 @@ class IMVUWebController:
 
         timeout_ms=500,
 
-        poll_interval_ms=100,
+        poll_interval_ms=75,
 
     ):
 
