@@ -814,6 +814,34 @@ class IMVUWebController:
 
 
 
+    def saved_looks(self, name=None):
+        """Use visible IMVU Inventory controls; never blindly click outfits."""
+        if not self.context:
+            raise RuntimeError("Connect to bot Chrome first.")
+        inventory = self.context.new_page()
+        try:
+            inventory.goto("https://www.imvu.com/next/home/",
+                           wait_until="domcontentloaded", timeout=30000)
+            inventory.get_by_text("Inventory", exact=True).first.click(timeout=15000)
+            inventory.get_by_text("Looks", exact=True).first.click(timeout=12000)
+            inventory.wait_for_timeout(1000)
+            if not name:
+                return "🎭 Saved Looks: Open Inventory → Looks to see available outfits. Use !look <exact name>."
+            matches = inventory.get_by_text(str(name), exact=True)
+            if matches.count() != 1:
+                return f"⚠️ Saved look '{name}' not found uniquely. Check its name in Inventory → Looks."
+            matches.first.click(timeout=5000)
+            for label in ("Wear", "Wear Look", "Put On", "Apply Look"):
+                button = inventory.get_by_role("button", name=label, exact=True)
+                if button.count() == 1 and button.first.is_visible() and button.first.is_enabled():
+                    button.first.click(timeout=7000)
+                    return f"👗 Applied saved look: {name}"
+            return f"⚠️ Found '{name}', but no verified Wear button. No outfit change attempted."
+        except Exception as error:
+            return f"⚠️ Saved Looks unavailable: {error}"
+        finally:
+            inventory.close()
+
     def media_button(self):
 
         if not self.page:
