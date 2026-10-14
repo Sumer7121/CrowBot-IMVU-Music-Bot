@@ -1,6 +1,7 @@
 """Discord-style random chat drops with persistent cat/anime collections."""
 import random
 import sqlite3
+from contextlib import closing
 import time
 from pathlib import Path
 
@@ -31,10 +32,11 @@ class CollectibleDrops:
         self.database_path = str(database_path or
             (Path(__file__).resolve().parent.parent / "data" / "crowbot_collectibles.sqlite"))
         Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.database_path) as db:
+        with closing(sqlite3.connect(self.database_path)) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS collections (
                 player TEXT NOT NULL, item TEXT NOT NULL, quantity INTEGER NOT NULL,
                 PRIMARY KEY (player, item))""")
+            db.commit()
 
     def spawn(self):
         if self.active is not None:
@@ -59,16 +61,17 @@ class CollectibleDrops:
         player = str(username or "").strip()
         if not player:
             return "A username is required."
-        with sqlite3.connect(self.database_path) as db:
+        with closing(sqlite3.connect(self.database_path)) as db:
             db.execute("""INSERT INTO collections (player, item, quantity)
                           VALUES (?, ?, 1) ON CONFLICT(player, item)
                           DO UPDATE SET quantity=quantity+1""",
                        (player.casefold(), item[1]))
+            db.commit()
         return f"🎉 {player} caught {item[2]} {item[1]} [{item[3]}]! Type !collection"
 
     def collection(self, username):
         player = str(username or "").strip().casefold()
-        with sqlite3.connect(self.database_path) as db:
+        with closing(sqlite3.connect(self.database_path)) as db:
             rows = db.execute(
                 "SELECT item, quantity FROM collections WHERE player=? ORDER BY item",
                 (player,)).fetchall()
