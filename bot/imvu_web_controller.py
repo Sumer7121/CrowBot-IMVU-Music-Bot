@@ -809,29 +809,58 @@ class IMVUWebController:
 
 
 
-    def saved_looks(self, name=None):
-        """Use visible IMVU Inventory controls; never blindly click outfits."""
+    def saved_looks(self, slot=None):
+        """Use numeric saved-look slots, not names, with cautious UI checks.
+
+        IMVU's saved looks may be unnamed; rely on visible look cards only.
+        If the page structure is unrecognized, do not click an arbitrary item.
+        """
         if not self.context:
             raise RuntimeError("Connect to bot Chrome first.")
+        index = None
+        if slot is not None:
+            try:
+                index = int(str(slot).strip()) - 1
+            except (TypeError, ValueError):
+                return "🎭 Use !look 1, !look 2, etc. — saved looks have no names."
+            if index < 0:
+                return "🎭 Look number must start at 1."
+
         inventory = self.context.new_page()
         try:
             inventory.goto("https://www.imvu.com/next/home/",
                            wait_until="domcontentloaded", timeout=30000)
             inventory.get_by_text("Inventory", exact=True).first.click(timeout=15000)
             inventory.get_by_text("Looks", exact=True).first.click(timeout=12000)
-            inventory.wait_for_timeout(1000)
-            if not name:
-                return "🎭 Saved Looks: Open Inventory → Looks to see available outfits. Use !look <exact name>."
-            matches = inventory.get_by_text(str(name), exact=True)
-            if matches.count() != 1:
-                return f"⚠️ Saved look '{name}' not found uniquely. Check its name in Inventory → Looks."
-            matches.first.click(timeout=5000)
+            inventory.wait_for_timeout(1200)
+
+            # Count only visible elements clearly identified as saved-look cards.
+            cards = inventory.locator(
+                '[data-testid="saved-look-card"], '
+                '[data-testid="look-card"], '
+                '[data-testid*="saved-look-item"]'
+            )
+            count = cards.count()
+            if not count:
+                return ("🎭 Saved looks have no names. I couldn't identify the "
+                        "look tiles in this version of IMVU. No outfit changed.")
+            if index is None:
+                return (f"🎭 {count} saved looks available.\n"
+                        f"Use !look 1 through !look {count} (left-to-right order).")
+            if index >= count:
+                return f"⚠️ Look {index+1} not found. Choose 1–{count}."
+
+            tile = cards.nth(index)
+            if not tile.is_visible():
+                return f"⚠️ Look {index+1} isn't visible. No outfit changed."
+            tile.click(timeout=7000)
             for label in ("Wear", "Wear Look", "Put On", "Apply Look"):
                 button = inventory.get_by_role("button", name=label, exact=True)
                 if button.count() == 1 and button.first.is_visible() and button.first.is_enabled():
                     button.first.click(timeout=7000)
-                    return f"👗 Applied saved look: {name}"
-            return f"⚠️ Found '{name}', but no verified Wear button. No outfit change attempted."
+                    return f"👗 Selected saved look #{index+1}."
+            return ("⚠️ No verified Wear/Apply control appeared. "
+                    "No outfit change was confirmed.")
         except Exception as error:
             return f"⚠️ Saved Looks unavailable: {error}"
         finally:
