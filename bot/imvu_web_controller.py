@@ -563,11 +563,6 @@ class IMVUWebController:
             self.seen_chat_entries.add(signature)
             if not message.get("is_me"):
                 result.append(message)
-        # Bound memory while maintaining a large window of recent IDs.
-        if len(self.seen_chat_entries) > 25000:
-            self.seen_chat_entries = set(
-                list(self.seen_chat_entries)[-15000:]
-            )
         return result
 
     def wait_for_new_chat_messages(
