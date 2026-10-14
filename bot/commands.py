@@ -7,6 +7,7 @@ from database.users import UserManager
 from music.resolver import MusicResolver
 from music.youtube_owned import YouTubeOwnedProvider
 from bot.five_in_a_row import FiveInARow
+from bot.party_games import PartyGames
 
 
 # =============================================================
@@ -184,6 +185,12 @@ class CommandHandler(QObject):
             "fivemove": self.five_move,
             "fiveboard": self.five_board,
             "fiveend": self.five_end,
+            "quiz": self.trivia_start,
+            "a": self.trivia_answer,
+            "guess": self.guess_start,
+            "g": self.guess_answer,
+            "rps": self.rock_paper_scissors,
+            "top": self.game_scores,
             "h": self.help,
             "p": self.play,
             "q": self.show_queue,
@@ -280,6 +287,7 @@ class CommandHandler(QObject):
         self.ttt_pending = None
         self.ttt_game = None
         self.five_game = FiveInARow()
+        self.party_games = PartyGames()
 
         # -----------------------------------------------------
         # OBSERVED IMVU USERS
@@ -2007,46 +2015,64 @@ class CommandHandler(QObject):
         return self.five_game.end(self._remember_user(username))
 
     # =========================================================
+    # QUICK PARTY GAMES
+    # =========================================================
+
+    def trivia_start(self, arguments, username):
+        return self.party_games.start_trivia()
+
+    def trivia_answer(self, arguments, username):
+        return self.party_games.answer(username, " ".join(arguments))
+
+    def guess_start(self, arguments, username):
+        return self.party_games.start_guess()
+
+    def guess_answer(self, arguments, username):
+        return self.party_games.try_guess(username, arguments[0] if arguments else "")
+
+    def rock_paper_scissors(self, arguments, username):
+        return self.party_games.rps(username, arguments[0] if arguments else "")
+
+    def game_scores(self, arguments, username):
+        return self.party_games.leaderboard()
+
+    # =========================================================
     # HELP
     # =========================================================
 
     def help(self, arguments, username):
-        """Short command menus sized for IMVU chat."""
-        topic = arguments[0].lower() if arguments else ""
+        """Compact help: short main menu, topic-specific details."""
         p = self.prefix
+        topic = (arguments[0].casefold() if arguments else "")
+        topic = {"m": "music", "g": "games", "f": "fun", "sys": "system"}.get(topic, topic)
         menus = {
             "music": (
                 "🎵 MUSIC\n"
-                f"{p}p song | {p}q | {p}np | {p}s\n"
-                f"{p}pa | {p}r | {p}rm # | {p}clear\n"
-                f"Full: {p}play, {p}ytsearch"
+                f"{p}p <song> | {p}q | {p}np | {p}s\n"
+                f"{p}pa | {p}r | {p}rm # | {p}clear"
             ),
             "games": (
                 "🎮 GAMES\n"
-                f"🔴🟡 CONNECT 4: {p}c4 | {p}join | {p}drop 1-7\n"
-                f"{p}board | {p}end4\n"
-                f"❌⭕ TTT: {p}tt | {p}accept | {p}m 1-9\n"
-                f"{p}tttboard | {p}tttend"
+                f"🔴 C4: {p}c4 | {p}join | {p}drop 1-7 | {p}board | {p}end4\n"
+                f"⭕ TTT: {p}tt | {p}accept | {p}m 1-9\n"
+                f"🧠 {p}quiz → {p}a answer | 🎲 {p}guess → {p}g 1-20\n"
+                f"✊ {p}rps rock/paper/scissors | 🏆 {p}top"
             ),
             "fun": (
                 "🎭 FUN\n"
-                f"{p}j joke | {p}roast name | {p}tr truth\n"
-                f"{p}d dare | {p}tod"
+                f"{p}j | {p}roast name | {p}tr | {p}d | {p}tod"
             ),
             "system": (
                 "⚙️ SYSTEM\n"
-                f"{p}reconnect - restart chat listener\n"
-                f"{p}h - home"
+                f"{p}reconnect | {p}h"
             ),
         }
-        names = {"m": "music", "g": "games", "f": "fun", "sys": "system"}
-        topic = names.get(topic, topic)
         if topic in menus:
             return menus[topic]
         return (
-            "🐦 CROWBOT COMMANDS\n"
-            f"🎵 {p}h m - music\n"
-            f"🎮 {p}h g - games\n"
-            f"🎭 {p}h f - fun\n"
-            f"⚙️ {p}h sys - system"
+            "🐦 CROWBOT\n"
+            f"🎵 {p}h m  Music\n"
+            f"🎮 {p}h g  Games\n"
+            f"🎭 {p}h f  Fun\n"
+            f"⚙️ {p}h sys  System"
         )
