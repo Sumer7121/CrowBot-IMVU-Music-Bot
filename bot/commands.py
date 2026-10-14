@@ -2121,8 +2121,6 @@ class CommandHandler(QObject):
             "system": (
                 "⚙️ SYSTEM\n"
                 f"{p}reconnect — restart chat\n"
-                f"{p}looks — saved looks\n"
-                f"{p}look <number> — switch look\n"
                 f"{p}h — commands"
             ),
         }
