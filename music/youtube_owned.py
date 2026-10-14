@@ -9,6 +9,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from config.runtime_paths import get_youtube_temp_dir
 from urllib.parse import quote, unquote
+from music.song_ranking import ranked_candidates, candidate_score, query_parts
 
 
 # =============================================================
@@ -357,42 +358,39 @@ class YouTubeOwnedProvider:
     # MAIN SEARCH
     # =========================================================
 
-    def search(
-        self,
-        query,
-        requested_by=None,
-    ):
-
-        candidates = self.search_candidates(
-            query,
-            limit=10,
-        )
-
-        if not candidates:
-            return None
-
-        selected = None
-
-        for candidate in candidates:
-
-            metadata = self._get_video_metadata(
-                candidate
-            )
-
-            if not metadata:
+    def search(self, query, requested_by=None):
+        """Filter/rank search results BEFORE media is downloaded."""
+        song, artist = query_parts(query)
+        searches = [f"{artist} {song} official audio" if artist else f"{song} official audio"]
+        searches.append(query)
+        attempted = set()
+        for search_text in searches:
+            if search_text.casefold() in attempted:
                 continue
-
-            selected = metadata
-            break
-
-        if not selected:
-            return None
-
-        return self._prepare_track(
-            selected,
-            query,
-            requested_by,
-        )
+            attempted.add(search_text.casefold())
+            try:
+                candidates = ranked_candidates(
+                    self.search_candidates(search_text, limit=15), query
+                )
+            except Exception as error:
+                print(f"YTDLP SEARCH ERROR: {error}")
+                continue
+            for candidate in candidates[:8]:
+                metadata = self._get_video_metadata(candidate)
+                if not metadata:
+                    continue
+                # Never download a candidate unless FULL metadata still
+                # matches the song/artist and duration is known.
+                duration = metadata.get("duration", 0)
+                if not duration or candidate_score(metadata, query) is None:
+                    print(f"YTDLP: Skipping non-song: {metadata.get('title')}")
+                    continue
+                try:
+                    return self._prepare_track(metadata, query, requested_by)
+                except Exception as error:
+                    print(f"YTDLP: Candidate failed, trying next: {error}")
+                    continue
+        return None
 
 
     # =========================================================
