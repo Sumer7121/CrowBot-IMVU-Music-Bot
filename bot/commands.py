@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, QThread, Signal, Slot
 from database.users import UserManager
 from music.resolver import MusicResolver
 from music.youtube_owned import YouTubeOwnedProvider
+from bot.five_in_a_row import FiveInARow
 
 
 # =============================================================
@@ -173,6 +174,11 @@ class CommandHandler(QObject):
             "tttboard": self.tic_tac_toe_board,
             "tttend": self.tic_tac_toe_end,
 
+            "five": self.five_start,
+            "fiveaccept": self.five_accept,
+            "fivemove": self.five_move,
+            "fiveboard": self.five_board,
+            "fiveend": self.five_end,
             "help": self.help,
         }
 
@@ -256,6 +262,7 @@ class CommandHandler(QObject):
         # a single IMVU room/session.
         self.ttt_pending = None
         self.ttt_game = None
+        self.five_game = FiveInARow()
 
         # -----------------------------------------------------
         # OBSERVED IMVU USERS
@@ -1960,6 +1967,28 @@ class CommandHandler(QObject):
             "🎮 There is no Tic-Tac-Toe game to end."
         )
 
+
+    # =========================================================
+    # FIVE IN A ROW
+    # =========================================================
+
+    def five_start(self, arguments, username):
+        return self.five_game.start(self._remember_user(username))
+
+    def five_accept(self, arguments, username):
+        return self.five_game.accept(self._remember_user(username))
+
+    def five_move(self, arguments, username):
+        if not arguments:
+            return f"Usage: {self.prefix}fivemove E5"
+        return self.five_game.move(self._remember_user(username), arguments[0])
+
+    def five_board(self, arguments, username):
+        return self.five_game.render()
+
+    def five_end(self, arguments, username):
+        return self.five_game.end(self._remember_user(username))
+
     # =========================================================
     # HELP
     # =========================================================
@@ -1989,6 +2018,6 @@ class CommandHandler(QObject):
             f"{self.prefix}accept | "
             f"{self.prefix}move <1-9> | "
             f"{self.prefix}tttboard | "
-            f"{self.prefix}tttend"
+            f"{self.prefix}tttend\\n"\n            f"{self.prefix}five | {self.prefix}fiveaccept | "\n            f"{self.prefix}fivemove E5 | {self.prefix}fiveboard | "\n            f"{self.prefix}fiveend"
         )
 
