@@ -1,4 +1,4 @@
-"""Fast, dependency-free Five in a Row (Gomoku) game for IMVU chat.
+"""Gravity-based Five in a Row game for IMVU chat.
 
 One instance belongs to one room's CommandHandler.
 """
@@ -37,12 +37,12 @@ class FiveInARow:
             "moves": 0,
         }
         self.pending = None
-        return f"Five in a Row: X {first} vs O {username}. X starts! Use !fivemove A1-I9.\n{self.render()}"
+        return f"Five in a Row: X {first} vs O {username}. X starts! Drop with !fivemove 1-9.\n{self.render()}"
 
     def render(self):
         if not self.game:
             return "No active Five in a Row game."
-        rows = ["  A B C D E F G H I"]
+        rows = ["  1 2 3 4 5 6 7 8 9"]
         for y, row in enumerate(self.game["board"], 1):
             rows.append(f"{y} " + " ".join(row))
         return "\n".join(rows)
@@ -55,12 +55,15 @@ class FiveInARow:
         if not self._same(username, game["players"][current]):
             return f"Not your turn. Waiting for {game['players'][current]}."
         position = str(position).strip().upper()
-        if len(position) != 2 or position[0] not in "ABCDEFGHI" or position[1] not in "123456789":
-            return "Choose a square A1-I9, for example !fivemove E5."
-        x, y = ord(position[0]) - ord("A"), int(position[1]) - 1
+        if len(position) != 1 or position not in "123456789ABCDEFGHI":
+            return "Choose a column 1-9 (or A-I), e.g. !fivemove 5."
+        x = (int(position) - 1) if position.isdigit() else (ord(position) - ord("A"))
         board = game["board"]
-        if board[y][x] != ".":
-            return "That square is already occupied."
+        # A coin always falls to the lowest available row in this column.
+        y = next((row for row in range(self.SIZE - 1, -1, -1)
+                  if board[row][x] == "."), None)
+        if y is None:
+            return "That column is full. Choose another one."
         mark = "X" if current == 0 else "O"
         board[y][x] = mark
         game["moves"] += 1
@@ -73,7 +76,7 @@ class FiveInARow:
             self.game = None
             return f"Five in a Row is a draw!\n{board_text}"
         game["turn"] = 1 - current
-        return f"{username} played {position}. Next: {game['players'][game['turn']]}\n{board_text}"
+        return f"{username} dropped in column {x + 1}. Next: {game['players'][game['turn']]}\n{board_text}"
 
     def _won(self, board, x, y, mark):
         for dx, dy in ((1, 0), (0, 1), (1, 1), (1, -1)):
