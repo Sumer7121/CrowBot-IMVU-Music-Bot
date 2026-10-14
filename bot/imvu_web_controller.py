@@ -826,6 +826,41 @@ class IMVUWebController:
             return "👗 Outfit numbers start at 1."
 
         page = self.page
+        # Open the room's wardrobe if its drawer is currently closed.
+        # Prefer an accessible name or toolbar title; never click an
+        # unlabelled icon by a hard-coded screen coordinate.
+        visible_panel = page.get_by_text("OUTFITS", exact=True)
+        if not (visible_panel.count() and visible_panel.first.is_visible()):
+            opened = False
+            for selector in (
+                'button[aria-label*="outfit" i]',
+                '[title*="outfit" i]',
+                '[data-nav*="outfit" i]',
+                '[aria-label*="wardrobe" i]',
+                '[title*="wardrobe" i]',
+            ):
+                control = page.locator(selector)
+                if control.count() and control.first.is_visible():
+                    control.first.click(timeout=4000)
+                    opened = True
+                    break
+            if not opened:
+                return ("👗 Could not find the OUTFITS toolbar control. "
+                        "Please open OUTFITS once so its button can be identified.")
+            try:
+                page.get_by_text("OUTFITS", exact=True).first.wait_for(
+                    state="visible", timeout=7000)
+            except Exception:
+                return "👗 OUTFITS did not open; no outfit changed."
+
+        # Screenshots are diagnostic snapshots only: use DOM coordinates
+        # to count thumbnails and guard against duplicate images.
+        import tempfile
+        from pathlib import Path
+        snapshot_dir = Path(tempfile.gettempdir()) / "crowbot_outfit_scans"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        screenshot_count = 0
+
         script = """(action) => {
           const visible = el => {
             const r = el.getBoundingClientRect(), s = getComputedStyle(el);
@@ -895,8 +930,19 @@ class IMVUWebController:
             page.wait_for_timeout(200)
             seen = {}
             previous_top = -1
-            for _ in range(120):
+            for step in range(120):
                 data = page.evaluate(script, "")
+                # Capture the current scroll position so an incorrect card
+                # count can be diagnosed without repeating the full scan.
+                if step < 40:
+                    try:
+                        page.screenshot(
+                            path=str(snapshot_dir / f"outfits_{step:03d}.png"),
+                            full_page=False, timeout=5000
+                        )
+                        screenshot_count += 1
+                    except Exception:
+                        pass
                 if data.get("error") == "panel":
                     return "👗 Open the OUTFITS sidebar first."
                 if data.get("error"):
@@ -919,7 +965,9 @@ class IMVUWebController:
                 return "👗 No outfit thumbnails detected."
             if index is None:
                 page.evaluate(script, "restore")
-                return f"👗 Found {count} outfits. Use !look 1 through !look {count}."
+                return (f"👗 Found {count} outfits after scrolling. "
+                        f"Saved {screenshot_count} screenshots locally. "
+                        f"Use !look 1 through !look {count}.")
             if index >= count:
                 page.evaluate(script, "restore")
                 return f"👗 Choose an outfit from 1–{count}."
