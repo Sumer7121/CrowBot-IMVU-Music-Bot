@@ -790,6 +790,8 @@ class IMVULookWorker(QThread):
         controller = IMVUWebController()
         try:
             controller.connect()
+            if not controller.find_imvu_room():
+                raise RuntimeError('No active IMVU room tab found.')
             self.result_ready.emit(controller.saved_looks(self.name))
         except Exception as error:
             self.result_ready.emit(f"Saved Looks error: {error}")
