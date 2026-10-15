@@ -201,6 +201,14 @@ class CommandHandler(QObject):
             "spin": self.spin_bottle,
             "question": self.question,
             "questions": self.question,
+            "wyr": self.would_you_rather,
+            "wouldyourather": self.would_you_rather,
+            "nhie": self.never_have_i_ever,
+            "neverhaveiever": self.never_have_i_ever,
+            "8ball": self.magic_eight_ball,
+            "riddle": self.riddle_start,
+            "ra": self.riddle_answer,
+            "duel": self.duel_player,
             "qotd": self.question,
             "h": self.help,
             "p": self.play,
@@ -2054,6 +2062,39 @@ class CommandHandler(QObject):
         self._remember_user(username)
         return "💬 QUESTION\n" + self.social.pick("questions", prompts.QUESTIONS)
 
+    def would_you_rather(self, arguments, username):
+        self._remember_user(username)
+        return "🤔 WOULD YOU RATHER\\n" + self.social.pick(
+            "would_you_rather", prompts.WOULD_YOU_RATHER
+        )
+
+    def never_have_i_ever(self, arguments, username):
+        self._remember_user(username)
+        return "🙋 NEVER HAVE I EVER\\n" + self.social.pick(
+            "never_have_i_ever", prompts.NEVER_HAVE_I_EVER
+        )
+
+    def magic_eight_ball(self, arguments, username):
+        self._remember_user(username)
+        question = " ".join(arguments).strip()
+        if not question:
+            return f"🎱 Ask a question: {self.prefix}8ball <question>"
+        answer = self.social.pick("magic_eight_ball", prompts.MAGIC_EIGHT_BALL)
+        return f"🎱 {username} asked: {question}\\nCrowBot says: {answer}"
+
+    def riddle_start(self, arguments, username):
+        self._remember_user(username)
+        return self.party_games.start_riddle()
+
+    def riddle_answer(self, arguments, username):
+        self._remember_user(username)
+        return self.party_games.answer_riddle(username, " ".join(arguments))
+
+    def duel_player(self, arguments, username):
+        self._remember_user(username)
+        name = " ".join(arguments).strip().lstrip("@")
+        return self.party_games.duel(username, name)
+
     def spin_bottle(self, arguments, username):
         """Spin toward one randomly chosen observed room chatter."""
         self._remember_user(username)
@@ -2106,17 +2147,24 @@ class CommandHandler(QObject):
                 f"{p}move 1-9 — place X/O\n"
                 f"{p}tttboard — view TTT\n"
                 f"{p}tttend — end TTT\n"
-                f"{p}quiz — trivia\n"
-                f"{p}guess — number game\n"
+                f"{p}quiz — trivia (500 mixed questions)\\n"
+                f"{p}riddle — riddle, answer with {p}ra\\n"
+                f"{p}duel <name> — friendly dice duel\\n"
+                f"{p}guess — number game\\n"
                 f"{p}rps rock — RPS\n"
                 f"{p}spin — random player\n"
                 f"{p}top — scores\n"
                 f"{p}catch — claim random drop\n"
-                f"{p}collection — owned characters"
+                f"{p}collection — owned cats and dogs"
             ),
             "fun": (
                 "🎭 PARTY\n"
-                f"{p}tod @name — truth or dare\n"
+                f"{p}tod <name> — truth or dare for player\\n"
+                f"{p}truth <name> — truth for player\\n"
+                f"{p}dare <name> — dare for player\\n"
+                f"{p}wyr — would you rather\\n"
+                f"{p}nhie — never have I ever\\n"
+                f"{p}8ball <question> — magic 8 ball\\n"
                 f"{p}roast @name — playful roast\n"
                 f"{p}j — clean joke\n"
                 f"{p}meme — dashed meme\n"
