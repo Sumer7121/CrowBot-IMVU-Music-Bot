@@ -314,7 +314,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
-    def __init__(self, stream_url, parent=None):
+    def __init__(self, stream_url, parent=None, room_url=None):
 
 
 
@@ -323,6 +323,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
         self.stream_url = stream_url
+        self.room_url = room_url
 
 
 
@@ -358,7 +359,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
-            page = controller.find_imvu_room()
+            page = controller.find_imvu_room(self.room_url)
 
 
 
@@ -504,11 +505,12 @@ class IMVUJoinWorker(QThread):
 
 
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, room_url=None):
 
 
 
         super().__init__(parent)
+        self.room_url = room_url
 
 
 
@@ -560,7 +562,7 @@ class IMVUJoinWorker(QThread):
 
 
 
-                page = controller.find_imvu_room()
+                page = controller.find_imvu_room(self.room_url)
 
 
 
@@ -690,9 +692,10 @@ class IMVUChatWorker(QThread):
 
 
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, room_url=None):
 
         super().__init__(parent)
+        self.room_url = room_url
 
         self._stop_requested = False
 
@@ -718,7 +721,7 @@ class IMVUChatWorker(QThread):
 
 
 
-            page = controller.find_imvu_room()
+            page = controller.find_imvu_room(self.room_url)
 
             if not page:
 
@@ -1433,6 +1436,7 @@ class MainWindow(QMainWindow):
 
         self.imvu_chat_worker = None
         self.imvu_chat_send_workers = []
+        self._primary_room_url = None
         self.secondary_room_workers = []
         self._secondary_room_url_set = set()
         self._outgoing_chat_queue = []
@@ -4455,6 +4459,8 @@ class MainWindow(QMainWindow):
                 room_id = room_id[5:]
 
         room_id = room_id.strip()
+        self._primary_room_url = f"https://www.imvu.com/next/chat/room-{room_id}/"
+
 
         if not room_id:
             QMessageBox.warning(
@@ -4531,7 +4537,7 @@ class MainWindow(QMainWindow):
 
 
 
-        worker = IMVUJoinWorker(self)
+        worker = IMVUJoinWorker(self, room_url=self._primary_room_url)
 
 
 
@@ -4793,8 +4799,11 @@ class MainWindow(QMainWindow):
         finally:
             controller.disconnect()
 
-        # The existing primary worker uses the first room tab.
-        for room in rooms[1:]:
+        # Exclude the configured primary room regardless of tab order.
+        primary = str(self._primary_room_url or '').rstrip('/')
+        for room in rooms:
+            if room['url'].rstrip('/') == primary:
+                continue
             url = room["url"]
             if url in self._secondary_room_url_set:
                 continue
@@ -4853,7 +4862,7 @@ class MainWindow(QMainWindow):
 
         self.log("IMVU CHAT: Starting live room listener...")
 
-        worker = IMVUChatWorker(self)
+        worker = IMVUChatWorker(self, room_url=self._primary_room_url)
 
         self.imvu_chat_worker = worker
 
@@ -5549,7 +5558,7 @@ class MainWindow(QMainWindow):
             return
         message = self._outgoing_chat_queue.pop(0)
         self._outgoing_chat_active = True
-        worker = IMVUChatSendWorker(message, self)
+        worker = IMVUChatSendWorker(message, self, room_url=self._primary_room_url)
         worker.succeeded.connect(self.imvu_chat_send_succeeded)
         worker.failed.connect(self.imvu_chat_send_failed)
         worker.finished.connect(
@@ -7640,7 +7649,8 @@ class MainWindow(QMainWindow):
 
 
 
-            self
+            self,
+            room_url=self._primary_room_url,
 
 
 
