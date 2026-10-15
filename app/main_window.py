@@ -1441,6 +1441,7 @@ class MainWindow(QMainWindow):
         self.secondary_room_workers = []
         self._secondary_room_url_set = set()
         self.room_sessions = {}
+        self._next_room_radio_port = 8766
         self._outgoing_chat_queue = []
         self._outgoing_chat_active = False
         self._processing_live_imvu_chat = False
@@ -4813,8 +4814,26 @@ class MainWindow(QMainWindow):
                 self.room_sessions[url] = RoomSession(
                     url,
                     prefix=self.settings.get("prefix", "!"),
-                    user_manager=self.user_manager,
+                    radio_port=self._next_room_radio_port,
                 )
+                self._next_room_radio_port += 1
+                session = self.room_sessions[url]
+                session.tunnel.tunnel_started.connect(
+                    lambda stream_url, u=url: self._secondary_radio_ready(u, stream_url)
+                )
+                session.tunnel.tunnel_error.connect(
+                    lambda err, u=url: self.log(f"MULTI-ROOM RADIO ERROR [{u}]: {err}")
+                )
+                session.command_handler.async_response.connect(
+                    lambda username, response, u=url: self.send_bot_response_to_imvu(
+                        response, room_url=u
+                    )
+                )
+                try:
+                    session.start_radio()
+                    self.log(f"MULTI-ROOM RADIO: Starting private station on {session.radio_port}: {url}")
+                except Exception as err:
+                    self.log(f"MULTI-ROOM RADIO ERROR [{url}]: {err}")
             worker = SecondaryRoomWorker(url, self)
             self._secondary_room_url_set.add(url)
             self.secondary_room_workers.append(worker)
@@ -4827,6 +4846,31 @@ class MainWindow(QMainWindow):
                 lambda w=worker, u=url: self.cleanup_secondary_room_worker(w, u)
             )
             worker.start()
+
+    def _secondary_radio_ready(self, room_url, stream_url):
+        session = self.room_sessions.get(room_url)
+        if session is None:
+            return
+        worker = IMVURadioUpdateWorker(stream_url, self, room_url=room_url)
+        self.imvu_radio_workers.append(worker)
+        worker.succeeded.connect(
+            lambda url, previous, w=worker, room=room_url: self._secondary_radio_loaded(room, url)
+        )
+        worker.failed.connect(
+            lambda error, room=room_url: self.log(
+                f"MULTI-ROOM RADIO LOAD ERROR [{room}]: {error}"
+            )
+        )
+        worker.finished.connect(
+            lambda w=worker: self.cleanup_imvu_radio_worker(w)
+        )
+        worker.start()
+
+    def _secondary_radio_loaded(self, room_url, stream_url):
+        session = self.room_sessions.get(room_url)
+        if session:
+            session.stream_url = stream_url
+            self.log(f"MULTI-ROOM RADIO: Independent station READY [{room_url}]")
 
     def cleanup_secondary_room_worker(self, worker, url):
         if worker in self.secondary_room_workers:
@@ -4884,6 +4928,9 @@ class MainWindow(QMainWindow):
         for secondary in list(self.secondary_room_workers):
             secondary.stop()
             secondary.wait(wait_ms)
+        for session in self.room_sessions.values():
+            session.stop_radio()
+        self.room_sessions.clear()
         self.collectible_timer.stop()
         worker = self.imvu_chat_worker
 
@@ -7828,7 +7875,7 @@ class MainWindow(QMainWindow):
             )
 
             self.start_imvu_chat_listener()
-            self.start_secondary_room_radio_updates(stream_url)
+            # Secondary sessions start their own radio servers and tunnels.
 
             self._crowbot_connecting = False
 
