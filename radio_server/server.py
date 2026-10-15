@@ -39,11 +39,11 @@ class RadioStreamServer:
     # SOURCE MANAGEMENT
     # =========================================================
 
-    def set_source(self, url):
+    def set_source(self, url, force_restart=False):
         url = (url or "").strip()
 
         with self.broadcast_lock:
-            changed = url != self.current_source
+            changed = force_restart or url != self.current_source
 
             if changed:
                 self.current_source = url
