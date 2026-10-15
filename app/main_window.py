@@ -175,6 +175,8 @@ from app.users_window import UsersWindow
 
 from bot.commands import CommandHandler
 from bot.room_session import RoomSession
+from bot.room_ids import normalize_room_id, make_room_url
+from app.multi_room_panel import MultiRoomPanel
 
 
 
@@ -791,6 +793,29 @@ class IMVUChatWorker(QThread):
 
 
 
+
+
+class IMVUOpenRoomWorker(QThread):
+    """Open an additional room without blocking the main Qt event loop."""
+    opened = Signal(str)
+    failed = Signal(str)
+
+    def __init__(self, room_url, parent=None):
+        super().__init__(parent)
+        self.room_url = room_url
+
+    def run(self):
+        controller = IMVUWebController()
+        try:
+            controller.connect()
+            if not controller.find_imvu_room(self.room_url):
+                page = controller.context.new_page()
+                page.goto(self.room_url, wait_until="domcontentloaded", timeout=30000)
+            self.opened.emit(self.room_url)
+        except Exception as error:
+            self.failed.emit(str(error))
+        finally:
+            controller.disconnect()
 
 
 class SecondaryRoomWorker(QThread):
@@ -1451,6 +1476,8 @@ class MainWindow(QMainWindow):
         self.secondary_room_workers = []
         self._secondary_room_url_set = set()
         self.room_sessions = {}
+        self._room_open_workers = []
+        self._room_states = {}
         self._next_room_radio_port = 8766
         self._outgoing_chat_queue = []
         self._outgoing_chat_active = False
@@ -1519,8 +1546,12 @@ class MainWindow(QMainWindow):
 
 
 
-
+        self._room_ui_timer = QTimer(self)
+        self._room_ui_timer.setInterval(2000)
+        self._room_ui_timer.timeout.connect(self._refresh_rooms_ui)
+        self._room_ui_timer.start()
         self.log("Application started.")
+        self._refresh_rooms_ui()
 
         # First-run configuration.
         # Delay until the main window has completed setup.
@@ -1589,8 +1620,8 @@ class MainWindow(QMainWindow):
         # =====================================================
 
         self.setWindowTitle("CrowBot - IMVU Music Bot")
-        self.setMinimumSize(760, 620)
-        self.resize(980, 760)
+        self.setMinimumSize(890, 690)
+        self.resize(1190, 930)
 
         central = QWidget()
         central.setObjectName("crowbotRoot")
@@ -2000,6 +2031,17 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(header_layout)
 
         # =====================================================
+        # PRIMARY ROOM (visible — was hidden in legacy settings)
+        # =====================================================
+        primary_row = QHBoxLayout()
+        primary_label = QLabel("PRIMARY ROOM ID")
+        self.room_input = QLineEdit()
+        self.room_input.setPlaceholderText("e.g. 391169385-9 — edit before CONNECT")
+        primary_row.addWidget(primary_label)
+        primary_row.addWidget(self.room_input, 1)
+        main_layout.addLayout(primary_row)
+
+        # =====================================================
         # PRIMARY CONNECTION CONTROL
         # =====================================================
 
@@ -2126,11 +2168,12 @@ class MainWindow(QMainWindow):
             queue_layout
         )
 
-        # Queue receives remaining vertical space.
-        main_layout.addWidget(
-            queue_group,
-            1
-        )
+        # Old queue controls stay alive for legacy signals. The new
+        # multi-room panel is the visible queue and room-log UI.
+        queue_group.hide()
+        main_layout.addWidget(queue_group, 0)
+        self.room_panel = MultiRoomPanel(central)
+        main_layout.addWidget(self.room_panel, 3)
 
         # =====================================================
         # FOOTER
@@ -2191,13 +2234,6 @@ class MainWindow(QMainWindow):
         )
         self.username_input.setPlaceholderText(
             "IMVU username"
-        )
-
-        self.room_input = QLineEdit(
-            self._legacy_ui
-        )
-        self.room_input.setPlaceholderText(
-            "IMVU Room ID"
         )
 
         # Old secondary disconnect/status control.
@@ -2373,6 +2409,9 @@ class MainWindow(QMainWindow):
 
 
 
+        self.room_panel.add_requested.connect(self.add_room_to_crowbot)
+        self.room_panel.refresh_requested.connect(self.refresh_room_list)
+        self.room_panel.remove_requested.connect(self.remove_secondary_room)
         self.connect_button.clicked.connect(
 
 
@@ -4460,20 +4499,15 @@ class MainWindow(QMainWindow):
 
             return
 
-        raw_room = room_id.strip()
-
-        if "/room-" in raw_room:
-            room_id = raw_room.split("/room-", 1)[1]
-            room_id = room_id.split("/", 1)[0]
-            room_id = room_id.split("?", 1)[0]
-            room_id = room_id.split("#", 1)[0]
-        else:
-            room_id = raw_room.strip("/")
-            if room_id.startswith("room-"):
-                room_id = room_id[5:]
-
-        room_id = room_id.strip()
-        self._primary_room_url = f"https://www.imvu.com/next/chat/room-{room_id}/"
+        try:
+            room_id = normalize_room_id(room_id)
+        except ValueError as error:
+            self._crowbot_connecting = False
+            self.connect_button.setEnabled(True)
+            self.connect_button.setText("CONNECT BOT")
+            QMessageBox.warning(self, "Invalid Room ID", str(error))
+            return
+        self._primary_room_url = make_room_url(room_id)
 
 
         if not room_id:
