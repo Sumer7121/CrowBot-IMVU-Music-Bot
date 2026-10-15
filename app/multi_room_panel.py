@@ -6,6 +6,7 @@ owned by MainWindow; Qt signals request actions from the main application.
 from collections import defaultdict
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton,
     QSplitter, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
@@ -68,6 +69,16 @@ class MultiRoomPanel(QWidget):
         self.room_table.setMinimumHeight(135)
         group_layout.addWidget(self.room_table)
 
+        stream_row = QHBoxLayout()
+        stream_row.addWidget(QLabel("SELECTED RADIO URL"))
+        self.stream_url_input = QLineEdit()
+        self.stream_url_input.setReadOnly(True)
+        self.stream_url_input.setPlaceholderText("Waiting for selected room's Cloudflare stream")
+        self.copy_stream_button = QPushButton("COPY URL")
+        stream_row.addWidget(self.stream_url_input, 1)
+        stream_row.addWidget(self.copy_stream_button)
+        group_layout.addLayout(stream_row)
+
         details = QSplitter(Qt.Orientation.Horizontal)
         queue_side = QWidget()
         queue_layout = QVBoxLayout(queue_side)
@@ -98,6 +109,10 @@ class MultiRoomPanel(QWidget):
             lambda: self.add_requested.emit(self.room_id_input.text().strip())
         )
         self.refresh_button.clicked.connect(self.refresh_requested.emit)
+        self.copy_stream_button.clicked.connect(
+            lambda: QGuiApplication.clipboard().setText(self.stream_url_input.text())
+            if self.stream_url_input.text() else None
+        )
         self.remove_button.clicked.connect(self._request_removal)
         self.reload_button.clicked.connect(
             lambda: self.reload_requested.emit(self.selected_room())
@@ -126,6 +141,8 @@ class MultiRoomPanel(QWidget):
         """Render room state without resetting a user's selected room."""
         selected = self.selected_room()
         rooms = {str(record["room_id"]): record for record in snapshots}
+        if rooms == self._snapshots:
+            return
         self._snapshots = rooms
         self.room_table.blockSignals(True)
         self.room_table.setRowCount(len(rooms))
@@ -167,7 +184,9 @@ class MultiRoomPanel(QWidget):
             self.detail_label.setText("Select a room to inspect its music and queue.")
             self.queue_list.clear()
             self.log_view.clear()
+            self.stream_url_input.clear()
             return
+        self.stream_url_input.setText(record.get("stream_url", ""))
         playing = record.get("playing", "Nothing playing")
         status = record.get("status", "Offline")
         source = record.get("source", "Idle")
