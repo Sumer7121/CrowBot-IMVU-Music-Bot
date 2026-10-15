@@ -2072,7 +2072,7 @@ class CommandHandler(QObject):
         if not eligible:
             return "🍾 SPIN THE BOTTLE\nNeed another person to chat before spinning!"
         target = random.choice(eligible)
-        question = self.social.pick("spin_questions", prompts.QUESTIONS)
+        question = self.social.pick("questions", prompts.QUESTIONS)
         return f"🍾 SPIN THE BOTTLE\n🌀 Bottle points to @{target}!\n💬 {question}"
 
     # =========================================================
