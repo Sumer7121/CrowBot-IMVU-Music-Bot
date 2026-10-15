@@ -1528,24 +1528,22 @@ class CommandHandler(QObject):
         arguments,
         username,
     ):
+        """Random truth/dare for a named player, or the sender when omitted.
 
-        self._remember_user(
-            username
+        A name can be typed directly (including spaces) even when that person
+        has not chatted yet. This is a nomination, not an occupancy check.
+        """
+        self._remember_user(username)
+        target, error = self._resolve_target(
+            arguments, username, allow_unknown=True
         )
-
-        if random.choice(
-            (True, False)
-        ):
-
-            return self.truth(
-                arguments,
-                username,
-            )
-
-        return self.dare(
-            arguments,
-            username,
-        )
+        if error:
+            return error
+        if random.choice((True, False)):
+            prompt = self.social.pick("truths", prompts.TOD_TRUTHS)
+            return f"🎯 TRUTH\n👤 {target}\n\n{prompt}"
+        prompt = self.social.pick("dares", prompts.TOD_DARES)
+        return f"🔥 DARE\n👤 {target}\n\n{prompt}"
 
     # =========================================================
     # TIC-TAC-TOE HELPERS
