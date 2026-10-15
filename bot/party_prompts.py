@@ -256,3 +256,76 @@ ROASTS = [f"{{name}}, {p.lower()} — {v}" for p in ROASTS for v in
 JOKES_SFW = CLEAN + [f"Encore: {p}" for p in CLEAN]
 JOKES_ADULT = CHEEKY + [f"Late-night edition: {p}" for p in CHEEKY]
 assert len(QUESTIONS) == len(TOD_TRUTHS) == len(TOD_DARES) == 500
+
+# Independent 500-entry decks for the new party commands. Each draw is a
+# unique formatted prompt; game handlers select with SocialReactions.pick().
+WOULD_YOU_RATHER_OPTIONS = (
+    ("plan everything in advance", "leave it to chance"),
+    ("bring your best friend", "meet somebody new"),
+    ("arrive an hour early", "arrive fashionably late"),
+    ("take lots of photos", "keep your phone away"),
+    ("wear an unforgettable outfit", "dress for maximum comfort"),
+    ("pick the music", "let the room choose"),
+    ("be the host", "be the surprise guest"),
+    ("try something completely new", "stick with an old favorite"),
+    ("spend all day outside", "stay cozy indoors"),
+    ("make everyone laugh", "win the big prize"),
+    ("travel with a big group", "go with one close friend"),
+    ("have unlimited snacks", "have unlimited songs"),
+    ("be famous for one night", "stay anonymous and have fun"),
+    ("tell the funniest story", "give the best advice"),
+    ("have perfect weather", "have the perfect playlist"),
+    ("win a friendly contest", "help a friend win"),
+    ("have a luxury experience", "have an unexpected adventure"),
+    ("be the first to volunteer", "be the last to arrive"),
+    ("spend the day dancing", "spend the day talking"),
+    ("turn it into a tradition", "make it a once-in-a-lifetime event"),
+)
+WOULD_YOU_RATHER = [
+    f"During {topic}, would you rather {first} or {second}?"
+    for topic in TOPICS
+    for first, second in WOULD_YOU_RATHER_OPTIONS
+]
+
+NEVER_HAVE_I_EVER_ACTIONS = (
+    "forgotten an important detail",
+    "laughed at the worst possible moment",
+    "made a new friend unexpectedly",
+    "worn an outfit I regretted",
+    "taken a photo I still love",
+    "lost track of the time",
+    "changed my plans at the last minute",
+    "told a joke that nobody understood",
+    "felt like a complete beginner",
+    "been surprisingly competitive",
+    "pretended I knew what was going on",
+    "found a new favorite song",
+    "misunderstood the instructions",
+    "brought too many snacks",
+    "given somebody a silly nickname",
+    "made a friend laugh uncontrollably",
+    "been nervous for no good reason",
+    "forgotten somebody's name",
+    "tried to impress the wrong person",
+    "decided the best part was unplanned",
+)
+NEVER_HAVE_I_EVER = [
+    f"Never have I ever {action} during {topic}."
+    for topic in TOPICS
+    for action in NEVER_HAVE_I_EVER_ACTIONS
+]
+
+MAGIC_EIGHT_BALL = (
+    "Absolutely!", "Signs point to yes.", "Very likely.", "Count on it.",
+    "Looking promising.", "You might be surprised.", "Yes, but be patient.",
+    "Only if you make the first move.", "Ask again after a song.",
+    "The answer isn't clear yet.", "Better not tell you now.",
+    "Follow your instincts.", "Maybe, with a twist.", "Not this time.",
+    "My sources say no.", "Don't count on it.", "Very doubtful.",
+    "The odds are against it.", "Not unless something changes.",
+    "Definitely not tonight.", "Try again tomorrow.",
+    "The room needs more information.", "It could go either way.",
+    "Make a bold choice and find out.",
+)
+assert len(WOULD_YOU_RATHER) == len(NEVER_HAVE_I_EVER) == 500
+assert len(set(WOULD_YOU_RATHER)) == len(set(NEVER_HAVE_I_EVER)) == 500
