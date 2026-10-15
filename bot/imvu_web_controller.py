@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from playwright.sync_api import sync_playwright
 
 
@@ -104,8 +106,11 @@ class IMVUWebController:
         for page in self.context.pages:
             try:
                 url = page.url or ""
-                if "imvu.com/next/chat/room-" in url.lower():
-                    rooms.append({"url": url, "title": page.title()})
+                parsed = urlparse(url)
+                if (parsed.netloc.casefold() in ("imvu.com", "www.imvu.com")
+                        and parsed.path.lower().startswith("/next/chat/room-")):
+                    canonical = "https://www.imvu.com" + parsed.path.rstrip("/") + "/"
+                    rooms.append({"url": canonical, "title": page.title()})
             except Exception:
                 continue
         return rooms
@@ -118,13 +123,17 @@ class IMVUWebController:
         """
         if not self.context:
             raise RuntimeError("The controller is not connected to Chrome.")
-        target = str(room_url or "").rstrip("/")
+        target = urlparse(str(room_url or "")).path.rstrip("/")
         for page in self.context.pages:
             try:
-                url = (page.url or "").rstrip("/")
-                if "imvu.com/next/chat/room-" not in url.lower():
+                current_url = page.url or ""
+                parsed = urlparse(current_url)
+                url_path = parsed.path.rstrip("/")
+                if parsed.netloc.casefold() not in ("imvu.com", "www.imvu.com"):
                     continue
-                if target and url != target:
+                if not url_path.lower().startswith("/next/chat/room-"):
+                    continue
+                if target and url_path != target:
                     continue
                 self.page = page
                 return page
