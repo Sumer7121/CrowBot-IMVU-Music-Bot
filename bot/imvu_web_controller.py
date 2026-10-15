@@ -96,41 +96,42 @@ class IMVUWebController:
 
 
 
-    def find_imvu_room(self):
-
+    def list_imvu_rooms(self):
+        """List open IMVU room tabs without selecting an arbitrary target."""
         if not self.context:
-
-            raise RuntimeError(
-
-                "The controller is not connected to Chrome."
-
-            )
-
-
-
+            raise RuntimeError("The controller is not connected to Chrome.")
+        rooms = []
         for page in self.context.pages:
-
             try:
-
                 url = page.url or ""
-
                 if "imvu.com/next/chat/room-" in url.lower():
-
-                    self.page = page
-
-                    return page
-
+                    rooms.append({"url": url, "title": page.title()})
             except Exception:
-
                 continue
+        return rooms
 
+    def find_imvu_room(self, room_url=None):
+        """Select an exact IMVU room tab when room_url is supplied.
 
-
+        Preserve the old first-room behavior for existing single-room code.
+        Never fall back to another room if an exact target was requested.
+        """
+        if not self.context:
+            raise RuntimeError("The controller is not connected to Chrome.")
+        target = str(room_url or "").rstrip("/")
+        for page in self.context.pages:
+            try:
+                url = (page.url or "").rstrip("/")
+                if "imvu.com/next/chat/room-" not in url.lower():
+                    continue
+                if target and url != target:
+                    continue
+                self.page = page
+                return page
+            except Exception:
+                continue
         self.page = None
-
         return None
-
-
 
     def get_room_url(self):
 
