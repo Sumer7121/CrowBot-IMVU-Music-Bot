@@ -1,5 +1,6 @@
 from urllib.parse import urlparse
 import random
+import time
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
@@ -315,6 +316,8 @@ class CommandHandler(QObject):
         # key   = lowercase username
         # value = original IMVU username/capitalization
         self.known_users = {}
+        self.last_seen_users = {}
+        self.spin_user_ttl_seconds = 300
 
 # =========================================================
     # PREFIX
@@ -1195,10 +1198,8 @@ class CommandHandler(QObject):
         if not value:
             return ""
 
-        self.known_users[
-            value.lower()
-        ] = value
-
+        self.known_users[value.lower()] = value
+        self.last_seen_users[value.lower()] = time.monotonic()
         return value
 
     def _known_user_values(
@@ -2059,6 +2060,13 @@ class CommandHandler(QObject):
         """Spin toward one randomly chosen observed room chatter."""
         self._remember_user(username)
         # The sender is a participant, but prefer someone else if possible.
+        now = time.monotonic()
+        # Chat observation is not a reliable IMVU occupancy signal. Drop
+        # inactive participants rather than selecting indefinitely stale names.
+        for key, last_seen in list(self.last_seen_users.items()):
+            if now - last_seen > self.spin_user_ttl_seconds:
+                self.last_seen_users.pop(key, None)
+                self.known_users.pop(key, None)
         names = list(self.known_users.values())
         eligible = [name for name in names if name.casefold() != str(username).casefold()]
         if not eligible:
