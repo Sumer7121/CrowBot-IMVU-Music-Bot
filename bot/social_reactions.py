@@ -44,6 +44,7 @@ class SocialReactions:
         self.cooldown = cooldown
         self.last_reply = {}
         self.bags = {}
+        self.last_picked_index = {}
 
     def pick(self, category, options):
         """Shuffle-bag: exhaust each pool before repeating items."""
@@ -54,8 +55,15 @@ class SocialReactions:
         if not bag:
             bag = list(range(len(options)))
             self.rng.shuffle(bag)
+            previous = self.last_picked_index.get(category)
+            # Avoid repeating the final item of the old deck as the very
+            # first item of the newly shuffled deck, when possible.
+            if len(bag) > 1 and bag[-1] == previous:
+                bag[-1], bag[0] = bag[0], bag[-1]
             self.bags[category] = bag
-        return options[bag.pop()]
+        index = bag.pop()
+        self.last_picked_index[category] = index
+        return options[index]
 
     def meme(self):
         top, bottom = self.pick("memes", MEMES)
