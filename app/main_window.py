@@ -4501,6 +4501,7 @@ class MainWindow(QMainWindow):
             # The primary handler survives room switches. Its learned
             # usernames must not carry over to the next IMVU room.
             self.command_handler.known_users.clear()
+            self.command_handler.last_seen_users.clear()
             self._welcomed_users.clear()
             self.log(f"CROWBOT: Reset observed player list for room {room_id}.")
 
