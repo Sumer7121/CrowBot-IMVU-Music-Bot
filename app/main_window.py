@@ -779,15 +779,54 @@ class IMVUChatWorker(QThread):
 
 
 
+class SecondaryRoomWorker(QThread):
+    """Room-specific monitor. No shared games or music state yet."""
+    message_received = Signal(str, str, str)
+    failed = Signal(str, str)
+    ready = Signal(str)
+
+    def __init__(self, room_url, parent=None):
+        super().__init__(parent)
+        self.room_url = room_url
+        self._stop_requested = False
+
+    def stop(self):
+        self._stop_requested = True
+
+    def run(self):
+        controller = IMVUWebController()
+        try:
+            controller.connect()
+            if not controller.find_imvu_room(self.room_url):
+                raise RuntimeError("Room tab is no longer open")
+            controller.ensure_joined(timeout_ms=30000)
+            controller.prime_chat_listener()
+            self.ready.emit(self.room_url)
+            while not self._stop_requested:
+                for event in controller.wait_for_new_chat_messages(timeout_ms=400):
+                    if self._stop_requested:
+                        break
+                    self.message_received.emit(
+                        self.room_url,
+                        (event.get("username") or "").strip(),
+                        (event.get("message") or "").strip(),
+                    )
+        except Exception as error:
+            self.failed.emit(self.room_url, str(error))
+        finally:
+            controller.disconnect()
+
+
 class IMVUChatSendWorker(QThread):
     """Send one generated bot response into the active IMVU Web room."""
 
     succeeded = Signal(str)
     failed = Signal(str, str)
 
-    def __init__(self, message, parent=None):
+    def __init__(self, message, parent=None, room_url=None):
         super().__init__(parent)
         self.message = str(message or "").strip()
+        self.room_url = room_url
 
     def run(self):
         controller = IMVUWebController()
@@ -799,10 +838,10 @@ class IMVUChatSendWorker(QThread):
             print("IMVU CHAT SEND: Connecting to Chrome on port 9222...")
             controller.connect()
 
-            page = controller.find_imvu_room()
+            page = controller.find_imvu_room(self.room_url)
             if not page:
                 raise RuntimeError(
-                    "No IMVU room tab was found in the dedicated bot Chrome session."
+                    "Requested IMVU room tab was not found."
                 )
 
             controller.ensure_joined(timeout_ms=30000)
@@ -1394,6 +1433,8 @@ class MainWindow(QMainWindow):
 
         self.imvu_chat_worker = None
         self.imvu_chat_send_workers = []
+        self.secondary_room_workers = []
+        self._secondary_room_url_set = set()
         self._outgoing_chat_queue = []
         self._outgoing_chat_active = False
         self._processing_live_imvu_chat = False
@@ -4740,6 +4781,66 @@ class MainWindow(QMainWindow):
             self.send_bot_response_to_imvu(announcement)
         self._schedule_collectible()
 
+    def start_secondary_room_monitors(self):
+        """Test multiple room tabs without merging independent music queues."""
+        controller = IMVUWebController()
+        try:
+            controller.connect()
+            rooms = controller.list_imvu_rooms()
+        except Exception as error:
+            self.log(f"MULTI-ROOM: Tab discovery failed: {error}")
+            return
+        finally:
+            controller.disconnect()
+
+        # The existing primary worker uses the first room tab.
+        for room in rooms[1:]:
+            url = room["url"]
+            if url in self._secondary_room_url_set:
+                continue
+            worker = SecondaryRoomWorker(url, self)
+            self._secondary_room_url_set.add(url)
+            self.secondary_room_workers.append(worker)
+            worker.ready.connect(lambda u: self.log(f"MULTI-ROOM: Monitoring {u}"))
+            worker.failed.connect(
+                lambda u, error: self.log(f"MULTI-ROOM ERROR [{u}]: {error}")
+            )
+            worker.message_received.connect(self.receive_secondary_room_chat)
+            worker.finished.connect(
+                lambda w=worker, u=url: self.cleanup_secondary_room_worker(w, u)
+            )
+            worker.start()
+
+    def cleanup_secondary_room_worker(self, worker, url):
+        if worker in self.secondary_room_workers:
+            self.secondary_room_workers.remove(worker)
+        self._secondary_room_url_set.discard(url)
+        worker.deleteLater()
+
+    def receive_secondary_room_chat(self, room_url, username, message):
+        if not username or not message:
+            return
+        self.log(f"MULTI-ROOM [{room_url}] {username}: {message}")
+        # Test the routing without putting commands into the primary
+        # handler: its music, games, and collectibles are not room-scoped.
+        if message.casefold() == "!ping":
+            response = f"🏓 CrowBot pong in this room, {username}!"
+            self._send_secondary_room_response(room_url, response)
+
+    def _send_secondary_room_response(self, room_url, response):
+        worker = IMVUChatSendWorker(response, self, room_url=room_url)
+        self.imvu_chat_send_workers.append(worker)
+        worker.failed.connect(self.imvu_chat_send_failed)
+        worker.finished.connect(
+            lambda w=worker: self._cleanup_secondary_sender(w)
+        )
+        worker.start()
+
+    def _cleanup_secondary_sender(self, worker):
+        if worker in self.imvu_chat_send_workers:
+            self.imvu_chat_send_workers.remove(worker)
+        worker.deleteLater()
+
     def start_imvu_chat_listener(self):
 
         if self.imvu_chat_worker is not None and self.imvu_chat_worker.isRunning():
@@ -4766,10 +4867,14 @@ class MainWindow(QMainWindow):
 
         worker.start()
         self._schedule_collectible()
+        self.start_secondary_room_monitors()
 
 
     def stop_imvu_chat_listener(self, wait_ms=3000):
 
+        for secondary in list(self.secondary_room_workers):
+            secondary.stop()
+            secondary.wait(wait_ms)
         self.collectible_timer.stop()
         worker = self.imvu_chat_worker
 
