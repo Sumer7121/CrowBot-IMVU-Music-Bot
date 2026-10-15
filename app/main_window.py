@@ -512,6 +512,10 @@ class IMVUJoinWorker(QThread):
 
         super().__init__(parent)
         self.room_url = room_url
+        self._stop_requested = False
+
+    def stop(self):
+        self._stop_requested = True
 
 
 
@@ -539,7 +543,9 @@ class IMVUJoinWorker(QThread):
 
 
 
-        for _ in range(15):
+        for _ in range(3):
+            if self._stop_requested:
+                return
 
 
 
@@ -595,7 +601,7 @@ class IMVUJoinWorker(QThread):
 
 
 
-                result = controller.ensure_joined(timeout_ms=30000)
+                result = controller.ensure_joined(timeout_ms=12000)
 
 
 
@@ -4343,6 +4349,7 @@ class MainWindow(QMainWindow):
         # -------------------------------------------------
 
         try:
+            self.stop_imvu_join_workers()
             self.stop_imvu_chat_listener()
             self.log(
                 "CROWBOT: Command listener stopped."
@@ -4608,6 +4615,8 @@ class MainWindow(QMainWindow):
 
 
 
+        if worker.isRunning():
+            worker.wait(1500)
         if worker in self.imvu_join_workers:
 
 
@@ -4922,6 +4931,14 @@ class MainWindow(QMainWindow):
         self._schedule_collectible()
         self.start_secondary_room_monitors()
 
+
+    def stop_imvu_join_workers(self, wait_ms=18000):
+        """Allow active JOIN workers to exit before their QThread is released."""
+        for worker in list(self.imvu_join_workers):
+            worker.stop()
+        for worker in list(self.imvu_join_workers):
+            if worker.isRunning() and not worker.wait(wait_ms):
+                self.log("IMVU JOIN: Worker still stopping; preserving its reference.")
 
     def stop_imvu_chat_listener(self, wait_ms=3000):
 
@@ -10507,11 +10524,9 @@ class MainWindow(QMainWindow):
 
 
         try:
-
+            self.stop_imvu_join_workers()
             self.stop_imvu_chat_listener()
-
         except Exception:
-
             pass
 
         try:
