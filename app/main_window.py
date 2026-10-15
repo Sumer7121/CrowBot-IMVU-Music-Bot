@@ -4931,6 +4931,7 @@ class MainWindow(QMainWindow):
         for session in self.room_sessions.values():
             session.stop_radio()
         self.room_sessions.clear()
+        self._next_room_radio_port = 8766
         self.collectible_timer.stop()
         worker = self.imvu_chat_worker
 
@@ -7901,50 +7902,6 @@ class MainWindow(QMainWindow):
 
 
 
-
-    def start_secondary_room_radio_updates(self, stream_url):
-        """Attach the existing station to secondary room tabs.
-
-        This is a shared broadcast, NOT independent per-room playback.
-        Each room-specific music controller remains disabled until
-        dedicated radio servers and tunnels exist.
-        """
-        controller = IMVUWebController()
-        try:
-            controller.connect()
-            room_tabs = controller.list_imvu_rooms()
-        except Exception as error:
-            self.log(f"MULTI-ROOM RADIO: Discovery failed: {error}")
-            return
-        finally:
-            controller.disconnect()
-
-        primary = str(self._primary_room_url or "").rstrip("/")
-        targets = [room["url"] for room in room_tabs
-                   if room["url"].rstrip("/") != primary]
-        self.log(
-            f"MULTI-ROOM RADIO: Connecting shared station to "
-            f"{len(targets)} additional room(s)."
-        )
-        for room_url in targets:
-            worker = IMVURadioUpdateWorker(
-                stream_url, self, room_url=room_url
-            )
-            self.imvu_radio_workers.append(worker)
-            worker.succeeded.connect(
-                lambda url, previous, room=room_url: self.log(
-                    f"MULTI-ROOM RADIO: Shared station connected: {room}"
-                )
-            )
-            worker.failed.connect(
-                lambda error, room=room_url: self.log(
-                    f"MULTI-ROOM RADIO ERROR [{room}]: {error}"
-                )
-            )
-            worker.finished.connect(
-                lambda w=worker: self.cleanup_imvu_radio_worker(w)
-            )
-            worker.start()
 
     def imvu_radio_update_failed(self, message):
 
