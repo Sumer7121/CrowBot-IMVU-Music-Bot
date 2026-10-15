@@ -174,6 +174,7 @@ from app.users_window import UsersWindow
 
 
 from bot.commands import CommandHandler
+from bot.room_session import RoomSession
 
 
 
@@ -1439,6 +1440,7 @@ class MainWindow(QMainWindow):
         self._primary_room_url = None
         self.secondary_room_workers = []
         self._secondary_room_url_set = set()
+        self.room_sessions = {}
         self._outgoing_chat_queue = []
         self._outgoing_chat_active = False
         self._processing_live_imvu_chat = False
@@ -4807,6 +4809,12 @@ class MainWindow(QMainWindow):
             url = room["url"]
             if url in self._secondary_room_url_set:
                 continue
+            if url not in self.room_sessions:
+                self.room_sessions[url] = RoomSession(
+                    url,
+                    prefix=self.settings.get("prefix", "!"),
+                    user_manager=self.user_manager,
+                )
             worker = SecondaryRoomWorker(url, self)
             self._secondary_room_url_set.add(url)
             self.secondary_room_workers.append(worker)
@@ -4830,25 +4838,17 @@ class MainWindow(QMainWindow):
         if not username or not message:
             return
         self.log(f"MULTI-ROOM [{room_url}] {username}: {message}")
-        # Test the routing without putting commands into the primary
-        # handler: its music, games, and collectibles are not room-scoped.
-        if message.casefold() == "!ping":
-            response = f"🏓 CrowBot pong in this room, {username}!"
-            self._send_secondary_room_response(room_url, response)
-
-    def _send_secondary_room_response(self, room_url, response):
-        worker = IMVUChatSendWorker(response, self, room_url=room_url)
-        self.imvu_chat_send_workers.append(worker)
-        worker.failed.connect(self.imvu_chat_send_failed)
-        worker.finished.connect(
-            lambda w=worker: self._cleanup_secondary_sender(w)
-        )
-        worker.start()
-
-    def _cleanup_secondary_sender(self, worker):
-        if worker in self.imvu_chat_send_workers:
-            self.imvu_chat_send_workers.remove(worker)
-        worker.deleteLater()
+        session = self.room_sessions.get(room_url)
+        if session is None:
+            self.log(f"MULTI-ROOM: No session for {room_url}")
+            return
+        try:
+            response = session.process(username, message)
+        except Exception as error:
+            self.log(f"MULTI-ROOM COMMAND ERROR [{room_url}]: {error}")
+            return
+        if response:
+            self.send_bot_response_to_imvu(response, room_url=room_url)
 
     def start_imvu_chat_listener(self):
 
@@ -5545,20 +5545,20 @@ class MainWindow(QMainWindow):
         if self._processing_live_imvu_chat:
             self.send_bot_response_to_imvu(response)
 
-    def send_bot_response_to_imvu(self, response):
+    def send_bot_response_to_imvu(self, response, room_url=None):
         message = str(response or "").strip()
         if not message:
             return
-        self._outgoing_chat_queue.append(message)
+        self._outgoing_chat_queue.append((room_url or self._primary_room_url, message))
         self._send_next_chat_response()
 
     def _send_next_chat_response(self):
         # Only one Playwright sender may use the shared IMVU chat input.
         if self._outgoing_chat_active or not self._outgoing_chat_queue:
             return
-        message = self._outgoing_chat_queue.pop(0)
+        room_url, message = self._outgoing_chat_queue.pop(0)
         self._outgoing_chat_active = True
-        worker = IMVUChatSendWorker(message, self, room_url=self._primary_room_url)
+        worker = IMVUChatSendWorker(message, self, room_url=room_url)
         worker.succeeded.connect(self.imvu_chat_send_succeeded)
         worker.failed.connect(self.imvu_chat_send_failed)
         worker.finished.connect(
