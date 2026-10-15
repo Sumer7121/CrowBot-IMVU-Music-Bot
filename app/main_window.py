@@ -694,6 +694,7 @@ class IMVUChatWorker(QThread):
     message_received = Signal(str, str)
 
     started_listening = Signal(int)
+    existing_participants = Signal(object)
 
     failed = Signal(str)
 
@@ -743,7 +744,10 @@ class IMVUChatWorker(QThread):
             controller.ensure_joined(timeout_ms=30000)
 
             existing_count = controller.prime_chat_listener()
-
+            # Seed the active room's player list from visible chat history.
+            # This does not assume that history contains all room occupants.
+            seen_names = [m.get('username', '') for m in controller.get_visible_chat_messages(include_own=False)]
+            self.existing_participants.emit([name for name in seen_names if name])
             self.started_listening.emit(existing_count)
 
 
@@ -4952,6 +4956,7 @@ class MainWindow(QMainWindow):
         worker.message_received.connect(self.receive_live_imvu_chat)
 
         worker.started_listening.connect(self.imvu_chat_listener_started)
+        worker.existing_participants.connect(self._seed_primary_room_participants)
 
         worker.failed.connect(self.imvu_chat_listener_failed)
 
@@ -4999,6 +5004,11 @@ class MainWindow(QMainWindow):
             self.imvu_chat_worker = None
 
 
+
+    def _seed_primary_room_participants(self, names):
+        for username in names:
+            self.command_handler._remember_user(username)
+        self.log(f"CROWBOT: Recognized {len(self.command_handler.known_users)} recent chat participants for !spin.")
 
     def imvu_chat_listener_started(self, existing_count):
 
