@@ -5091,6 +5091,11 @@ class MainWindow(QMainWindow):
 
         user_key = username.lower()
 
+        # The welcome handler observes the real sender in this room.
+        # Keep the primary room's !spin roster synchronized with it,
+        # including ordinary chat messages and commands.
+        self.command_handler._remember_user(username)
+
         # React to CrowBot/bot mentions without blocking normal commands.
         # Throttle per user and ignore command-prefixed messages.
         mention_reply = self.command_handler.social.mention(
