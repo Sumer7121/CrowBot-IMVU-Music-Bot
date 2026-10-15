@@ -8,8 +8,8 @@ class PartyGamesTests(unittest.TestCase):
         self.games = PartyGames()
 
     def test_trivia_correct_answer_awards_point(self):
-        with patch("bot.party_games.random.choice", return_value=("Capital of Japan?", "tokyo")):
-            self.games.start_trivia()
+        self.games.QUESTIONS = (("Capital of Japan?", "tokyo"),)
+        self.games.start_trivia()
         self.assertIn("Not quite", self.games.answer("Alex", "Osaka"))
         self.assertIn("+1 point", self.games.answer("Alex", "TOKYO"))
         self.assertIn("Alex", self.games.leaderboard())
