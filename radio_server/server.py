@@ -134,6 +134,7 @@ class RadioStreamServer:
             audio_at = self.last_song_audio_at
             audio_generation = self.last_song_audio_generation
             error = self.last_song_error
+        process = self.ffmpeg_process
         return {
             "running": self.is_running(),
             "source_set": bool(source),
@@ -147,8 +148,7 @@ class RadioStreamServer:
             "clients": self.get_client_count(),
             "last_error": error,
             "ffmpeg_alive": (
-                self.ffmpeg_process is not None
-                and self.ffmpeg_process.poll() is None
+                process is not None and process.poll() is None
             ),
         }
 
