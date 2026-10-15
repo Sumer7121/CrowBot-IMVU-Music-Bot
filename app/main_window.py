@@ -819,7 +819,7 @@ class IMVUOpenRoomWorker(QThread):
 
 
 class SecondaryRoomWorker(QThread):
-    """Room-specific monitor. No shared games or music state yet."""
+    """Room-specific chat monitor; music state lives in RoomSession."""
     message_received = Signal(str, str, str)
     failed = Signal(str, str)
     ready = Signal(str)
@@ -1618,9 +1618,7 @@ class MainWindow(QMainWindow):
 
     def setup_ui(self):
         """
-        CrowBot production dashboard.
-
-        The visible interface is intentionally minimal.
+        CrowBot primary controls plus live, independent multi-room dashboard.
         Legacy widgets that are still referenced by runtime methods/signals
         are retained inside a hidden compatibility container.
         """
@@ -2216,7 +2214,7 @@ class MainWindow(QMainWindow):
 
         bottom_layout.addStretch(1)
 
-        version_label = QLabel("CrowBot v1.2")
+        version_label = QLabel("CrowBot Multi-Room")
         version_label.setObjectName("secondaryText")
 
         bottom_layout.addWidget(version_label)
