@@ -2412,6 +2412,13 @@ class MainWindow(QMainWindow):
         self.room_panel.add_requested.connect(self.add_room_to_crowbot)
         self.room_panel.refresh_requested.connect(self.refresh_room_list)
         self.room_panel.remove_requested.connect(self.remove_secondary_room)
+        self.room_panel.reload_requested.connect(self.reload_selected_room_radio)
+        self.room_panel.skip_requested.connect(
+            lambda room_id: self.control_selected_room_music(room_id, "skip")
+        )
+        self.room_panel.stop_requested.connect(
+            lambda room_id: self.control_selected_room_music(room_id, "stop")
+        )
         self.connect_button.clicked.connect(
 
 
@@ -4392,6 +4399,9 @@ class MainWindow(QMainWindow):
         # -------------------------------------------------
 
         try:
+            for worker in list(self._room_open_workers):
+                if worker.isRunning() and not worker.wait(10000):
+                    self.log(f"ROOM [{worker.room_url}]: Open worker is still finishing.")
             self.stop_imvu_join_workers()
             self.stop_imvu_chat_listener()
             self.log(
@@ -4862,6 +4872,75 @@ class MainWindow(QMainWindow):
             return "Broadcasting · no listener"
         return "Playing · broadcasting"
 
+    def _allocate_room_radio_port(self):
+        """Use an unused local port instead of assuming 8766 is available."""
+        reserved = {8765} | {
+            session.radio_port for session in self.room_sessions.values()
+            if session.radio_port
+        }
+        for port in range(max(8766, self._next_room_radio_port), 9300):
+            if port in reserved:
+                continue
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                sock.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            finally:
+                sock.close()
+            self._next_room_radio_port = port + 1
+            return port
+        raise RuntimeError("No free local radio port available.")
+
+    def _music_controller_for_room(self, room_id):
+        try:
+            url = make_room_url(room_id)
+        except ValueError:
+            return None
+        if url.rstrip("/") == str(self._primary_room_url or "").rstrip("/"):
+            return self.music_controller
+        session = self.room_sessions.get(url)
+        return session.music_controller if session else None
+
+    def control_selected_room_music(self, room_id, action):
+        controller = self._music_controller_for_room(room_id)
+        if not controller or action not in ("skip", "stop"):
+            self.log(f"ROOM [{room_id}]: Cannot {action}; room not connected.")
+            return
+        if action == "skip":
+            controller.skip()
+        else:
+            controller.stop()
+        self.log(f"ROOM [{room_id}]: {action.upper()} requested from dashboard.")
+        self._refresh_rooms_ui()
+
+    def reload_selected_room_radio(self, room_id):
+        """Reapply only one selected room's radio URL, without touching queues."""
+        try:
+            url = make_room_url(room_id)
+        except ValueError:
+            return
+        if url.rstrip("/") == str(self._primary_room_url or "").rstrip("/"):
+            stream_url = self.public_stream_url
+            if stream_url:
+                self.log(f"ROOM [{room_id}]: Reloading primary radio in IMVU.")
+                self.start_imvu_radio_update(stream_url)
+            else:
+                self.log(f"ROOM [{room_id}]: Primary station is not ready yet.")
+            return
+        session = self.room_sessions.get(url)
+        if not session:
+            self.log(f"ROOM [{room_id}]: No active session for radio reload.")
+            return
+        stream_url = session.stream_url or (
+            session.tunnel.get_stream_url() if session.tunnel else ""
+        )
+        if not stream_url:
+            self.log(f"ROOM [{room_id}]: Tunnel URL is not ready.")
+            return
+        self.log(f"ROOM [{room_id}]: Reloading its own radio stream in IMVU.")
+        self._secondary_radio_ready(url, stream_url)
+
     def _refresh_rooms_ui(self):
         """Live room, song and queue snapshots; never share queues between rooms."""
         if not hasattr(self, "room_panel"):
@@ -5050,9 +5129,8 @@ class MainWindow(QMainWindow):
                 self.room_sessions[url] = RoomSession(
                     url,
                     prefix=self.settings.get("prefix", "!"),
-                    radio_port=self._next_room_radio_port,
+                    radio_port=self._allocate_room_radio_port(),
                 )
-                self._next_room_radio_port += 1
                 session = self.room_sessions[url]
                 session.tunnel.tunnel_started.connect(
                     lambda stream_url, u=url: self._secondary_radio_ready(u, stream_url)
@@ -11101,7 +11179,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "room_panel"):
             # Exact room mentions are routed to the matching log tab.
             import re
-            match = re.search(r"room-(\\d+-\\d+)", str(message))
+            match = re.search(r"room-(\d+-\d+)", str(message))
             if match:
                 self.room_panel.add_log(match.group(1), message)
             else:
