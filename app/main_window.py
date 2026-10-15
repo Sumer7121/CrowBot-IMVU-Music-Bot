@@ -4494,6 +4494,12 @@ class MainWindow(QMainWindow):
         try:
             self.stop_imvu_chat_listener()
 
+            # The primary handler survives room switches. Its learned
+            # usernames must not carry over to the next IMVU room.
+            self.command_handler.known_users.clear()
+            self._welcomed_users.clear()
+            self.log(f"CROWBOT: Reset observed player list for room {room_id}.")
+
             self.connection_status.setText("Opening Bot Chrome...")
             self.client_status.setText("Client: Dedicated Chrome (CDP)")
 
