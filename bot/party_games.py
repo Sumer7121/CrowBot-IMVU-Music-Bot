@@ -51,7 +51,7 @@ class PartyGames:
         ("How many sides does a triangle have?", "3"),
         ("How many sides does a hexagon have?", "6"),
         ("What is the chemical symbol for gold?", "au"),
-        ("What is the chemical symbol for water?", "h2o"),
+        ("What is the chemical formula for water?", "h2o"),
         ("What gas do humans breathe in to survive?", "oxygen"),
         ("What is the freezing point of water in Celsius?", "0"),
         ("How many minutes are in one hour?", "60"),
@@ -162,7 +162,7 @@ class PartyGames:
             random.shuffle(self._riddle_remaining)
         question, answer = self.RIDDLES[self._riddle_remaining.pop()]
         self.riddle = {"question": question, "answer": answer}
-        return f"🧩 RIDDLE | {question}\\nAnswer: !ra <answer>"
+        return f"🧩 RIDDLE | {question}\nAnswer: !ra <answer>"
 
     def answer_riddle(self, username, answer):
         if not self.riddle:
