@@ -117,7 +117,7 @@ class MultiRoomPanel(QWidget):
         self.room_id_input.returnPressed.connect(
             lambda: self.add_requested.emit(self.room_id_input.text().strip())
         )
-        self.refresh_button.clicked.connect(self.refresh_requested.emit)
+        self.refresh_button.clicked.connect(lambda: self.refresh_requested.emit())
         self.copy_stream_button.clicked.connect(
             lambda: QGuiApplication.clipboard().setText(self.stream_url_input.text())
             if self.stream_url_input.text() else None
