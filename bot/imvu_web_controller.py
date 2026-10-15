@@ -276,7 +276,12 @@ class IMVUWebController:
                 'textarea[placeholder="Say something..."]'
             );
             const media = document.querySelector('li[data-nav="media-button"]');
-            if (visible(chat) && visible(media)) return 'already-joined';
+            const send = document.querySelector('button.btn-send');
+            // The Media navigation item may be hidden while chat is open.
+            // Chat composer plus send controls is sufficient in-room evidence.
+            if (visible(chat) && (visible(send) || visible(media))) {
+                return 'already-joined';
+            }
             return 'loading';
         }"""
 
@@ -293,7 +298,8 @@ class IMVUWebController:
         else:
             raise RuntimeError(
                 "Timed out waiting for IMVU JOIN button or in-room controls. "
-                "Check whether the page is still loading or requires login."
+                "Check whether the page is still loading or requires login. "
+                f"Current page: {self.page.url}"
             )
 
         if state == "already-joined":
