@@ -4844,6 +4844,24 @@ class MainWindow(QMainWindow):
             self.send_bot_response_to_imvu(announcement)
         self._schedule_collectible()
 
+    @staticmethod
+    def _radio_health_label(health):
+        """Distinguish configured IMVU radio from actual audio delivery."""
+        if not health.get("running"):
+            return "Radio stopped"
+        if not health.get("source_set"):
+            return ("Ready · idle" if health.get("clients", 0)
+                    else "Ready · no listener")
+        if health.get("last_error"):
+            return "Audio error"
+        if not health.get("audio_recent"):
+            if health.get("source_age", 0) > 12:
+                return "Audio stalled"
+            return "Preparing audio"
+        if not health.get("clients"):
+            return "Broadcasting · no listener"
+        return "Playing · broadcasting"
+
     def _refresh_rooms_ui(self):
         """Live room, song and queue snapshots; never share queues between rooms."""
         if not hasattr(self, "room_panel"):
@@ -4860,9 +4878,12 @@ class MainWindow(QMainWindow):
             song = self.music_controller.get_current_song()
             source = self.radio_server.get_source() if self.radio_server else ""
             ready = bool(self.public_stream_url) and self.radio_server.is_running()
+            health = self.radio_server.get_health()
             status = ("Ready" if ready else
                       "Connecting" if getattr(self, "_crowbot_connecting", False)
                       else "Offline")
+            if ready:
+                status = self._radio_health_label(health)
             snapshots.append({
                 "room_id": room_id, "type": "Primary", "port": 8765,
                 "status": status, "playing": song.get("title", "Unknown") if song else "—",
@@ -4878,7 +4899,7 @@ class MainWindow(QMainWindow):
             if (session.stream_url and session.radio_server
                     and session.radio_server.is_running()
                     and status not in ("Error", "Disconnected")):
-                status = "Ready"
+                status = self._radio_health_label(session.radio_server.get_health())
             snapshots.append({
                 "room_id": room_id, "type": "Secondary",
                 "port": session.radio_port or "—", "status": status,
@@ -5113,7 +5134,10 @@ class MainWindow(QMainWindow):
         if worker in self.secondary_room_workers:
             self.secondary_room_workers.remove(worker)
         self._secondary_room_url_set.discard(url)
+        if url in self.room_sessions and self._room_states.get(url) not in ("Error",):
+            self._room_states[url] = "Disconnected"
         worker.deleteLater()
+        self._refresh_rooms_ui()
 
     def receive_secondary_room_chat(self, room_url, username, message):
         if not username or not message:
@@ -5169,15 +5193,21 @@ class MainWindow(QMainWindow):
             if worker.isRunning() and not worker.wait(wait_ms):
                 self.log("IMVU JOIN: Worker still stopping; preserving its reference.")
 
-    def stop_imvu_chat_listener(self, wait_ms=3000):
+    def stop_imvu_chat_listener(self, wait_ms=3000, include_secondary=True):
 
-        for secondary in list(self.secondary_room_workers):
-            secondary.stop()
-            secondary.wait(wait_ms)
-        for session in self.room_sessions.values():
-            session.stop_radio()
-        self.room_sessions.clear()
-        self._next_room_radio_port = 8766
+        if include_secondary:
+            for secondary in list(self.secondary_room_workers):
+                secondary.stop()
+                if not secondary.wait(wait_ms):
+                    self.log(f"ROOM [{secondary.room_url}]: Listener still stopping.")
+            for session in list(self.room_sessions.values()):
+                session.music_controller.stop()
+                session.stop_radio()
+            self.room_sessions.clear()
+            self._secondary_room_url_set.clear()
+            self._room_states.clear()
+            self._next_room_radio_port = 8766
+            self._refresh_rooms_ui()
         self.collectible_timer.stop()
         worker = self.imvu_chat_worker
 
@@ -5249,7 +5279,7 @@ class MainWindow(QMainWindow):
     def _finish_chat_reconnect(self):
         """Safely resume chat after the old listener thread has exited."""
         try:
-            self.stop_imvu_chat_listener(wait_ms=5000)
+            self.stop_imvu_chat_listener(wait_ms=5000, include_secondary=False)
             worker = self.imvu_chat_worker
             if worker is not None and worker.isRunning():
                 self.log("CROWBOT: Reconnect aborted; old listener is still running.")
@@ -8132,6 +8162,7 @@ class MainWindow(QMainWindow):
             )
 
             self.start_imvu_chat_listener()
+            self._refresh_rooms_ui()
             # Secondary sessions start their own radio servers and tunnels.
 
             self._crowbot_connecting = False
@@ -11065,55 +11096,18 @@ class MainWindow(QMainWindow):
 
 
 
-        self.logs.append(
-
-
-
-
-
-
-
-            message
-
-
-
-
-
-
-
-        )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        print(
-
-
-
-
-
-
-
-            message
-
-
-
-
-
-
-
-        )
+        self.logs.append(message)
+        print(message)
+        if hasattr(self, "room_panel"):
+            # Exact room mentions are routed to the matching log tab.
+            import re
+            match = re.search(r"room-(\\d+-\\d+)", str(message))
+            if match:
+                self.room_panel.add_log(match.group(1), message)
+            else:
+                primary = str(self._primary_room_url or "")
+                if primary:
+                    self.room_panel.add_log(primary.rstrip("/").rsplit("room-", 1)[-1], message)
 
 
 
