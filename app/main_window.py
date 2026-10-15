@@ -1439,6 +1439,8 @@ class MainWindow(QMainWindow):
 
 
         self.public_stream_url = ""
+        self._primary_radio_loaded = False
+        self._primary_radio_error = ""
 
 
 
@@ -4475,6 +4477,8 @@ class MainWindow(QMainWindow):
             return
 
         self._crowbot_connecting = True
+        self._primary_radio_loaded = False
+        self._primary_radio_error = ""
 
         try:
             self.connect_button.setEnabled(False)
@@ -4956,10 +4960,13 @@ class MainWindow(QMainWindow):
             room_id = primary.rstrip("/").rsplit("room-", 1)[-1]
             song = self.music_controller.get_current_song()
             source = self.radio_server.get_source() if self.radio_server else ""
-            ready = bool(self.public_stream_url) and self.radio_server.is_running()
+            ready = (bool(self._primary_radio_loaded) and
+                     bool(self.public_stream_url) and self.radio_server.is_running())
             health = self.radio_server.get_health()
             status = ("Ready" if ready else
-                      "Connecting" if getattr(self, "_crowbot_connecting", False)
+                      "Radio error" if self._primary_radio_error
+                      else "Connecting" if getattr(self, "_crowbot_connecting", False)
+                      else "Not loaded" if self.public_stream_url
                       else "Offline")
             if ready:
                 status = self._radio_health_label(health)
@@ -5082,6 +5089,8 @@ class MainWindow(QMainWindow):
         if not session:
             return
         if session.stream_url or (session.tunnel and session.tunnel.is_running()):
+            self._room_states[room_url] = "Ready" if session.stream_url else "Starting station"
+            self.log(f"ROOM [{room_url}]: Listener connected.")
             return
         self._room_states[room_url] = "Starting station"
         try:
@@ -5184,6 +5193,13 @@ class MainWindow(QMainWindow):
     def _secondary_radio_ready(self, room_url, stream_url):
         session = self.room_sessions.get(room_url)
         if session is None:
+            return
+        if any(
+            worker.isRunning() and
+            str(worker.room_url or "").rstrip("/") == room_url.rstrip("/")
+            for worker in self.imvu_radio_workers
+        ):
+            self.log(f"ROOM [{room_url}]: Radio LOAD already in progress.")
             return
         self._room_states[room_url] = "Loading radio"
         self.log(f"ROOM [{room_url}]: Private stream ready; loading into IMVU radio.")
@@ -7395,6 +7411,9 @@ class MainWindow(QMainWindow):
 
 
 
+        self._primary_radio_loaded = False
+        self._primary_radio_error = ""
+
         # -----------------------------------------------------
 
 
@@ -8006,6 +8025,18 @@ class MainWindow(QMainWindow):
 
 
     def start_imvu_radio_update(self, stream_url):
+        if any(
+            worker.isRunning() and
+            str(worker.room_url or "").rstrip("/") ==
+            str(self._primary_room_url or "").rstrip("/")
+            for worker in self.imvu_radio_workers
+        ):
+            self.log("PRIMARY RADIO: LOAD already in progress.")
+            return
+        self._primary_radio_loaded = False
+        self._primary_radio_error = ""
+
+
 
 
 
@@ -8190,6 +8221,10 @@ class MainWindow(QMainWindow):
 
 
 
+        self._primary_radio_loaded = True
+        self._primary_radio_error = ""
+        self._refresh_rooms_ui()
+
 
 
 
@@ -8275,6 +8310,10 @@ class MainWindow(QMainWindow):
 
 
 
+
+        self._primary_radio_loaded = False
+        self._primary_radio_error = str(message)
+        self._refresh_rooms_ui()
 
         self.public_status.setText(
 
