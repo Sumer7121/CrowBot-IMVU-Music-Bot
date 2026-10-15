@@ -21,6 +21,7 @@ class MultiRoomPanel(QWidget):
     reload_requested = Signal(str)
     skip_requested = Signal(str)
     stop_requested = Signal(str)
+    song_requested = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -79,6 +80,14 @@ class MultiRoomPanel(QWidget):
         stream_row.addWidget(self.copy_stream_button)
         group_layout.addLayout(stream_row)
 
+        song_row = QHBoxLayout()
+        self.song_input = QLineEdit()
+        self.song_input.setPlaceholderText("Song title or playable URL for selected room")
+        self.song_button = QPushButton("PLAY IN SELECTED ROOM")
+        song_row.addWidget(self.song_input, 1)
+        song_row.addWidget(self.song_button)
+        group_layout.addLayout(song_row)
+
         details = QSplitter(Qt.Orientation.Horizontal)
         queue_side = QWidget()
         queue_layout = QVBoxLayout(queue_side)
@@ -113,6 +122,8 @@ class MultiRoomPanel(QWidget):
             lambda: QGuiApplication.clipboard().setText(self.stream_url_input.text())
             if self.stream_url_input.text() else None
         )
+        self.song_button.clicked.connect(self._request_song)
+        self.song_input.returnPressed.connect(self._request_song)
         self.remove_button.clicked.connect(self._request_removal)
         self.reload_button.clicked.connect(
             lambda: self.reload_requested.emit(self.selected_room())
@@ -131,6 +142,13 @@ class MultiRoomPanel(QWidget):
             return ""
         item = self.room_table.item(row, 0)
         return item.text() if item else ""
+
+    def _request_song(self):
+        room_id = self.selected_room()
+        query = self.song_input.text().strip()
+        if room_id and query:
+            self.song_requested.emit(room_id, query)
+            self.song_input.clear()
 
     def _request_removal(self):
         room_id = self.selected_room()
@@ -178,7 +196,8 @@ class MultiRoomPanel(QWidget):
         room_id = self.selected_room()
         record = self._snapshots.get(room_id, {})
         self.remove_button.setEnabled(bool(room_id and record.get("type") != "Primary"))
-        for button in (self.reload_button, self.skip_button, self.stop_button):
+        for button in (self.reload_button, self.skip_button, self.stop_button,
+                       self.song_button):
             button.setEnabled(bool(room_id))
         if not room_id:
             self.detail_label.setText("Select a room to inspect its music and queue.")
