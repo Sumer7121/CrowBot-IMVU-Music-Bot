@@ -7,8 +7,10 @@ class RoomSessionTests(unittest.TestCase):
     def setUp(self):
         self.music_patch = patch("bot.room_session.MusicController")
         self.handler_patch = patch("bot.room_session.CommandHandler")
-        self.music_patch.start()
+        self.mock_music = self.music_patch.start()
+        self.mock_music.side_effect = lambda: MagicMock()
         self.mock_handler = self.handler_patch.start()
+        self.mock_handler.side_effect = lambda *args, **kwargs: MagicMock(prefix=kwargs.get('prefix', args[2] if len(args) > 2 else '!'))
         from bot.room_session import RoomSession
         self.RoomSession = RoomSession
 
@@ -20,6 +22,7 @@ class RoomSessionTests(unittest.TestCase):
         a = self.RoomSession("https://imvu.com/next/chat/room-1/")
         b = self.RoomSession("https://imvu.com/next/chat/room-2/")
         self.assertIsNot(a.command_handler, b.command_handler)
+        self.assertIsNot(a.music_controller, b.music_controller)
         self.assertNotEqual(a.room_url, b.room_url)
 
     def test_ping_responds_per_room(self):
