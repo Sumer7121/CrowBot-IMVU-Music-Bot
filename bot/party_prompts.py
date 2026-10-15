@@ -188,13 +188,71 @@ QUESTIONS = [
   "What would your dream party look like?"
 ]
 
-TOD_TRUTHS = [f"{p} ({v})" for p in TRUTHS for v in ("no names needed", "give the story")]
-TOD_DARES = [f"{p} ({v})" for p in DARES for v in ("keep it playful", "make it dramatic")]
+# Build 500 distinct conversational prompts per category. Each has a
+# different situation and angle; SocialReactions draws without replacement.
+TOPICS = (
+    "a road trip", "a rainy weekend", "a first date", "a birthday surprise",
+    "a pet adoption", "a beach day", "a karaoke night", "a game night",
+    "a mountain getaway", "a cooking contest", "a costume party", "a concert",
+    "a coffee shop", "a dance competition", "a reunion", "a camping trip",
+    "a mystery gift", "a festival", "a photography walk", "a movie marathon",
+    "a talent show", "a museum visit", "a surprise visitor", "a holiday dinner",
+    "a late-night adventure",
+)
+ANGLES = (
+    "What's the funniest thing that could happen during {topic}?",
+    "Who would you invite to {topic}, and why?",
+    "What would make {topic} unforgettable?",
+    "What's one thing you'd absolutely avoid during {topic}?",
+    "Which song would be your soundtrack for {topic}?",
+    "What would your ideal outfit be for {topic}?",
+    "What secret talent would help you during {topic}?",
+    "How would you turn {topic} into a friendly competition?",
+    "What would be your most unexpected choice during {topic}?",
+    "What would you tell your future self about {topic}?",
+    "If you could change one rule of {topic}, what would it be?",
+    "What food would you bring to {topic}?",
+    "What harmless prank would work during {topic}?",
+    "What would make you laugh hardest during {topic}?",
+    "If {topic} went completely wrong, how would you save it?",
+    "Which three emojis describe your version of {topic}?",
+    "What would be the best surprise during {topic}?",
+    "What would you photograph first during {topic}?",
+    "How would you make new friends during {topic}?",
+    "What would your personal highlight of {topic} be?",
+)
+QUESTION_BANK = tuple(angle.format(topic=topic) for topic in TOPICS for angle in ANGLES)
+TRUTH_BANK = tuple(
+    ("Be honest: " + q[0].lower() + q[1:]) for q in QUESTION_BANK
+)
+DARE_ACTIONS = (
+    "Write a two-line fictional story about {topic}.",
+    "Invent a catchy slogan for {topic}.",
+    "Describe {topic} using exactly five words.",
+    "Create a silly nickname inspired by {topic}.",
+    "Make up a dramatic announcement about {topic}.",
+    "Give the room a playful challenge involving {topic}.",
+    "Pretend to be a news reporter covering {topic}.",
+    "Create a short rhyme about {topic}.",
+    "Pitch {topic} as a blockbuster movie.",
+    "Describe {topic} like a sports commentator.",
+    "Give a harmless compliment inspired by {topic}.",
+    "Invent a ridiculous award for {topic}.",
+    "Make a two-line invitation to {topic}.",
+    "Come up with a funny hashtag for {topic}.",
+    "Write a fictional review of {topic}.",
+    "Describe a cartoon pet attending {topic}.",
+    "Choose three emojis to advertise {topic}.",
+    "Invent an imaginary snack for {topic}.",
+    "Pretend you're a DJ introducing {topic}.",
+    "Write a dramatic one-sentence toast about {topic}.",
+)
+DARE_BANK = tuple(action.format(topic=topic) for topic in TOPICS for action in DARE_ACTIONS)
+QUESTIONS = list(QUESTION_BANK)
+TOD_TRUTHS = list(TRUTH_BANK)
+TOD_DARES = list(DARE_BANK)
 ROASTS = [f"{{name}}, {p.lower()} — {v}" for p in ROASTS for v in
           ("respectfully", "that's wild", "please reboot", "crowbot noticed", "no hard feelings")]
 JOKES_SFW = CLEAN + [f"Encore: {p}" for p in CLEAN]
 JOKES_ADULT = CHEEKY + [f"Late-night edition: {p}" for p in CHEEKY]
-assert len(TOD_TRUTHS) + len(TOD_DARES) == 100
-assert len(ROASTS) == 100
-assert len(JOKES_SFW) + len(JOKES_ADULT) == 100
-assert len(QUESTIONS) == 50
+assert len(QUESTIONS) == len(TOD_TRUTHS) == len(TOD_DARES) == 500
