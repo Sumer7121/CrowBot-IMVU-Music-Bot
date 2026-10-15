@@ -17,6 +17,9 @@ class MultiRoomPanel(QWidget):
     add_requested = Signal(str)
     refresh_requested = Signal()
     remove_requested = Signal(str)
+    reload_requested = Signal(str)
+    skip_requested = Signal(str)
+    stop_requested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,11 +37,22 @@ class MultiRoomPanel(QWidget):
         self.join_button = QPushButton("ADD / JOIN ROOM")
         self.refresh_button = QPushButton("REFRESH ROOMS")
         self.remove_button = QPushButton("REMOVE SELECTED")
+        self.reload_button = QPushButton("RELOAD RADIO")
+        self.skip_button = QPushButton("SKIP SONG")
+        self.stop_button = QPushButton("STOP MUSIC")
         form.addWidget(self.room_id_input, 3)
         form.addWidget(self.join_button)
         form.addWidget(self.refresh_button)
         form.addWidget(self.remove_button)
         group_layout.addLayout(form)
+
+        controls = QHBoxLayout()
+        controls.addWidget(QLabel("SELECTED ROOM CONTROLS:"))
+        controls.addWidget(self.reload_button)
+        controls.addWidget(self.skip_button)
+        controls.addWidget(self.stop_button)
+        controls.addStretch(1)
+        group_layout.addLayout(controls)
 
         self.room_table = QTableWidget(0, 5)
         self.room_table.setHorizontalHeaderLabels(
@@ -85,6 +99,15 @@ class MultiRoomPanel(QWidget):
         )
         self.refresh_button.clicked.connect(self.refresh_requested.emit)
         self.remove_button.clicked.connect(self._request_removal)
+        self.reload_button.clicked.connect(
+            lambda: self.reload_requested.emit(self.selected_room())
+        )
+        self.skip_button.clicked.connect(
+            lambda: self.skip_requested.emit(self.selected_room())
+        )
+        self.stop_button.clicked.connect(
+            lambda: self.stop_requested.emit(self.selected_room())
+        )
         self.room_table.itemSelectionChanged.connect(self._display_selection)
 
     def selected_room(self):
@@ -138,6 +161,8 @@ class MultiRoomPanel(QWidget):
         room_id = self.selected_room()
         record = self._snapshots.get(room_id, {})
         self.remove_button.setEnabled(bool(room_id and record.get("type") != "Primary"))
+        for button in (self.reload_button, self.skip_button, self.stop_button):
+            button.setEnabled(bool(room_id))
         if not room_id:
             self.detail_label.setText("Select a room to inspect its music and queue.")
             self.queue_list.clear()
