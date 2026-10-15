@@ -2429,6 +2429,7 @@ class MainWindow(QMainWindow):
         self.room_panel.stop_requested.connect(
             lambda room_id: self.control_selected_room_music(room_id, "stop")
         )
+        self.room_panel.song_requested.connect(self.request_selected_room_song)
         self.connect_button.clicked.connect(
 
 
@@ -4919,6 +4920,45 @@ class MainWindow(QMainWindow):
             return self.music_controller
         session = self.room_sessions.get(url)
         return session.music_controller if session else None
+
+    def request_selected_room_song(self, room_id, query):
+        """Request a track through the selected room's own CommandHandler."""
+        try:
+            url = make_room_url(room_id)
+        except ValueError:
+            return
+        if url.rstrip("/") == str(self._primary_room_url or "").rstrip("/"):
+            handler = self.command_handler
+            ready = self._primary_radio_loaded
+        else:
+            session = self.room_sessions.get(url)
+            if not session:
+                self.log(f"ROOM [{room_id}]: Not connected.")
+                return
+            handler = session.command_handler
+            ready = bool(session.stream_url)
+        if not ready:
+            self.log(f"ROOM [{room_id}]: Wait for Radio READY before requesting music.")
+            return
+        song_query = str(query or "").strip()
+        if not song_query:
+            return
+        # Prevent accidentally passing '!p ...' as a search phrase.
+        for prefix_text in (f"{handler.prefix}p ", f"{handler.prefix}play "):
+            if song_query.casefold().startswith(prefix_text.casefold()):
+                song_query = song_query[len(prefix_text):].strip()
+                break
+        if not song_query:
+            return
+        requester = self.username_input.text().strip() or "CrowBot-Dashboard"
+        try:
+            response = handler.handle(f"{handler.prefix}p {song_query}", requester)
+            self.log(f"ROOM [{room_id}]: Song requested: {song_query}")
+            if response:
+                self.send_bot_response_to_imvu(response, room_url=url)
+        except Exception as error:
+            self.log(f"ROOM [{room_id}]: Song request failed: {error}")
+        self._refresh_rooms_ui()
 
     def control_selected_room_music(self, room_id, action):
         controller = self._music_controller_for_room(room_id)
