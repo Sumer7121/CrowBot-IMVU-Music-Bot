@@ -1480,6 +1480,7 @@ class MainWindow(QMainWindow):
         self.room_sessions = {}
         self._room_open_workers = []
         self._room_states = {}
+        self._room_last_health = {}
         self._next_room_radio_port = 8766
         self._outgoing_chat_queue = []
         self._outgoing_chat_active = False
@@ -4975,6 +4976,7 @@ class MainWindow(QMainWindow):
                 "status": status, "playing": song.get("title", "Unknown") if song else "—",
                 "source": "Music" if source else "Idle",
                 "clients": self.radio_server.get_client_count(),
+                "stream_url": self.public_stream_url,
                 "queue": self.music_controller.get_queue(),
             })
         for url, session in self.room_sessions.items():
@@ -4993,8 +4995,18 @@ class MainWindow(QMainWindow):
                 "source": "Music" if source else "Idle",
                 "clients": session.radio_server.get_client_count()
                             if session.radio_server else 0,
+                "stream_url": session.stream_url,
                 "queue": session.music_controller.get_queue(),
             })
+        for record in snapshots:
+            room_id = record["room_id"]
+            status = record["status"]
+            previous = self._room_last_health.get(room_id)
+            if previous != status:
+                self._room_last_health[room_id] = status
+                if status in ("Audio error", "Audio stalled", "Broadcasting · no listener",
+                              "Ready · no listener", "Radio stopped", "Radio error"):
+                    self.room_panel.add_log(room_id, f"RADIO HEALTH: {status}")
         self.room_panel.set_rooms(snapshots)
 
     def add_room_to_crowbot(self, raw_room_id):
