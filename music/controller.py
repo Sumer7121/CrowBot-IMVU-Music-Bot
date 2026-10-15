@@ -80,7 +80,7 @@ class MusicController(QObject):
             is None
         ):
 
-            self.play_next()
+            return self.play_next()
 
         else:
 
@@ -154,9 +154,7 @@ class MusicController(QObject):
 
                 try:
 
-                    self.radio_server.set_source(
-                        url
-                    )
+                    self.radio_server.set_source(url, force_restart=True)
 
                     self.radio_server.start()
 
@@ -170,9 +168,7 @@ class MusicController(QObject):
 
             else:
 
-                self.radio_server.set_source(
-                    url
-                )
+                self.radio_server.set_source(url, force_restart=True)
 
         # -----------------------------------------------------
         # Local playback
@@ -224,47 +220,46 @@ class MusicController(QObject):
     # =========================================================
 
     def pause(self):
-
-        if not self.queue.get_current_song():
-
-            self.status_changed.emit(
-                "Nothing is currently playing."
-            )
-
+        current = self.queue.get_current_song()
+        if not current:
+            self.status_changed.emit("Nothing is currently playing.")
             return False
 
-        self.player.pause()
-
+        # The public station is separate from muted local QMediaPlayer audio.
+        # Switch listeners to idle MP3 while paused; do not let music keep
+        # broadcasting to IMVU after users request !pause.
+        if self.radio_server and self.radio_server.is_running():
+            self.radio_server.clear_sources()
+            self.player.stop()
+            self.status_changed.emit(
+                "Music paused in this room (resume restarts the track)."
+            )
+        else:
+            self.player.pause()
+            self.status_changed.emit("Music paused.")
         self.queue.pause()
-
-        self.status_changed.emit(
-            "Music paused."
-        )
-
         return True
 
-    # =========================================================
-    # RESUME
-    # =========================================================
-
     def resume(self):
-
-        if not self.queue.get_current_song():
-
-            self.status_changed.emit(
-                "Nothing is currently playing."
-            )
-
+        current = self.queue.get_current_song()
+        if not current:
+            self.status_changed.emit("Nothing is currently playing.")
             return False
 
-        self.player.resume()
-
+        if self.radio_server and self.radio_server.is_running():
+            url = current.get("url")
+            if not url:
+                self.error_occurred.emit("Cannot resume: track URL missing.")
+                return False
+            self.radio_server.set_source(url, force_restart=True)
+            self.player.play(url, current.get("title", "Unknown"))
+            self.status_changed.emit(
+                "Music resumed in this room (track restarted)."
+            )
+        else:
+            self.player.resume()
+            self.status_changed.emit("Music resumed.")
         self.queue.resume()
-
-        self.status_changed.emit(
-            "Music resumed."
-        )
-
         return True
 
     # =========================================================
