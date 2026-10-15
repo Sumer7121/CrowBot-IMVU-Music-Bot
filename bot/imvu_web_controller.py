@@ -1542,16 +1542,21 @@ class IMVUWebController:
 
             self.click_load()
 
-
+            # Clicking LOAD is not proof that the selected room accepted
+            # this stream. Check the field after the click and surface any
+            # mismatch instead of reporting an unconditional success.
+            actual_url = self.get_current_stream_url().strip()
+            if actual_url != stream_url.strip():
+                raise RuntimeError(
+                    "IMVU radio URL changed or disappeared after LOAD "
+                    f"in room {self.get_room_url()}. "
+                    f"Expected {stream_url!r}, found {actual_url!r}."
+                )
 
             return {
-
                 "previous_url": previous_url,
-
-                "new_url": stream_url,
-
+                "new_url": actual_url,
                 "loaded": True,
-
             }
 
 
