@@ -2,7 +2,7 @@
 import re
 from urllib.parse import urlparse
 
-ROOM_ID_PATTERN = re.compile(r"^\\d+-\\d+$")
+ROOM_ID_PATTERN = re.compile(r"^\d+-\d+$")
 ROOM_URL_PREFIX = "https://www.imvu.com/next/chat/room-"
 
 
@@ -17,7 +17,7 @@ def normalize_room_id(value):
         }:
             raise ValueError("Only https://www.imvu.com room links are supported.")
         path = parsed.path.strip("/")
-        matched = re.fullmatch(r"next/chat/room-(\\d+-\\d+)", path)
+        matched = re.fullmatch(r"next/chat/room-(\d+-\d+)", path)
         if not matched:
             raise ValueError("The IMVU link must be a specific /next/chat/room-ID/ URL.")
         text = matched.group(1)
