@@ -4928,6 +4928,11 @@ class MainWindow(QMainWindow):
         if url.rstrip("/") == str(self._primary_room_url or "").rstrip("/"):
             stream_url = self.public_stream_url
             if stream_url:
+                if self.radio_server.get_source():
+                    self.radio_server.set_source(
+                        self.radio_server.get_source(), force_restart=True
+                    )
+                    self.log(f"ROOM [{room_id}]: Restarted primary song encoder.")
                 self.log(f"ROOM [{room_id}]: Reloading primary radio in IMVU.")
                 self.start_imvu_radio_update(stream_url)
             else:
@@ -4943,6 +4948,11 @@ class MainWindow(QMainWindow):
         if not stream_url:
             self.log(f"ROOM [{room_id}]: Tunnel URL is not ready.")
             return
+        if session.radio_server and session.radio_server.get_source():
+            session.radio_server.set_source(
+                session.radio_server.get_source(), force_restart=True
+            )
+            self.log(f"ROOM [{room_id}]: Restarted its song encoder.")
         self.log(f"ROOM [{room_id}]: Reloading its own radio stream in IMVU.")
         self._secondary_radio_ready(url, stream_url)
 
@@ -11230,7 +11240,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "room_panel"):
             # Exact room mentions are routed to the matching log tab.
             import re
-            match = re.search(r"room-(\d+-\d+)", str(message))
+            match = re.search(r"(?:room-|ROOM \[)(\d+-\d+)", str(message), re.I)
             if match:
                 self.room_panel.add_log(match.group(1), message)
             else:
