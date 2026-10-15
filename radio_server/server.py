@@ -29,6 +29,7 @@ class RadioStreamServer:
         self.broadcast_lock = threading.Lock()
 
         self._last_client_count = None
+        self.event_callback = None
         self.source_set_at = time.monotonic()
         self.last_song_audio_at = 0.0
         self.last_song_audio_generation = -1
@@ -38,6 +39,15 @@ class RadioStreamServer:
     # =========================================================
     # SOURCE MANAGEMENT
     # =========================================================
+
+    def _emit_event(self, message):
+        """Broadcast diagnostics via a caller-provided, thread-safe callback."""
+        callback = self.event_callback
+        if callback:
+            try:
+                callback(str(message))
+            except Exception:
+                pass
 
     def set_source(self, url, force_restart=False):
         url = (url or "").strip()
@@ -62,6 +72,10 @@ class RadioStreamServer:
             print(url if url else "<idle>")
 
             self.source_changed.set()
+            self._emit_event(
+                f"Source generation {generation}: "
+                + ("music encoder restart" if url else "idle/silent MP3")
+            )
 
         return True
 
@@ -611,6 +625,10 @@ class RadioStreamServer:
                                                 f"FFmpeg exited {process.returncode} "
                                                 "without MP3 output"
                                             )
+                                    self._emit_event(
+                                        f"FFmpeg exited {process.returncode} "
+                                        "without MP3 audio."
+                                    )
 
                                 (
                                     eof_source,
@@ -652,6 +670,10 @@ class RadioStreamServer:
                                 "received from FFmpeg: "
                                 f"{len(data)} bytes"
                             )
+                            self._emit_event(
+                                f"First song MP3 bytes received "
+                                f"(generation {session_generation}, {len(data)} bytes)."
+                            )
 
                     if not idle_mode:
                         with self.broadcast_lock:
@@ -673,6 +695,7 @@ class RadioStreamServer:
 
             except Exception as error:
                 print("FFmpeg stream error:", error)
+                self._emit_event(f"FFmpeg streaming error: {error}")
                 with self.broadcast_lock:
                     if self.source_generation == session_generation:
                         self.last_song_error = str(error)
@@ -766,6 +789,7 @@ class RadioStreamServer:
                 "Broadcasting audio to "
                 f"{count} client(s)."
             )
+            self._emit_event(f"Connected radio listeners: {count}")
 
         for client_queue in clients:
             try:
