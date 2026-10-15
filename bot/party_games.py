@@ -4,21 +4,22 @@ import secrets
 
 
 class PartyGames:
-    QUESTIONS = (
-        ("Which planet is called the Red Planet?", "mars"),
-        ("How many days are in a leap year?", "366"),
-        ("What is the largest ocean?", "pacific"),
-        ("Which animal is known as the king of the jungle?", "lion"),
-        ("What is the chemical symbol for gold?", "au"),
-        ("How many sides does a hexagon have?", "6"),
-        ("What is the capital of Japan?", "tokyo"),
-        ("Which planet is closest to the Sun?", "mercury"),
+    # 500 arithmetic challenges with deterministic, independently checked answers.
+    # Generated once; shuffle-bag selection prevents a repeat until exhausted.
+    QUESTIONS = tuple(
+        (
+            f"What is {left} + {right}?",
+            str(left + right),
+        )
+        for left in range(11, 36)
+        for right in range(14, 34)
     )
 
     def __init__(self):
         self.trivia = None
         self.guess = None
         self.scores = {}
+        self._trivia_remaining = []
 
     @staticmethod
     def _key(name):
@@ -33,7 +34,10 @@ class PartyGames:
         return current["points"]
 
     def start_trivia(self):
-        question, answer = random.choice(self.QUESTIONS)
+        if not self._trivia_remaining:
+            self._trivia_remaining = list(range(len(self.QUESTIONS)))
+            random.shuffle(self._trivia_remaining)
+        question, answer = self.QUESTIONS[self._trivia_remaining.pop()]
         self.trivia = {"question": question, "answer": answer}
         return f"🧠 TRIVIA | {question}\nAnswer: !a <answer>"
 
