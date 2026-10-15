@@ -4844,6 +4844,167 @@ class MainWindow(QMainWindow):
             self.send_bot_response_to_imvu(announcement)
         self._schedule_collectible()
 
+    def _refresh_rooms_ui(self):
+        """Live room, song and queue snapshots; never share queues between rooms."""
+        if not hasattr(self, "room_panel"):
+            return
+        snapshots = []
+        primary = self._primary_room_url
+        if not primary:
+            try:
+                primary = make_room_url(self.room_input.text())
+            except ValueError:
+                primary = ""
+        if primary:
+            room_id = primary.rstrip("/").rsplit("room-", 1)[-1]
+            song = self.music_controller.get_current_song()
+            source = self.radio_server.get_source() if self.radio_server else ""
+            ready = bool(self.public_stream_url) and self.radio_server.is_running()
+            status = ("Ready" if ready else
+                      "Connecting" if getattr(self, "_crowbot_connecting", False)
+                      else "Offline")
+            snapshots.append({
+                "room_id": room_id, "type": "Primary", "port": 8765,
+                "status": status, "playing": song.get("title", "Unknown") if song else "—",
+                "source": "Music" if source else "Idle",
+                "clients": self.radio_server.get_client_count(),
+                "queue": self.music_controller.get_queue(),
+            })
+        for url, session in self.room_sessions.items():
+            room_id = url.rstrip("/").rsplit("room-", 1)[-1]
+            song = session.music_controller.get_current_song()
+            source = session.radio_server.get_source() if session.radio_server else ""
+            status = self._room_states.get(url, "Starting")
+            if (session.stream_url and session.radio_server
+                    and session.radio_server.is_running()
+                    and status not in ("Error", "Disconnected")):
+                status = "Ready"
+            snapshots.append({
+                "room_id": room_id, "type": "Secondary",
+                "port": session.radio_port or "—", "status": status,
+                "playing": song.get("title", "Unknown") if song else "—",
+                "source": "Music" if source else "Idle",
+                "clients": session.radio_server.get_client_count()
+                            if session.radio_server else 0,
+                "queue": session.music_controller.get_queue(),
+            })
+        self.room_panel.set_rooms(snapshots)
+
+    def add_room_to_crowbot(self, raw_room_id):
+        """Add a live secondary room by ID, without restarting existing stations."""
+        try:
+            room_id = normalize_room_id(raw_room_id)
+            url = make_room_url(room_id)
+        except ValueError as error:
+            QMessageBox.warning(self, "Invalid room", str(error))
+            return
+        if not self._primary_room_url or not (
+            self.imvu_chat_worker and self.imvu_chat_worker.isRunning()
+        ):
+            QMessageBox.information(
+                self, "Connect CrowBot first",
+                "Connect the primary room, then add additional room IDs here."
+            )
+            return
+        if url.rstrip("/") == self._primary_room_url.rstrip("/"):
+            self.log(f"ROOM [{room_id}]: Already connected as primary.")
+            return
+        if url in self.room_sessions:
+            self.log(f"ROOM [{room_id}]: Already being monitored.")
+            return
+        if any(worker.room_url == url for worker in self._room_open_workers):
+            self.log(f"ROOM [{room_id}]: Join is already in progress.")
+            return
+        self.log(f"ROOM [{room_id}]: Opening additional room in dedicated Chrome.")
+        worker = IMVUOpenRoomWorker(url, self)
+        self._room_open_workers.append(worker)
+        worker.opened.connect(self._additional_room_opened)
+        worker.failed.connect(lambda error, u=url: self.log(
+            f"ROOM [{u}]: Open failed: {error}"
+        ))
+        worker.finished.connect(lambda w=worker: self._room_open_worker_finished(w))
+        worker.start()
+
+    def _additional_room_opened(self, url):
+        self.log(f"ROOM [{url}]: Opened tab; attempting JOIN and monitoring.")
+        self.room_panel.room_id_input.clear()
+        self.start_secondary_room_monitors()
+        self._refresh_rooms_ui()
+
+    def _room_open_worker_finished(self, worker):
+        if worker in self._room_open_workers:
+            self._room_open_workers.remove(worker)
+        worker.deleteLater()
+
+    def refresh_room_list(self):
+        """Discover new open IMVU tabs without disturbing active sessions."""
+        if self.imvu_chat_worker and self.imvu_chat_worker.isRunning():
+            self.start_secondary_room_monitors()
+        self._refresh_rooms_ui()
+
+    def remove_secondary_room(self, room_id):
+        """Stop only the chosen secondary station and close its Chrome tab."""
+        try:
+            url = make_room_url(room_id)
+        except ValueError as error:
+            QMessageBox.warning(self, "Invalid room", str(error))
+            return
+        if url.rstrip("/") == str(self._primary_room_url or "").rstrip("/"):
+            self.log("The primary room cannot be removed while connected.")
+            return
+        for worker in list(self.secondary_room_workers):
+            if worker.room_url.rstrip("/") == url.rstrip("/"):
+                worker.stop()
+                if not worker.wait(3500):
+                    self.log(f"ROOM [{room_id}]: Listener still stopping.")
+        session = self.room_sessions.pop(url, None)
+        if session:
+            session.music_controller.stop()
+            session.stop_radio()
+        self._secondary_room_url_set.discard(url)
+        self._room_states.pop(url, None)
+        # Closing the tab keeps later REFRESH from silently re-adding it.
+        controller = IMVUWebController()
+        try:
+            controller.connect()
+            if controller.find_imvu_room(url):
+                controller.page.close()
+        except Exception as error:
+            self.log(f"ROOM [{room_id}]: Tab-close warning: {error}")
+        finally:
+            controller.disconnect()
+        self.log(f"ROOM [{room_id}]: Removed; other stations continue.")
+        self._refresh_rooms_ui()
+
+    def _secondary_room_joined(self, room_url):
+        """A room-specific chat worker confirmed JOIN before radio startup."""
+        session = self.room_sessions.get(room_url)
+        if not session:
+            return
+        if session.stream_url or (session.tunnel and session.tunnel.is_running()):
+            return
+        self._room_states[room_url] = "Starting station"
+        try:
+            session.start_radio()
+            self.log(
+                f"ROOM [{room_url}]: JOIN confirmed. "
+                f"Station {session.radio_port} and private tunnel starting."
+            )
+        except Exception as error:
+            self._room_states[room_url] = "Error"
+            self.log(f"ROOM [{room_url}]: Radio start error: {error}")
+        self._refresh_rooms_ui()
+
+    def _secondary_room_failed(self, room_url, error):
+        self._room_states[room_url] = "Error"
+        self.log(f"ROOM [{room_url}]: Listener error: {error}")
+        self._refresh_rooms_ui()
+
+    def _secondary_radio_error(self, room_url, error):
+        self._room_states[room_url] = "Error"
+        self.log(f"ROOM [{room_url}]: Tunnel error: {error}")
+        self._refresh_rooms_ui()
+
     def start_secondary_room_monitors(self):
         """Test multiple room tabs without merging independent music queues."""
         controller = IMVUWebController()
@@ -4876,7 +5037,7 @@ class MainWindow(QMainWindow):
                     lambda stream_url, u=url: self._secondary_radio_ready(u, stream_url)
                 )
                 session.tunnel.tunnel_error.connect(
-                    lambda err, u=url: self.log(f"MULTI-ROOM RADIO ERROR [{u}]: {err}")
+                    lambda err, u=url: self._secondary_radio_error(u, err)
                 )
                 session.music_controller.now_playing_changed.connect(
                     lambda song, u=url: self._secondary_now_playing(u, song)
@@ -4892,18 +5053,13 @@ class MainWindow(QMainWindow):
                         response, room_url=u
                     )
                 )
-                try:
-                    session.start_radio()
-                    self.log(f"MULTI-ROOM RADIO: Starting private station on {session.radio_port}: {url}")
-                except Exception as err:
-                    self.log(f"MULTI-ROOM RADIO ERROR [{url}]: {err}")
+                self._room_states[url] = "Joining"
+                self.log(f"ROOM [{url}]: Allocated independent station port {session.radio_port}; waiting for JOIN.")
             worker = SecondaryRoomWorker(url, self)
             self._secondary_room_url_set.add(url)
             self.secondary_room_workers.append(worker)
-            worker.ready.connect(lambda u: self.log(f"MULTI-ROOM: Monitoring {u}"))
-            worker.failed.connect(
-                lambda u, error: self.log(f"MULTI-ROOM ERROR [{u}]: {error}")
-            )
+            worker.ready.connect(self._secondary_room_joined)
+            worker.failed.connect(self._secondary_room_failed)
             worker.message_received.connect(self.receive_secondary_room_chat)
             worker.finished.connect(
                 lambda w=worker, u=url: self.cleanup_secondary_room_worker(w, u)
@@ -4924,20 +5080,21 @@ class MainWindow(QMainWindow):
         # The original Now Playing widget is intentionally primary-room-only.
         # Surface secondary room updates in the command output as well.
         self.command_output.append(f"[ROOM {room_url}] Now playing: {title}")
+        self._refresh_rooms_ui()
 
     def _secondary_radio_ready(self, room_url, stream_url):
         session = self.room_sessions.get(room_url)
         if session is None:
             return
+        self._room_states[room_url] = "Loading radio"
+        self.log(f"ROOM [{room_url}]: Private stream ready; loading into IMVU radio.")
         worker = IMVURadioUpdateWorker(stream_url, self, room_url=room_url)
         self.imvu_radio_workers.append(worker)
         worker.succeeded.connect(
             lambda url, previous, w=worker, room=room_url: self._secondary_radio_loaded(room, url)
         )
         worker.failed.connect(
-            lambda error, room=room_url: self.log(
-                f"MULTI-ROOM RADIO LOAD ERROR [{room}]: {error}"
-            )
+            lambda error, room=room_url: self._secondary_radio_error(room, error)
         )
         worker.finished.connect(
             lambda w=worker: self.cleanup_imvu_radio_worker(w)
@@ -4948,7 +5105,9 @@ class MainWindow(QMainWindow):
         session = self.room_sessions.get(room_url)
         if session:
             session.stream_url = stream_url
+            self._room_states[room_url] = "Ready"
             self.log(f"MULTI-ROOM RADIO: Independent station READY [{room_url}]")
+            self._refresh_rooms_ui()
 
     def cleanup_secondary_room_worker(self, worker, url):
         if worker in self.secondary_room_workers:
