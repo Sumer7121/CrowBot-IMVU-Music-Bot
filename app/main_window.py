@@ -4428,6 +4428,8 @@ class MainWindow(QMainWindow):
         # -------------------------------------------------
 
         try:
+            self.music_controller.stop()
+            self.music_controller.clear_queue()
             self.stop_radio()
         except Exception as error:
             self.log(
@@ -4485,6 +4487,7 @@ class MainWindow(QMainWindow):
             )
             return
 
+        previous_primary_url = self._primary_room_url
         self._crowbot_connecting = True
         self._primary_radio_loaded = False
         self._primary_radio_error = ""
@@ -4531,7 +4534,13 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Invalid Room ID", str(error))
             return
         self._primary_room_url = make_room_url(room_id)
-
+        if (previous_primary_url and
+                previous_primary_url.rstrip("/") != self._primary_room_url.rstrip("/")):
+            self.music_controller.stop()
+            self.music_controller.clear_queue()
+            self.log(
+                f"CROWBOT: Reset old primary-room songs before joining {room_id}."
+            )
 
         if not room_id:
             QMessageBox.warning(
