@@ -1481,6 +1481,7 @@ class CommandHandler(QObject):
             self._resolve_target(
                 arguments,
                 username,
+                allow_unknown=True,
             )
         )
 
@@ -1513,6 +1514,7 @@ class CommandHandler(QObject):
             self._resolve_target(
                 arguments,
                 username,
+                allow_unknown=True,
             )
         )
 
@@ -2064,13 +2066,13 @@ class CommandHandler(QObject):
 
     def would_you_rather(self, arguments, username):
         self._remember_user(username)
-        return "🤔 WOULD YOU RATHER\\n" + self.social.pick(
+        return "🤔 WOULD YOU RATHER\n" + self.social.pick(
             "would_you_rather", prompts.WOULD_YOU_RATHER
         )
 
     def never_have_i_ever(self, arguments, username):
         self._remember_user(username)
-        return "🙋 NEVER HAVE I EVER\\n" + self.social.pick(
+        return "🙋 NEVER HAVE I EVER\n" + self.social.pick(
             "never_have_i_ever", prompts.NEVER_HAVE_I_EVER
         )
 
@@ -2080,7 +2082,7 @@ class CommandHandler(QObject):
         if not question:
             return f"🎱 Ask a question: {self.prefix}8ball <question>"
         answer = self.social.pick("magic_eight_ball", prompts.MAGIC_EIGHT_BALL)
-        return f"🎱 {username} asked: {question}\\nCrowBot says: {answer}"
+        return f"🎱 {username} asked: {question}\nCrowBot says: {answer}"
 
     def riddle_start(self, arguments, username):
         self._remember_user(username)
@@ -2147,10 +2149,10 @@ class CommandHandler(QObject):
                 f"{p}move 1-9 — place X/O\n"
                 f"{p}tttboard — view TTT\n"
                 f"{p}tttend — end TTT\n"
-                f"{p}quiz — trivia (500 mixed questions)\\n"
-                f"{p}riddle — riddle, answer with {p}ra\\n"
-                f"{p}duel <name> — friendly dice duel\\n"
-                f"{p}guess — number game\\n"
+                f"{p}quiz — trivia (500 mixed questions)\n"
+                f"{p}riddle — riddle, answer with {p}ra\n"
+                f"{p}duel <name> — friendly dice duel\n"
+                f"{p}guess — number game\n"
                 f"{p}rps rock — RPS\n"
                 f"{p}spin — random player\n"
                 f"{p}top — scores\n"
@@ -2159,12 +2161,12 @@ class CommandHandler(QObject):
             ),
             "fun": (
                 "🎭 PARTY\n"
-                f"{p}tod <name> — truth or dare for player\\n"
-                f"{p}truth <name> — truth for player\\n"
-                f"{p}dare <name> — dare for player\\n"
-                f"{p}wyr — would you rather\\n"
-                f"{p}nhie — never have I ever\\n"
-                f"{p}8ball <question> — magic 8 ball\\n"
+                f"{p}tod <name> — truth or dare for player\n"
+                f"{p}truth <name> — truth for player\n"
+                f"{p}dare <name> — dare for player\n"
+                f"{p}wyr — would you rather\n"
+                f"{p}nhie — never have I ever\n"
+                f"{p}8ball <question> — magic 8 ball\n"
                 f"{p}roast @name — playful roast\n"
                 f"{p}j — clean joke\n"
                 f"{p}meme — dashed meme\n"
