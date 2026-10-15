@@ -1,8 +1,7 @@
-"""Per-room CrowBot command/game state.
+"""Per-room CrowBot state: dedicated music queue, radio port and tunnel.
 
-Music streaming is intentionally disabled for secondary rooms until each room
-has a separate radio output and Cloudflare endpoint. The primary room retains
-its existing, known-working music stack.
+Each RoomSession owns its own CommandHandler, MusicController and station;
+commands must never reuse the primary room's music controller.
 """
 from bot.commands import CommandHandler
 from music.controller import MusicController
