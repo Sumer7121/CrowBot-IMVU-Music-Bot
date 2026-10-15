@@ -4833,6 +4833,15 @@ class MainWindow(QMainWindow):
                 session.tunnel.tunnel_error.connect(
                     lambda err, u=url: self.log(f"MULTI-ROOM RADIO ERROR [{u}]: {err}")
                 )
+                session.music_controller.now_playing_changed.connect(
+                    lambda song, u=url: self._secondary_now_playing(u, song)
+                )
+                session.music_controller.status_changed.connect(
+                    lambda status, u=url: self.log(f"ROOM MUSIC [{u}]: {status}")
+                )
+                session.music_controller.error_occurred.connect(
+                    lambda err, u=url: self.log(f"ROOM MUSIC ERROR [{u}]: {err}")
+                )
                 session.command_handler.async_response.connect(
                     lambda username, response, u=url: self.send_bot_response_to_imvu(
                         response, room_url=u
@@ -4855,6 +4864,13 @@ class MainWindow(QMainWindow):
                 lambda w=worker, u=url: self.cleanup_secondary_room_worker(w, u)
             )
             worker.start()
+
+    def _secondary_now_playing(self, room_url, song):
+        title = (song or {}).get("title", "Nothing playing")
+        self.log(f"ROOM NOW PLAYING [{room_url}]: {title}")
+        # The original Now Playing widget is intentionally primary-room-only.
+        # Surface secondary room updates in the command output as well.
+        self.command_output.append(f"[ROOM {room_url}] Now playing: {title}")
 
     def _secondary_radio_ready(self, room_url, stream_url):
         session = self.room_sessions.get(room_url)
