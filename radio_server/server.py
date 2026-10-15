@@ -29,6 +29,11 @@ class RadioStreamServer:
         self.broadcast_lock = threading.Lock()
 
         self._last_client_count = None
+        self.source_set_at = time.monotonic()
+        self.last_song_audio_at = 0.0
+        self.last_song_audio_generation = -1
+        self.last_song_error = ""
+        self.last_ffmpeg_returncode = None
 
     # =========================================================
     # SOURCE MANAGEMENT
@@ -43,6 +48,10 @@ class RadioStreamServer:
             if changed:
                 self.current_source = url
                 self.source_generation += 1
+                self.source_set_at = time.monotonic()
+                self.last_song_audio_at = 0.0
+                self.last_song_audio_generation = -1
+                self.last_song_error = ""
 
             generation = self.source_generation
 
@@ -97,6 +106,37 @@ class RadioStreamServer:
             self.server is not None
             and self.running
         )
+
+    def get_client_count(self):
+        with self.clients_lock:
+            return len(self.clients)
+
+    def get_health(self):
+        """Read-only status for the multi-room UI (no streaming side effects)."""
+        with self.broadcast_lock:
+            source = self.current_source
+            generation = self.source_generation
+            changed_at = self.source_set_at
+            audio_at = self.last_song_audio_at
+            audio_generation = self.last_song_audio_generation
+            error = self.last_song_error
+        return {
+            "running": self.is_running(),
+            "source_set": bool(source),
+            "generation": generation,
+            "source_age": max(0.0, time.monotonic() - changed_at),
+            "audio_recent": (
+                bool(source) and audio_generation == generation
+                and bool(audio_at) and time.monotonic() - audio_at < 9
+            ),
+            "has_song_bytes": bool(audio_at) and audio_generation == generation,
+            "clients": self.get_client_count(),
+            "last_error": error,
+            "ffmpeg_alive": (
+                self.ffmpeg_process is not None
+                and self.ffmpeg_process.poll() is None
+            ),
+        }
 
     def get_local_stream_url(self):
         return (
@@ -564,6 +604,13 @@ class RadioStreamServer:
                                     f"with code "
                                     f"{process.returncode}."
                                 )
+                                if process.returncode and total_bytes == 0:
+                                    with self.broadcast_lock:
+                                        if self.source_generation == session_generation:
+                                            self.last_song_error = (
+                                                f"FFmpeg exited {process.returncode} "
+                                                "without MP3 output"
+                                            )
 
                                 (
                                     eof_source,
@@ -606,6 +653,11 @@ class RadioStreamServer:
                                 f"{len(data)} bytes"
                             )
 
+                    if not idle_mode:
+                        with self.broadcast_lock:
+                            if self.source_generation == session_generation:
+                                self.last_song_audio_at = time.monotonic()
+                                self.last_song_audio_generation = session_generation
                     self._broadcast_data(data)
 
                 if (
@@ -620,10 +672,10 @@ class RadioStreamServer:
                     )
 
             except Exception as error:
-                print(
-                    "FFmpeg stream error:",
-                    error
-                )
+                print("FFmpeg stream error:", error)
+                with self.broadcast_lock:
+                    if self.source_generation == session_generation:
+                        self.last_song_error = str(error)
 
             finally:
                 if process:
