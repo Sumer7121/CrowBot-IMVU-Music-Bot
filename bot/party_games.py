@@ -150,7 +150,18 @@ class PartyGames:
         if not answer:
             return "Use !a <answer>."
         expected = self.trivia["answer"]
-        if self._key(answer) != expected:
+        actual = self._key(answer).strip(" .!?")
+        if actual.startswith("the "):
+            actual = actual[4:]
+        aliases = {
+            "pacific": {"pacific ocean"},
+            "sahara": {"sahara desert"},
+            "sun": {"our sun"},
+            "milky way": {"milky way galaxy"},
+            "drums": {"drum kit", "drum set"},
+            "h2o": {"water"},
+        }
+        if actual != expected and actual not in aliases.get(expected, set()):
             return "❌ Not quite! Try again."
         self.trivia = None
         points = self._award(username)
