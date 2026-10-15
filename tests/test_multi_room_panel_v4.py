@@ -61,15 +61,21 @@ class MultiRoomPanelTests(unittest.TestCase):
         self.panel.skip_requested.connect(lambda value: requests.append(("skip", value)))
         self.panel.stop_requested.connect(lambda value: requests.append(("stop", value)))
         self.panel.remove_requested.connect(lambda value: requests.append(("remove", value)))
+        self.panel.song_requested.connect(
+            lambda room, query: requests.append(("song", room, query))
+        )
         self.panel.room_id_input.setText("333-3")
         self.panel.join_button.click()
         self.panel.room_table.selectRow(1)
         self.panel.reload_button.click()
+        self.panel.song_input.setText("Song for second room")
+        self.panel.song_button.click()
         self.panel.skip_button.click()
         self.panel.stop_button.click()
         self.panel.remove_button.click()
         self.assertEqual(requests, [
-            ("add", "333-3"), ("reload", "222-2"), ("skip", "222-2"),
+            ("add", "333-3"), ("reload", "222-2"),
+            ("song", "222-2", "Song for second room"), ("skip", "222-2"),
             ("stop", "222-2"), ("remove", "222-2"),
         ])
 
