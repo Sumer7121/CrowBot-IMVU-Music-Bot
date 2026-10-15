@@ -4867,7 +4867,15 @@ class MainWindow(QMainWindow):
 
     def _secondary_now_playing(self, room_url, song):
         title = (song or {}).get("title", "Nothing playing")
-        self.log(f"ROOM NOW PLAYING [{room_url}]: {title}")
+        session = self.room_sessions.get(room_url)
+        source = session.radio_server.get_source() if session and session.radio_server else ""
+        running = session.radio_server.is_running() if session and session.radio_server else False
+        self.log(
+            f"ROOM NOW PLAYING [{room_url}]: {title} | "
+            f"radio_running={running} | source={'set' if source else 'IDLE'}"
+        )
+        if song and not source:
+            self.log(f"ROOM MUSIC ERROR [{room_url}]: Song selected, but radio is still idle.")
         # The original Now Playing widget is intentionally primary-room-only.
         # Surface secondary room updates in the command output as well.
         self.command_output.append(f"[ROOM {room_url}] Now playing: {title}")
