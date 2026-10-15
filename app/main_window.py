@@ -898,6 +898,7 @@ class IMVUChatSendWorker(QThread):
 
 
 class MainWindow(QMainWindow):
+    radio_event = Signal(str, str)
 
 
 
@@ -1343,6 +1344,11 @@ class MainWindow(QMainWindow):
 
 
         self.radio_server = RadioStreamServer()
+        self.radio_server.event_callback = (
+            lambda message: self.radio_event.emit(
+                str(self._primary_room_url or ""), message
+            )
+        )
 
 
 
@@ -1527,6 +1533,7 @@ class MainWindow(QMainWindow):
 
 
         self.connect_signals()
+        self.radio_event.connect(self._handle_radio_event)
 
 
 
@@ -4859,6 +4866,12 @@ class MainWindow(QMainWindow):
             self.send_bot_response_to_imvu(announcement)
         self._schedule_collectible()
 
+    def _handle_radio_event(self, room_url, message):
+        room_id = str(room_url or "").rstrip("/").rsplit("room-", 1)[-1]
+        if not room_id or room_id == str(room_url):
+            room_id = "unknown"
+        self.log(f"RADIO [room-{room_id}]: {message}")
+
     @staticmethod
     def _radio_health_label(health):
         """Distinguish configured IMVU radio from actual audio delivery."""
@@ -5163,6 +5176,9 @@ class MainWindow(QMainWindow):
                     radio_port=self._allocate_room_radio_port(),
                 )
                 session = self.room_sessions[url]
+                session.radio_server.event_callback = (
+                    lambda message, u=url: self.radio_event.emit(u, message)
+                )
                 session.tunnel.tunnel_started.connect(
                     lambda stream_url, u=url: self._secondary_radio_ready(u, stream_url)
                 )
