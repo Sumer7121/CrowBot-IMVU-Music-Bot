@@ -198,6 +198,9 @@ class CommandHandler(QObject):
             "catch": self.catch_collectible,
             "collection": self.show_collection,
             "cats": self.show_collection,
+            "dogs": self.show_collection,
+            "pets": self.show_collection,
+            "rarities": self.pet_rarities,
             "spin": self.spin_bottle,
             "question": self.question,
             "questions": self.question,
@@ -2060,6 +2063,14 @@ class CommandHandler(QObject):
     def show_collection(self, arguments, username):
         return self.collectibles.collection(username)
 
+    def pet_rarities(self, arguments, username):
+        from bot.collectibles import CATALOG, RARITY_WEIGHT
+        return (
+            f"🐱🐶 {len(CATALOG)} collectible cats and dogs\n"
+            "COMMON 60% | RARE 27% | EPIC 10% | LEGENDARY 3%\n"
+            f"Use {self.prefix}catch on wild drops and {self.prefix}pets to view your collection."
+        )
+
     def question(self, arguments, username):
         self._remember_user(username)
         return "💬 QUESTION\n" + self.social.pick("questions", prompts.QUESTIONS)
@@ -2157,7 +2168,8 @@ class CommandHandler(QObject):
                 f"{p}spin — random player\n"
                 f"{p}top — scores\n"
                 f"{p}catch — claim random drop\n"
-                f"{p}collection — owned cats and dogs"
+                f"{p}pets — your cat and dog collection\n"
+                f"{p}rarities — pet drop odds"
             ),
             "fun": (
                 "🎭 PARTY\n"
