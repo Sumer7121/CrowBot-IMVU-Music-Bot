@@ -353,7 +353,9 @@ class EqualRoomsTests(unittest.TestCase):
         self.hub.disconnect_room("111-1")
         self.assertNotIn("111-1", self.hub.drop_timers)
         self.assertTrue(self.hub.drop_timers["222-2"].isActive())
-        self.assertIsNone(self.hub.sessions["222-2"].command_handler.next_auto_drop_at is None)
+        self.assertIsNotNone(
+            self.hub.sessions["222-2"].command_handler.next_auto_drop_at
+        )
 
     def test_dj_now_playing_is_announced_once_in_correct_imvu_room(self):
         self.hub.add_room("111-1")
