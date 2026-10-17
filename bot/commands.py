@@ -221,6 +221,9 @@ class CommandHandler(QObject):
             "locks": self.list_locked_commands,
             "mods": self.list_mods,
             "whoami": self.whoami,
+            "linkowner": self.owner_link_help,
+            "linkmod": self.mod_link_help,
+            "approvemod": self.approve_mod,
             "addmod": self.add_mod,
             "removemod": self.remove_mod,
             "welcome": self.configure_welcome,
@@ -2267,22 +2270,59 @@ class CommandHandler(QObject):
                 if permissions.remove_mod(target)
                 else "That user is not an appointed admin.")
 
+    def owner_link_help(self, arguments, username):
+        return "Owner verification is handled by your room's chat listener."
+
+    def mod_link_help(self, arguments, username):
+        return "Admin account linking is handled by your room's chat listener."
+
+    def approve_mod(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_owner(username):
+            return "🔒 Only the verified room owner can approve admin accounts."
+        target = arguments[0].strip().lstrip("@") if arguments else ""
+        if not target:
+            return f"Usage: {self.prefix}approvemod <appointed username>"
+        key = target.casefold()
+        pending = getattr(self, "pending_admin_links", {}).get(key)
+        if not pending or time.monotonic() - pending["created_at"] > 300:
+            return (
+                "No current admin link request for @" + target +
+                ". Ask them to send " + self.prefix + "linkmod " + target + "."
+            )
+        try:
+            permissions.link_mod_from_owner_command(target, pending["user_id"])
+        except ValueError as error:
+            return "🔒 " + str(error)
+        self.pending_admin_links.pop(key, None)
+        return (
+            "✅ Admin @" + target + " verified and linked to IMVU chat account " +
+            pending["display"] + ". Moderation commands are now available."
+        )
+
     def whoami(self, arguments, username):
-        """Show the distinction between decorated chat name and account handle."""
         display = str(getattr(self, "actor_display_name", username) or username)
         account = str(getattr(self, "actor_account_username", "") or "")
-        if not account:
-            return (
-                "👤 Chat name: " + display +
-                "\nIMVU account username: not exposed by chat profile markup. "
-                "Admin commands remain protected until the account can be verified."
-            )
+        user_id = str(getattr(self, "actor_user_id", "") or "")
         permissions = getattr(self, "room_permissions", None)
         role = ("owner" if permissions and permissions.is_owner(account)
                 else "admin" if permissions and permissions.is_mod(account)
                 else "member")
-        return ("👤 Chat name: " + display +
-                "\nIMVU username: @" + account + " | Role: " + role)
+        if account:
+            return ("👤 Chat name: " + display +
+                    "\nIMVU username: @" + account + " | Role: " + role)
+        if user_id:
+            return (
+                "👤 Chat name: " + display +
+                "\nAccount username hidden by IMVU; chat account ID detected. " +
+                "Role: " + role + "\nOwner: use !linkowner; "
+                "appointed admin: use !linkmod <username>."
+            )
+        return (
+            "👤 Chat name: " + display +
+            "\nIMVU account username and ID were not exposed by the chat. " +
+            "Cannot securely grant admin permissions from a nickname."
+        )
 
     def list_mods(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
