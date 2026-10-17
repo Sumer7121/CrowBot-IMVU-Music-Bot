@@ -1,6 +1,8 @@
 """Every room is equal: independent connect, radio, queue and disconnect."""
 import os
 import unittest
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -311,6 +313,62 @@ class EqualRoomsTests(unittest.TestCase):
         self.hub.stop_dj("111-1")
         self.assertFalse(a.enabled)
         self.assertTrue(b.enabled)
+
+    def test_cloudflare_thread_handoff_creates_radio_worker_on_ui_thread(self):
+        """Simulate Cloudflare Python validator signalling from a non-GUI thread."""
+        main_thread = threading.get_ident()
+        observed_threads = []
+
+        class ThreadCheckedRadio(FakeRadio):
+            def __init__(self, *args, **kwargs):
+                observed_threads.append(threading.get_ident())
+                super().__init__(*args, **kwargs)
+
+        self.hub.radio_worker_class = ThreadCheckedRadio
+        self.hub.add_room("111-1")
+        self.hub.connect_room("111-1")
+        url = "https://www.imvu.com/next/chat/room-111-1/"
+        self.hub.open_workers["111-1"].opened.emit(url)
+        self.hub.chat_workers["111-1"].ready.emit(url)
+
+        tunnel = self.hub.sessions["111-1"].tunnel
+        stream = "https://test-one.trycloudflare.com/stream.mp3"
+        tunnel.url = stream
+        background = threading.Thread(
+            target=lambda: tunnel.tunnel_started.emit(stream), daemon=True
+        )
+        background.start()
+        background.join(timeout=2)
+
+        deadline = time.monotonic() + 3
+        while not observed_threads and time.monotonic() < deadline:
+            self.app.processEvents()
+            time.sleep(0.01)
+
+        self.assertEqual(observed_threads, [main_thread])
+        self.assertEqual(self.hub.states["111-1"], "Loading IMVU radio")
+        self.assertIn(
+            "RADIO LOAD: Worker started",
+            "\n".join(self.window.room_panel._logs["111-1"])
+        )
+
+    def test_imvu_radio_startup_error_is_scoped_to_selected_room(self):
+        class FailingRadio:
+            def __init__(self, *args, **kwargs):
+                raise RuntimeError("Radio worker intentionally failed")
+        self.hub.radio_worker_class = FailingRadio
+        self.hub.add_room("111-1")
+        self.hub.connect_room("111-1")
+        room = "https://www.imvu.com/next/chat/room-111-1/"
+        self.hub.open_workers["111-1"].opened.emit(room)
+        self.hub.chat_workers["111-1"].ready.emit(room)
+        stream = "https://test-two.trycloudflare.com/stream.mp3"
+        self.hub.sessions["111-1"].tunnel.tunnel_started.emit(stream)
+        self.assertEqual(self.hub.states["111-1"], "Error")
+        self.assertIn(
+            "RADIO LOAD FAILED TO START",
+            "\n".join(self.window.room_panel._logs["111-1"])
+        )
 
     def test_no_primary_room_and_rooms_are_explicitly_saved(self):
         self.hub.add_room("111-1")
