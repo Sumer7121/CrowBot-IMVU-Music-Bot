@@ -6,7 +6,8 @@ import time
 from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-from PySide6.QtCore import QObject, QCoreApplication, Signal
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QApplication
 from music.auto_dj import (
     LANGUAGES, AutoDJ, DJFetchWorker, candidate_allowed, detect_song_language,
     normalize_language, search_queries,
@@ -155,7 +156,7 @@ class DJPolicyTests(unittest.TestCase):
 class AutoDJControllerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.app = QCoreApplication.instance() or QCoreApplication([])
+        cls.app = QApplication.instance() or QApplication([])
 
     def setUp(self):
         self.music = FakeMusic()
