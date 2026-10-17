@@ -1,4 +1,4 @@
-﻿from music.youtube_owned import YouTubeOwnedProvider
+﻿from music.youtube_owned import get_shared_youtube_provider
 
 
 class MusicResolver:
@@ -19,7 +19,7 @@ class MusicResolver:
         self.timeout = timeout
 
         self.youtube = (
-            YouTubeOwnedProvider()
+            get_shared_youtube_provider()
         )
 
     def resolve(
@@ -112,7 +112,6 @@ class MusicResolver:
         local HTTP server when CrowBot shuts down.
         """
 
-        try:
-            self.youtube.close()
-        except Exception:
-            pass
+        # Shared for the lifetime of the process; do not shut down the
+        # temporary media server while another room still streams from it.
+        return None
