@@ -555,13 +555,13 @@ class IMVUWebController:
                                 host !== "www.imvu.com" &&
                                 host !== "avatars.imvu.com") continue;
                             const match = profile.pathname.match(
-                                /^\\/(?:next\\/av\\/|profile\\/)?([^/?#]+)\\/?$/i
+                                new RegExp("^/(?:next/av/|profile/)?([^/?#]+)/?$", "i")
                             );
                             if (!match) continue;
                             // For imvu.com accept a recognized profile route
                             // only; don't interpret arbitrary web paths as users.
                             if (host !== "avatars.imvu.com" &&
-                                !/^\\/(?:next\\/av\\/|profile\\/)/i.test(
+                                !new RegExp("^/(?:next/av/|profile/)", "i").test(
                                     profile.pathname
                                 )) continue;
                             accountUsername = validHandle(decodeURIComponent(match[1]));
