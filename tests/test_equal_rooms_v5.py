@@ -352,6 +352,29 @@ class EqualRoomsTests(unittest.TestCase):
             "\n".join(self.window.room_panel._logs["111-1"])
         )
 
+    def test_radio_success_emitted_from_worker_thread_updates_right_room(self):
+        self.hub.add_room("111-1")
+        self.hub.connect_room("111-1")
+        room = "https://www.imvu.com/next/chat/room-111-1/"
+        self.hub.open_workers["111-1"].opened.emit(room)
+        self.hub.chat_workers["111-1"].ready.emit(room)
+        stream = "https://radio-111.trycloudflare.com/stream.mp3"
+        self.hub.sessions["111-1"].tunnel.url = stream
+        self.hub.sessions["111-1"].tunnel.tunnel_started.emit(stream)
+        radio = self.hub.radio_workers["111-1"]
+        background = threading.Thread(
+            target=lambda: radio.succeeded.emit(stream, ""),
+            daemon=True,
+        )
+        background.start()
+        background.join(timeout=2)
+        deadline = time.monotonic() + 3
+        while self.hub.states.get("111-1") != "Connected" and time.monotonic() < deadline:
+            self.app.processEvents()
+            time.sleep(0.01)
+        self.assertEqual(self.hub.states["111-1"], "Connected")
+        self.assertEqual(self.hub.sessions["111-1"].stream_url, stream)
+
     def test_imvu_radio_startup_error_is_scoped_to_selected_room(self):
         class FailingRadio:
             def __init__(self, *args, **kwargs):
