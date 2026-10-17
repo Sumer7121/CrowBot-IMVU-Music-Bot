@@ -542,6 +542,8 @@ class MultiRoomHub(QObject):
                 username, message, account_username=account_username,
                 user_id=user_id,
             )
+            if message.strip().casefold().startswith(session.command_handler.prefix + "linkowner"):
+                self.refresh_ui()
         except Exception as error:
             self._log(room_id, f"Command error: {error}")
             return
@@ -586,6 +588,9 @@ class MultiRoomHub(QObject):
         except ValueError as error:
             self._log(room_id, "OWNER ERROR: " + str(error))
             return
+        if room_id in self.sessions:
+            # Do not let an old pending claim link a newly configured owner.
+            self.sessions[room_id].pending_owner_link = None
         self._log(
             room_id, "Trusted dashboard configured room owner: " + policy.owner
         )
