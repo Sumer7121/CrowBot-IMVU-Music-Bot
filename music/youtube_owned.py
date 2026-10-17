@@ -432,19 +432,28 @@ class YouTubeOwnedProvider:
         searches = [f"{artist} {song} official audio" if artist else f"{song} official audio"]
         searches.append(query)
         attempted = set()
+        last_error = None
         for search_text in searches:
+            if cancel_check and cancel_check():
+                raise RuntimeError("Music request was cancelled.")
             if search_text.casefold() in attempted:
                 continue
             attempted.add(search_text.casefold())
             try:
                 candidates = ranked_candidates(
-                    self.search_candidates(search_text, limit=15), query
+                    self.search_candidates(
+                        search_text, limit=15, cancel_check=cancel_check
+                    ), query
                 )
             except Exception as error:
                 print(f"YTDLP SEARCH ERROR: {error}")
                 continue
             for candidate in candidates[:8]:
-                metadata = self._get_video_metadata(candidate)
+                if cancel_check and cancel_check():
+                    raise RuntimeError("Music request was cancelled.")
+                metadata = self._get_video_metadata(
+                    candidate, cancel_check=cancel_check
+                )
                 if not metadata:
                     continue
                 # Never download a candidate unless FULL metadata still
@@ -461,8 +470,15 @@ class YouTubeOwnedProvider:
                     self.library.index_query(query, metadata)
                     return track
                 except Exception as error:
+                    last_error = error
+                    if cancel_check and cancel_check():
+                        raise RuntimeError("Music request was cancelled.") from error
                     print(f"YTDLP: Candidate failed, trying next: {error}")
                     continue
+        if last_error is not None:
+            raise RuntimeError(
+                "No playable track could be prepared: " + str(last_error)
+            ) from last_error
         return None
 
 
