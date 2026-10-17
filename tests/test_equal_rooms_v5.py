@@ -37,7 +37,7 @@ class FakeOpen(QObject):
 class FakeMonitor(FakeOpen):
     ready = Signal(str)
     failed = Signal(str, str)
-    message_received = Signal(str, str, str)
+    message_received = Signal(str, str, str, str)
 
     def stop(self):
         self.running = False
@@ -54,6 +54,7 @@ class FakeRadio(FakeOpen):
 
 class FakeTunnel(QObject):
     tunnel_started = Signal(str)
+    tunnel_stopped = Signal()
     tunnel_error = Signal(str)
     status_changed = Signal(str)
 
@@ -125,6 +126,8 @@ class FakeDJ(QObject):
         self.language = ""
         self.match_current_language = False
         self.radio_ready = False
+        self.last_activity = ""
+        self.last_error = ""
 
     @property
     def label(self):
@@ -186,6 +189,11 @@ class FakeSession:
         self.command_handler = FakeCommands(self.music_controller)
         self.dj = FakeDJ()
         self.command_handler.dj_controller = self.dj
+        self.welcomed_users = set()
+        self.permissions = MagicMock()
+        self.permissions.owner = "TestOwner"
+        self.permissions.mods = {}
+        self.permissions.welcome_message.return_value = ""
         self.radio_server = MagicMock()
         self.radio_server.get_health.return_value = {
             "running": True, "source_set": False,
@@ -203,8 +211,8 @@ class FakeSession:
     def stop_radio(self):
         self.stopped = True
 
-    def process(self, user, message):
-        return self.command_handler.handle(message, user)
+    def process(self, user, message, account_username=""):
+        return self.command_handler.handle(message, account_username or user)
 
 
 class EqualRoomsTests(unittest.TestCase):
