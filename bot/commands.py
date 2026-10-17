@@ -895,7 +895,11 @@ class CommandHandler(QObject):
             dj.off()
             return "🎧 Artist DJ and autoplay disabled. The current song continues."
         try:
-            return "🎧 " + dj.set_artist(name)
+            label = dj.set_artist(name)
+            return "🎧 Artist DJ enabled: " + label + (
+                " | Waiting for this room's radio to connect."
+                if not dj.radio_ready else " | Searching for the first song."
+            )
         except ValueError as error:
             return str(error)
 
@@ -936,7 +940,24 @@ class CommandHandler(QObject):
 
     def dj_status(self, arguments, username):
         dj = self._room_dj()
-        return "🎧 DJ status: " + dj.label if dj is not None else "DJ unavailable."
+        if dj is None:
+            return "DJ unavailable in this room."
+        if not dj.radio_ready:
+            status = "Radio not ready — connect this room first."
+        elif dj._worker is not None:
+            status = "Preparing a track."
+        elif dj.enabled:
+            status = "Waiting for next track or retry."
+        else:
+            status = "Off."
+        activity = str(dj.last_activity or "")
+        error = str(dj.last_error or "")
+        response = "🎧 DJ status: " + dj.label + "\n" + status
+        if activity:
+            response += "\nLast step: " + activity[:200]
+        if error:
+            response += "\nLast error: " + error[:220]
+        return response
 
     def stop_music_requests(self):
         """Cancel this room's unstarted and in-progress manual downloads."""
