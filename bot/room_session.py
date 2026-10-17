@@ -5,6 +5,7 @@ commands must never reuse the primary room's music controller.
 """
 import threading
 import uuid
+import time
 
 from bot.room_ids import normalize_room_id
 from bot.room_permissions import RoomPermissions
@@ -47,6 +48,9 @@ class RoomSession:
         self.welcomed_users = set()
         self.permissions = RoomPermissions(self.room_id)
         self.command_handler.room_permissions = self.permissions
+        self.pending_owner_link = None
+        self.pending_admin_links = {}
+        self.command_handler.pending_admin_links = self.pending_admin_links
         self.radio_port = radio_port
         self.radio_server = None
         self.tunnel = None
@@ -118,43 +122,84 @@ class RoomSession:
         )
 
 
-    def process(self, username, message, account_username=""):
+    def process(self, username, message, account_username="", user_id=""):
         message = str(message or "").strip()
         username = str(username or "").strip()
         account_username = str(account_username or "").strip()
+        user_id = str(user_id or "").strip()
         if not message or not username:
             return None
         prefix = self.command_handler.prefix
         if not message.startswith(prefix):
-            # Record participant names for !spin without sending a reply.
             self.command_handler._remember_user(username)
             return None
-        command = message[len(prefix):].split(maxsplit=1)[0].casefold()
-        if not self.permissions.may_run(command, account_username):
-            if self.permissions.is_locked(command):
-                return ("🔒 !" + command + " is locked for regular users in this "
-                        "room. Ask a room moderator to unlock it.")
+
+        parts = message[len(prefix):].strip().split()
+        command = parts[0].casefold() if parts else ""
+        if command == "linkowner":
             if not self.permissions.owner:
-                return ("🔒 No room owner configured. Set the verified owner's "
-                        "IMVU username in CrowBot's local Room Settings first.")
-            if not account_username:
+                return "🔒 Configure the room owner username in CrowBot's app first."
+            if account_username and not self.permissions.is_owner(account_username):
+                return "🔒 This visible IMVU account is not the configured room owner."
+            if not user_id:
                 return (
-                    "🔒 IMVU did not expose a verified account username for "
-                    "this chat message. Try !whoami; display nicknames cannot "
-                    "grant admin permissions."
+                    "🔒 IMVU provided neither a profile account username nor a "
+                    "stable chat account ID. CrowBot cannot securely verify ownership."
+                )
+            self.pending_owner_link = {
+                "user_id": user_id, "display": username,
+                "created_at": time.monotonic(),
+            }
+            return (
+                "🔐 Owner verification requested for " + username +
+                ". Ask the trusted CrowBot app operator to review and approve "
+                "this account in the room dashboard (expires in 5 minutes)."
+            )
+
+        if command == "linkmod":
+            target = parts[1].strip().lstrip("@") if len(parts) > 1 else ""
+            if not target:
+                return f"Usage: {prefix}linkmod <appointed IMVU username>"
+            key = target.casefold()
+            if key not in self.permissions.mods:
+                return "🔒 @" + target + " is not an appointed room admin."
+            if not user_id:
+                return "🔒 IMVU did not expose a chat account ID for admin verification."
+            if account_username and account_username.casefold() != key:
+                return "🔒 This IMVU profile belongs to a different username."
+            self.pending_admin_links[key] = {
+                "user_id": user_id, "display": username,
+                "created_at": time.monotonic(),
+            }
+            return (
+                "🔐 Admin @" + target + " requested verification (chat: " +
+                username + "). The room owner must confirm with " +
+                prefix + "approvemod " + target + " within 5 minutes."
+            )
+
+        account = self.permissions.resolve_account(account_username, user_id)
+        if not self.permissions.may_run(command, account):
+            if self.permissions.is_locked(command):
+                return (
+                    "🔒 !" + command + " is locked for regular users in this room."
+                )
+            if not self.permissions.owner:
+                return "🔒 Set the verified room owner username in CrowBot's app first."
+            if not account:
+                return (
+                    "🔒 Account username hidden by IMVU. The owner can use "
+                    + prefix + "linkowner and get approved in the app. "
+                    "Appointed admins can use " + prefix + "linkmod <username>."
                 )
             return "🔒 This command is for the registered room owner or admins."
+
         if command == "ping":
             return f"🏓 CrowBot pong in this room, {username}!"
         if command in MUSIC_COMMANDS and not self.stream_url:
-            return (
-                "🎵 Music streaming is not enabled in this room yet. "
-                "Games and chat commands are available."
-            )
-        # Authorization always uses the IMVU account username. Chat games
-        # may keep the visible name, but privileged handler methods must see
-        # the same verified identity as the permission gate above.
+            return "🎵 Streaming isn't enabled in this room yet."
+
         self.command_handler.actor_display_name = username
-        self.command_handler.actor_account_username = account_username
-        actor = account_username or username
+        self.command_handler.actor_account_username = account
+        self.command_handler.actor_user_id = user_id
+        actor = account or account_username or username
         return self.command_handler.handle(message, actor)
