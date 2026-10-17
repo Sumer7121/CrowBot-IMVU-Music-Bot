@@ -2452,13 +2452,12 @@ class CommandHandler(QObject):
                 f"{p}duel <name> — friendly dice duel\n"
                 f"{p}guess — number game\n"
                 f"{p}rps rock — RPS\n"
-                f"{p}spin — random player\n"                f"{p}petdrop — spawn a pet (3m cooldown)\n"
+                f"{p}spin — random player\n"
+                f"{p}petdrop — spawn a pet (3m cooldown)\n"
                 f"{p}drops — next automatic cat/dog drop\n"
                 f"{p}catch — catch a wild pet\n"
                 f"{p}pets — view collection\n"
                 f"{p}top — scores\n"
-                f"{p}catch — claim random drop\n"
-                f"{p}pets — your cat and dog collection\n"
                 f"{p}rarities — pet drop odds"
             ),
             "fun": (
@@ -2477,9 +2476,20 @@ class CommandHandler(QObject):
                 f"{p}spin — random player"
             ),
             "system": (
-                "⚙️ SYSTEM\n"
-                f"{p}reconnect — restart chat\n"
-                f"{p}h — commands"
+                "⚙️ SYSTEM / ROOM ADMINISTRATION\n"
+                f"{p}h — all command categories\n"
+                f"{p}mods — room owner and admins\n"
+                f"{p}addmod <user> — owner adds admin\n"
+                f"{p}removemod <user> — owner removes admin\n"
+                f"{p}lock <command> — admin locks public command\n"
+                f"{p}unlock <command> — admin unlocks command\n"
+                f"{p}locks — list locked commands\n"
+                f"{p}welcome <text> — admin sets auto greeting\n"
+                f"{p}welcome on|off — toggle auto greeting\n"
+                f"{p}welcometest — preview greeting\n"
+                f"{p}drops — next automatic pet drop\n"
+                f"{p}petdrop — admin manual pet drop\n"
+                "Room owner is registered in CrowBot app."
             ),
         }
         if topic in menus:
