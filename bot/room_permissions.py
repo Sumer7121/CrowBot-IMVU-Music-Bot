@@ -7,7 +7,7 @@ from config.settings import load_settings, save_settings
 
 # Safety: lock management and moderator recovery must always remain available
 # to authenticated room moderators. Regular users cannot invoke these.
-UNLOCKABLE = frozenset({"lock", "unlock", "locks", "mods"})
+UNLOCKABLE = frozenset({"lock", "unlock", "locks", "mods", "addmod", "removemod"})
 ALIASES = {
     "p": "play", "q": "queue", "np": "nowplaying",
     "s": "skip", "pa": "pause", "r": "resume", "rm": "remove",
@@ -31,7 +31,7 @@ DEFAULT_WELCOME = "👋 Welcome to {room}, {user}! Enjoy the music and games!"
 RESTRICTED = frozenset({
     "skip", "s", "stop", "clear", "remove", "rm", "pause", "pa",
     "resume", "r", "dj", "autoplay", "language", "lang",
-    "petdrop", "mods", "lock", "unlock", "locks",
+    "petdrop", "mods", "addmod", "removemod", "lock", "unlock", "locks",
     "welcome", "welcometest",
 })
 
