@@ -299,6 +299,13 @@ class MultiRoomHub(QObject):
     def _song_changed(self, room_id, epoch, song):
         if self._current(room_id, epoch):
             self._log(room_id, "Now playing: " + (song or {}).get("title", "Nothing"))
+            if song and song.get("cache_master_file"):
+                mode = "MASTER CACHE HIT" if song.get("cache_hit") else "MASTER CACHE SAVED"
+                self._log(
+                    room_id,
+                    f"{mode}: {song.get('id', 'unknown')} | "
+                    f"room copy: {str(song.get('temporary_file', '')).rsplit('/', 1)[-1].rsplit(chr(92), 1)[-1]}"
+                )
             self.refresh_ui()
 
     def _on_radio_event(self, room_id, message):
