@@ -28,6 +28,7 @@ class MultiRoomHub(QObject):
         self.chat_workers = {}
         self.radio_workers = {}
         self.retired_workers = []
+        self.retired_djs = []
         self._epoch = {}
         self.radio_event.connect(self._on_radio_event)
         self.restore_rooms()
@@ -228,6 +229,7 @@ class MultiRoomHub(QObject):
             return
         session = self.sessions[room_id]
         session.stream_url = ""
+        session.dj.set_ready(False)
         self.states[room_id] = "Tunnel disconnected"
         self._log(room_id, "Cloudflare tunnel stopped; radio URL is no longer usable.")
         self.refresh_ui()
@@ -455,13 +457,24 @@ class MultiRoomHub(QObject):
         self._retire(room_id, self.radio_workers, timeout=500)
         session = self.sessions.pop(room_id)
         try:
+            session.dj.off()
             session.music_controller.stop()
             session.stop_radio()
+            worker = session.dj._worker
+            if worker is not None and worker.isRunning():
+                self.retired_djs.append(session.dj)
+                worker.finished.connect(
+                    lambda dj=session.dj: self._release_dj(dj)
+                )
         except Exception as error:
             self._log(room_id, f"Shutdown warning: {error}")
         self.states[room_id] = "Offline"
         self._log(room_id, "Disconnected. Other rooms remain active.")
         self.refresh_ui()
+
+    def _release_dj(self, dj):
+        if dj in self.retired_djs:
+            self.retired_djs.remove(dj)
 
     def remove_room(self, room_id):
         self.disconnect_room(room_id)
@@ -528,3 +541,8 @@ class MultiRoomHub(QObject):
         for worker in list(self.retired_workers):
             if worker.isRunning():
                 worker.wait(5000)
+        for dj in list(self.retired_djs):
+            worker = dj._worker
+            if worker is not None and worker.isRunning():
+                worker.requestInterruption()
+                worker.wait(10000)
