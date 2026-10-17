@@ -177,6 +177,7 @@ from bot.commands import CommandHandler
 from bot.room_session import RoomSession
 from bot.room_ids import normalize_room_id, make_room_url
 from app.multi_room_panel import MultiRoomPanel
+from app.multi_room_hub import MultiRoomHub
 
 
 
@@ -1525,13 +1526,9 @@ class MainWindow(QMainWindow):
 
 
         self.setup_ui()
-
-
-
-
-
-
-
+        self.room_hub = MultiRoomHub(
+            self, IMVUOpenRoomWorker, SecondaryRoomWorker, IMVURadioUpdateWorker
+        )
         self.connect_signals()
         self.radio_event.connect(self._handle_radio_event)
 
@@ -1563,12 +1560,8 @@ class MainWindow(QMainWindow):
         self.log("Application started.")
         self._refresh_rooms_ui()
 
-        # First-run configuration.
-        # Delay until the main window has completed setup.
-        QTimer.singleShot(
-            500,
-            self.check_first_run_setup
-        )
+        # Saved rooms are listed on startup, but none auto-connects.
+        # Each room has its own CONNECT button.
 
 
 
@@ -1618,7 +1611,7 @@ class MainWindow(QMainWindow):
 
     def setup_ui(self):
         """
-        CrowBot primary controls plus live, independent multi-room dashboard.
+        CrowBot multi-room control center. All visible rooms are equal.
         Legacy widgets that are still referenced by runtime methods/signals
         are retained inside a hidden compatibility container.
         """
@@ -1627,7 +1620,7 @@ class MainWindow(QMainWindow):
         # WINDOW
         # =====================================================
 
-        self.setWindowTitle("CrowBot - IMVU Music Bot")
+        self.setWindowTitle("CrowBot - Multi-Room Music Control")
         self.setMinimumSize(890, 690)
         self.resize(1190, 930)
 
@@ -2048,6 +2041,8 @@ class MainWindow(QMainWindow):
         primary_row.addWidget(primary_label)
         primary_row.addWidget(self.room_input, 1)
         main_layout.addLayout(primary_row)
+        primary_label.hide()
+        self.room_input.hide()
 
         # =====================================================
         # PRIMARY CONNECTION CONTROL
@@ -2060,6 +2055,7 @@ class MainWindow(QMainWindow):
         )
 
         main_layout.addWidget(self.connect_button)
+        self.connect_button.hide()
 
         # =====================================================
         # RESPONSIVE DASHBOARD ROW
@@ -2144,6 +2140,8 @@ class MainWindow(QMainWindow):
 
         status_group.setLayout(status_layout)
 
+        now_playing_group.hide()
+        status_group.hide()
         dashboard_layout.addWidget(
             now_playing_group,
             3
@@ -2417,17 +2415,19 @@ class MainWindow(QMainWindow):
 
 
 
-        self.room_panel.add_requested.connect(self.add_room_to_crowbot)
-        self.room_panel.refresh_requested.connect(self.refresh_room_list)
-        self.room_panel.remove_requested.connect(self.remove_secondary_room)
-        self.room_panel.reload_requested.connect(self.reload_selected_room_radio)
+        self.room_panel.add_requested.connect(self.room_hub.add_room)
+        self.room_panel.connect_requested.connect(self.room_hub.connect_room)
+        self.room_panel.disconnect_requested.connect(self.room_hub.disconnect_room)
+        self.room_panel.refresh_requested.connect(self.room_hub.refresh_ui)
+        self.room_panel.remove_requested.connect(self.room_hub.remove_room)
+        self.room_panel.reload_requested.connect(self.room_hub.reload_radio)
         self.room_panel.skip_requested.connect(
-            lambda room_id: self.control_selected_room_music(room_id, "skip")
+            lambda room_id: self.room_hub.control_music(room_id, "skip")
         )
         self.room_panel.stop_requested.connect(
-            lambda room_id: self.control_selected_room_music(room_id, "stop")
+            lambda room_id: self.room_hub.control_music(room_id, "stop")
         )
-        self.room_panel.song_requested.connect(self.request_selected_room_song)
+        self.room_panel.song_requested.connect(self.room_hub.request_song)
         self.connect_button.clicked.connect(
 
 
@@ -5017,7 +5017,10 @@ class MainWindow(QMainWindow):
         self._secondary_radio_ready(url, stream_url)
 
     def _refresh_rooms_ui(self):
-        """Live room, song and queue snapshots; never share queues between rooms."""
+        """Refresh room-first dashboard; no primary-room fallback."""
+        if hasattr(self, "room_hub"):
+            self.room_hub.refresh_ui()
+            return
         if not hasattr(self, "room_panel"):
             return
         snapshots = []
@@ -10980,6 +10983,11 @@ class MainWindow(QMainWindow):
 
 
     ):
+
+        # Stop every independent room's chat worker, FFmpeg station and
+        # Cloudflare tunnel before tearing down legacy compatibility objects.
+        if hasattr(self, "room_hub"):
+            self.room_hub.shutdown()
 
 
 
