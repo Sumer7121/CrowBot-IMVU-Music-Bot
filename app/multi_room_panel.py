@@ -28,6 +28,8 @@ class MultiRoomPanel(QWidget):
     autoplay_requested = Signal(str, bool)
     language_requested = Signal(str, str)
     dj_off_requested = Signal(str)
+    owner_requested = Signal(str, str)
+    welcome_requested = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -123,6 +125,21 @@ class MultiRoomPanel(QWidget):
         preference_row.addWidget(self.autoplay_off_button)
         group_layout.addLayout(preference_row)
 
+        owner_row = QHBoxLayout()
+        self.owner_input = QLineEdit()
+        self.owner_input.setPlaceholderText("Verified room owner's IMVU username")
+        self.owner_button = QPushButton("SET ROOM OWNER")
+        owner_row.addWidget(self.owner_input, 2)
+        owner_row.addWidget(self.owner_button)
+        group_layout.addLayout(owner_row)
+        welcome_row = QHBoxLayout()
+        self.welcome_input = QLineEdit()
+        self.welcome_input.setPlaceholderText("Welcome {user} to room {room}!")
+        self.welcome_button = QPushButton("SAVE AUTO WELCOME")
+        welcome_row.addWidget(self.welcome_input, 3)
+        welcome_row.addWidget(self.welcome_button)
+        group_layout.addLayout(welcome_row)
+
         details = QSplitter(Qt.Orientation.Horizontal)
         queue_side = QWidget()
         queue_layout = QVBoxLayout(queue_side)
@@ -156,6 +173,16 @@ class MultiRoomPanel(QWidget):
         self.copy_stream_button.clicked.connect(
             lambda: QGuiApplication.clipboard().setText(self.stream_url_input.text())
             if self.stream_url_input.text() else None
+        )
+        self.owner_button.clicked.connect(
+            lambda: self.owner_requested.emit(
+                self.selected_room(), self.owner_input.text().strip()
+            ) if self.selected_room() and self.owner_input.text().strip() else None
+        )
+        self.welcome_button.clicked.connect(
+            lambda: self.welcome_requested.emit(
+                self.selected_room(), self.welcome_input.text().strip()
+            ) if self.selected_room() and self.welcome_input.text().strip() else None
         )
         self.artist_button.clicked.connect(self._request_artist)
         self.artist_input.returnPressed.connect(self._request_artist)
@@ -275,6 +302,10 @@ class MultiRoomPanel(QWidget):
             self.stream_url_input.clear()
             return
         self.stream_url_input.setText(record.get("stream_url", ""))
+        if not self.owner_input.hasFocus():
+            self.owner_input.setText(record.get("owner", ""))
+        if not self.welcome_input.hasFocus():
+            self.welcome_input.setText(record.get("welcome", ""))
         language = record.get("dj_language", "")
         self.language_select.setCurrentText(
             "Match Current" if record.get("dj_match_current")
