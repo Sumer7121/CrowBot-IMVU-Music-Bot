@@ -108,7 +108,7 @@ class MultiRoomPanel(QWidget):
         preference_row = QHBoxLayout()
         self.language_select = QComboBox()
         self.language_select.addItems([
-            "Any", "English", "Hindi", "Telugu", "Tamil", "Malayalam",
+            "Any", "Match Current", "English", "Hindi", "Telugu", "Tamil", "Malayalam",
             "Kannada", "Punjabi", "Bengali", "Urdu", "Spanish", "French",
             "Arabic", "Korean", "Japanese", "Portuguese", "German",
             "Italian", "Marathi"
@@ -276,7 +276,10 @@ class MultiRoomPanel(QWidget):
             return
         self.stream_url_input.setText(record.get("stream_url", ""))
         language = record.get("dj_language", "")
-        self.language_select.setCurrentText(language.title() if language else "Any")
+        self.language_select.setCurrentText(
+            "Match Current" if record.get("dj_match_current")
+            else language.title() if language else "Any"
+        )
         playing = record.get("playing", "Nothing playing")
         status = record.get("status", "Offline")
         source = record.get("source", "Idle")
