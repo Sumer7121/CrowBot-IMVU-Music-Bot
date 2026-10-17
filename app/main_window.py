@@ -860,8 +860,8 @@ class SecondaryRoomWorker(QThread):
 class IMVUChatSendWorker(QThread):
     """Send one generated bot response into the active IMVU Web room."""
 
-    succeeded = Signal(str)
-    failed = Signal(str, str)
+    succeeded = Signal(str, str)
+    failed = Signal(str, str, str)
 
     def __init__(self, message, parent=None, room_url=None):
         super().__init__(parent)
@@ -888,11 +888,11 @@ class IMVUChatSendWorker(QThread):
             controller.send_chat_message(self.message)
 
             print(f"IMVU CHAT SEND: {self.message}")
-            self.succeeded.emit(self.message)
+            self.succeeded.emit(str(self.room_url or ""), self.message)
 
         except Exception as error:
             print(f"IMVU CHAT SEND ERROR: {error}")
-            self.failed.emit(self.message, str(error))
+            self.failed.emit(str(self.room_url or ""), self.message, str(error))
 
         finally:
             controller.disconnect()
@@ -6065,6 +6065,10 @@ class MainWindow(QMainWindow):
         message = str(response or "").strip()
         if not message:
             return
+        # In multi-room mode, never guess a target from the first Chrome tab.
+        if hasattr(self, "room_hub") and not room_url:
+            self.log("CHAT ROUTING ERROR: Refusing an outgoing message without room ID.")
+            return
         self._outgoing_chat_queue.append((room_url or self._primary_room_url, message))
         self._send_next_chat_response()
 
@@ -6090,15 +6094,21 @@ class MainWindow(QMainWindow):
         self._outgoing_chat_active = False
         self._send_next_chat_response()
 
-    def imvu_chat_send_succeeded(self, message):
-        self.log(
-            f"IMVU CHAT SEND: Sent: {message}"
-        )
+    def imvu_chat_send_succeeded(self, room_url, message):
+        try:
+            room_id = normalize_room_id(room_url)
+        except ValueError:
+            self.log(f"IMVU CHAT SEND: Sent: {message}")
+            return
+        self.room_hub._log(room_id, f"Sent: {message}")
 
-    def imvu_chat_send_failed(self, message, error):
-        self.log(
-            f"IMVU CHAT SEND ERROR: {error}"
-        )
+    def imvu_chat_send_failed(self, room_url, message, error):
+        try:
+            room_id = normalize_room_id(room_url)
+        except ValueError:
+            self.log(f"IMVU CHAT SEND ERROR: {error}")
+            return
+        self.room_hub._log(room_id, f"CHAT SEND ERROR ({message}): {error}")
 
     # =========================================================
     # SIMULATED CHAT
