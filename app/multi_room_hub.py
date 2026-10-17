@@ -467,7 +467,8 @@ class MultiRoomHub(QObject):
         title = f"●  {ready} CONNECTED / {len(self.room_ids)} ROOMS"
         if connecting:
             title += f" · {connecting} STARTING / NEED ATTENTION"
-        self.window.connection_status.setText(title)
+        if hasattr(self.window, "connection_status"):
+            self.window.connection_status.setText(title)
 
     def shutdown(self):
         for room_id in list(self.sessions):
