@@ -196,7 +196,7 @@ class RoomSession:
         if command == "ping":
             return f"🏓 CrowBot pong in this room, {username}!"
         if command in MUSIC_COMMANDS and not self.stream_url:
-            return "🎵 Streaming isn't enabled in this room yet."
+            return "🎵 Music streaming is not enabled in this room yet."
 
         self.command_handler.actor_display_name = username
         self.command_handler.actor_account_username = account
