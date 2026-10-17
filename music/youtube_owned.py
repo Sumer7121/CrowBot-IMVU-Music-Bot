@@ -126,6 +126,7 @@ class YouTubeOwnedProvider:
         self.track_info = {}
         self.cleanup_started = set()
         self.library = RoomTrackLibrary(TEMP_DIR)
+        self.library.prune_master()
 
         self._purge_old_temp_files()
 
@@ -492,6 +493,7 @@ class YouTubeOwnedProvider:
 
         print()
         print("YTDLP: Preparing audio...")
+        was_in_master = is_valid_mp3(self.library.master_path(video_id))
 
         master_path = self._download_mp3(
             video_id,
@@ -533,6 +535,7 @@ class YouTubeOwnedProvider:
             "room_id": room_id,
             "room_session": session_key,
             "cache_master_file": str(master_path),
+            "cache_hit": bool(was_in_master),
         }
 
 
@@ -571,6 +574,8 @@ class YouTubeOwnedProvider:
         )
         if reused:
             print(f"ROOM MUSIC: Reusing master MP3 {path.name}")
+        else:
+            self.library.prune_master()
         return path
 
 
