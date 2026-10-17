@@ -220,6 +220,8 @@ class CommandHandler(QObject):
             "unlock": self.unlock_command,
             "locks": self.list_locked_commands,
             "mods": self.list_mods,
+            "addmod": self.add_mod,
+            "removemod": self.remove_mod,
             "welcome": self.configure_welcome,
             "welcometest": self.preview_welcome,
             "drops": self.drop_status,
@@ -2233,13 +2235,44 @@ class CommandHandler(QObject):
         return ("🔒 Locked commands: " + ", ".join("!" + v for v in locked)
                 if locked else "🔓 No additional commands are locked.")
 
+    def add_mod(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner:
+            return "Set the verified room owner in the CrowBot app first."
+        if username.strip().casefold() != permissions.owner.casefold():
+            return "🔒 Only the registered room owner can appoint admins."
+        target = " ".join(arguments).strip()
+        if not target:
+            return f"Usage: {self.prefix}addmod <IMVU username>"
+        try:
+            added = permissions.add_mod(target)
+        except ValueError as error:
+            return str(error)
+        return ("✅ @" + target.lstrip("@") + " is now a room admin."
+                if added else "The room owner already has admin access.")
+
+    def remove_mod(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner:
+            return "Set the verified room owner in the CrowBot app first."
+        if username.strip().casefold() != permissions.owner.casefold():
+            return "🔒 Only the registered room owner can remove admins."
+        target = " ".join(arguments).strip()
+        if not target:
+            return f"Usage: {self.prefix}removemod <IMVU username>"
+        if target.lstrip("@").casefold() == permissions.owner.casefold():
+            return "The room owner cannot be removed."
+        return (f"✅ Removed @{target.lstrip('@')} from room admins."
+                if permissions.remove_mod(target)
+                else "That user is not an appointed admin.")
+
     def list_mods(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.owner:
             return "🔒 Set the verified room owner from the local CrowBot dashboard."
         return ("👑 Room owner: " + permissions.owner +
                 "\n🛡️ Room admins: " + (", ".join(permissions.mods.values()) or "None") +
-                "\nAdmins are appointed from the CrowBot app only.")
+                "\nOnly the registered owner can appoint or remove admins via bot chat.")
 
     def configure_welcome(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
