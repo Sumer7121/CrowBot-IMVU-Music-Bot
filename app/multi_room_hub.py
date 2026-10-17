@@ -291,6 +291,11 @@ class MultiRoomHub(QObject):
                 url, self.window, room_url=session.room_url + "/"
             )
             self.radio_workers[room_id] = worker
+            if hasattr(worker, "progress"):
+                worker.progress.connect(
+                    lambda message, rid=room_id, e=epoch:
+                    self._session_event(rid, e, "RADIO LOAD: " + str(message))
+                )
             worker.succeeded.connect(
                 lambda stream, prev, rid=room_id, e=epoch:
                 self._radio_loaded(rid, e, stream)
