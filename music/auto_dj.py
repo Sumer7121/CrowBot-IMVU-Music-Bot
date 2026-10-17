@@ -114,7 +114,9 @@ class DJFetchWorker(QThread):
             ):
                 if self.isInterruptionRequested():
                     return
-                found = provider.search_candidates(phrase, limit=35)
+                found = provider.search_candidates(
+                    phrase, limit=35, cancel_check=self.isInterruptionRequested
+                )
                 candidates.extend(found)
             random.shuffle(candidates)
             checked = set()
@@ -128,7 +130,9 @@ class DJFetchWorker(QThread):
                 checked.add(identity)
                 if not candidate_allowed(candidate, self.artist, self.language):
                     continue
-                metadata = provider._get_video_metadata(candidate)
+                metadata = provider._get_video_metadata(
+                    candidate, cancel_check=self.isInterruptionRequested
+                )
                 if metadata is None or not candidate_allowed(
                     metadata, self.artist, self.language
                 ):
@@ -138,6 +142,7 @@ class DJFetchWorker(QThread):
                         metadata,
                         "CrowBot AutoDJ",
                         "CrowBot DJ",
+                        cancel_check=self.isInterruptionRequested,
                     )
                 except Exception as error:
                     failures.append(str(error))
