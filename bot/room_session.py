@@ -3,6 +3,11 @@
 Each RoomSession owns its own CommandHandler, MusicController and station;
 commands must never reuse the primary room's music controller.
 """
+import threading
+import uuid
+
+from bot.room_ids import normalize_room_id
+from music.youtube_owned import get_shared_youtube_provider
 from bot.commands import CommandHandler
 from music.auto_dj import AutoDJ
 from music.controller import MusicController
@@ -20,11 +25,23 @@ MUSIC_COMMANDS = frozenset({
 class RoomSession:
     def __init__(self, room_url, prefix="!", user_manager=None, radio_port=None):
         self.room_url = str(room_url).rstrip("/")
+        self.room_id = normalize_room_id(self.room_url)
+        self.session_key = uuid.uuid4().hex[:16]
+        self._last_song_file = ""
+        self._stopped = False
         self.music_controller = MusicController()
         self.command_handler = CommandHandler(
             self.music_controller, user_manager, prefix
         )
-        self.dj = AutoDJ(self.music_controller)
+        self.command_handler.room_id = self.room_id
+        self.command_handler.room_session = self.session_key
+        self.dj = AutoDJ(
+            self.music_controller,
+            room_id=self.room_id, session_key=self.session_key
+        )
+        self.music_controller.now_playing_changed.connect(
+            self._song_changed_for_cleanup
+        )
         self.command_handler.dj_controller = self.dj
         self.welcomed_users = set()
         self.radio_port = radio_port
@@ -45,13 +62,57 @@ class RoomSession:
             self.radio_server.start()
         self.tunnel.start()
 
+    def _song_changed_for_cleanup(self, song):
+        new_file = str((song or {}).get("temporary_file") or "")
+        old_file = self._last_song_file
+        self._last_song_file = new_file
+        if old_file and old_file != new_file:
+            # FFmpeg and the Qt player may still be releasing file handles.
+            timer = threading.Timer(
+                30,
+                lambda: get_shared_youtube_provider().release_room_track(
+                    old_file, self.room_id, self.session_key
+                )
+            )
+            timer.daemon = True
+            timer.start()
+
     def stop_radio(self):
-        self.dj.shutdown()
+        if self._stopped:
+            return
+        self._stopped = True
+        manual_worker = self.command_handler.stop_music_requests()
+        dj_worker = self.dj.shutdown()
         if self.tunnel is not None and self.tunnel.is_running():
             self.tunnel.stop()
         if self.radio_server is not None and self.radio_server.is_running():
             self.radio_server.stop()
         self.stream_url = ""
+
+        # A worker may still be finishing an interrupted yt-dlp job. Do not
+        # delete the folder until those writers are completely finished.
+        workers = [
+            worker for worker in (manual_worker, dj_worker)
+            if worker is not None and worker.isRunning()
+        ]
+        if not workers:
+            self._cleanup_music_folder()
+        else:
+            for worker in workers:
+                worker.finished.connect(self._cleanup_if_downloads_finished)
+
+    def _cleanup_if_downloads_finished(self):
+        workers = (
+            self.command_handler.active_music_worker,
+            self.dj._worker,
+        )
+        if all(worker is None or not worker.isRunning() for worker in workers):
+            self._cleanup_music_folder()
+
+    def _cleanup_music_folder(self):
+        get_shared_youtube_provider().cleanup_room_files(
+            self.room_id, self.session_key
+        )
 
 
     def process(self, username, message):
