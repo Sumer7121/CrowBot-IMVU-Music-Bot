@@ -72,6 +72,45 @@ AutoDJ does not bypass YouTube availability or access restrictions. YouTube
 music-language labels are not guaranteed to reflect the actual sung language.
 The bot and its local media server must remain running for autoplay to work.
 
+## Troubleshooting Artist DJ / AutoDJ
+
+After each room's radio has loaded in IMVU, select the room and click
+**START ARTIST DJ**, or send `!dj Arijit Singh` in that room. The room's
+logs should show:
+
+1. `AutoDJ discovering next track`, then `Searching YouTube: ...`
+2. `Checking candidate ...` (the first flat result may not have duration;
+   CrowBot now checks the **full metadata** before rejecting it)
+3. `Preparing song: ...`, then `ROOM MUSIC READY` and
+   `AutoDJ selected: ...`
+4. `Now playing: ...`; when the stream's FFmpeg process finishes naturally,
+   the matching room advances its queue even if local Qt media playback
+   doesn't report EndOfMedia
+
+Run `!djstatus` to show the mode, selected artist, preparation stage, and last
+failure. You can also read the same DJ activity/error next to the selected
+room's song list. `!autoplay on` enables continuous discoveries without
+selecting a specific artist. `!dj off` ends future automatic requests.
+
+**What changed in the DJ fix:**
+
+- YouTube flat search results with missing duration are no longer rejected
+  before checking full video metadata. Full video duration must still be
+  65–900 seconds.
+- Search pages are scanned incrementally and a promising artist track is
+  prepared immediately, instead of fetching 70+ search entries first.
+- Background yt-dlp metadata calls can be cancelled, and full DJ search has
+  a 120-second limit. Failures are reported and retried after 25 seconds.
+- Qt signals from downloader threads safely update each room's song queue.
+- Finished public radio tracks can advance the queue even if muted
+  local playback doesn't send its completion event.
+- Unused downloads from switching artists/languages are removed from the
+  room-specific folder while reusable master MP3s are preserved.
+
+Artist matching still excludes movie clips, advertisements, trailers and
+unrelated artists; YouTube restrictions can prevent some songs from being
+prepared. The UI indicates actual errors instead of silently waiting.
+
 ## Shared MP3 master cache and isolated room copies
 
 Song downloads are stored under the current Windows user's local app data,
