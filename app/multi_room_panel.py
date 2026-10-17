@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
 
 class MultiRoomPanel(QWidget):
     add_requested = Signal(str)
+    connect_requested = Signal(str)
+    disconnect_requested = Signal(str)
     refresh_requested = Signal()
     remove_requested = Signal(str)
     reload_requested = Signal(str)
@@ -31,13 +33,13 @@ class MultiRoomPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        group = QGroupBox("ROOM MANAGER · INDEPENDENT RADIOS")
+        group = QGroupBox("ROOMS · EACH HAS ITS OWN RADIO, QUEUE AND CLOUDFLARE LINK")
         group_layout = QVBoxLayout(group)
         form = QHBoxLayout()
         self.room_id_input = QLineEdit()
-        self.room_id_input.setPlaceholderText("Additional room ID (e.g. 391169385-9) or full IMVU URL")
-        self.join_button = QPushButton("ADD / JOIN ROOM")
-        self.refresh_button = QPushButton("REFRESH ROOMS")
+        self.room_id_input.setPlaceholderText("Room ID (e.g. 391169385-9) or IMVU room URL")
+        self.join_button = QPushButton("ADD ROOM")
+        self.refresh_button = QPushButton("REFRESH STATUS")
         self.remove_button = QPushButton("REMOVE SELECTED")
         self.reload_button = QPushButton("RELOAD RADIO")
         self.skip_button = QPushButton("SKIP SONG")
@@ -58,7 +60,7 @@ class MultiRoomPanel(QWidget):
 
         self.room_table = QTableWidget(0, 5)
         self.room_table.setHorizontalHeaderLabels(
-            ["ROOM ID", "TYPE", "STATUS", "RADIO PORT", "NOW PLAYING"]
+            ["ROOM ID", "STATUS", "RADIO PORT", "NOW PLAYING", "CONNECT / DISCONNECT"]
         )
         self.room_table.verticalHeader().setVisible(False)
         self.room_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -92,7 +94,7 @@ class MultiRoomPanel(QWidget):
         queue_side = QWidget()
         queue_layout = QVBoxLayout(queue_side)
         queue_layout.setContentsMargins(0, 0, 0, 0)
-        self.detail_label = QLabel("Select a room to inspect its music and queue.")
+        self.detail_label = QLabel("Add rooms above, then CONNECT each one independently.")
         self.detail_label.setWordWrap(True)
         self.queue_list = QListWidget()
         queue_layout.addWidget(self.detail_label)
@@ -167,8 +169,7 @@ class MultiRoomPanel(QWidget):
         for row, (room_id, record) in enumerate(rooms.items()):
             for col, value in enumerate((
                 room_id,
-                record.get("type", "Secondary"),
-                record.get("status", "Starting"),
+                record.get("status", "Offline"),
                 str(record.get("port", "—")),
                 record.get("playing", "—"),
             )):
@@ -176,6 +177,17 @@ class MultiRoomPanel(QWidget):
                 if col == 0:
                     item.setData(Qt.ItemDataRole.UserRole, room_id)
                 self.room_table.setItem(row, col, item)
+            connected = bool(record.get("connected"))
+            room_button = QPushButton("DISCONNECT" if connected else "CONNECT")
+            if connected:
+                room_button.clicked.connect(
+                    lambda checked=False, rid=room_id: self.disconnect_requested.emit(rid)
+                )
+            else:
+                room_button.clicked.connect(
+                    lambda checked=False, rid=room_id: self.connect_requested.emit(rid)
+                )
+            self.room_table.setCellWidget(row, 4, room_button)
         ids = list(rooms)
         if ids:
             target = selected if selected in rooms else ids[0]
@@ -195,10 +207,10 @@ class MultiRoomPanel(QWidget):
     def _display_selection(self):
         room_id = self.selected_room()
         record = self._snapshots.get(room_id, {})
-        self.remove_button.setEnabled(bool(room_id and record.get("type") != "Primary"))
+        self.remove_button.setEnabled(bool(room_id))
         for button in (self.reload_button, self.skip_button, self.stop_button,
                        self.song_button):
-            button.setEnabled(bool(room_id))
+            button.setEnabled(bool(room_id and record.get("connected")))
         if not room_id:
             self.detail_label.setText("Select a room to inspect its music and queue.")
             self.queue_list.clear()
