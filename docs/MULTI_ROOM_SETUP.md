@@ -25,6 +25,40 @@ Your saved room IDs appear when CrowBot is restarted, **offline until you click
 CONNECT**. Remove one using **REMOVE SELECTED**. All rooms use one application,
 one dedicated Chrome profile, and their own room tabs.
 
+## Automatic cat/dog drops and Now Playing announcements
+
+Each joined IMVU room now runs its **own drop timer**, independent of the
+room's music queue and other connected rooms.
+
+- The first automatic wild cat/dog appears approximately **1–1.5 minutes**
+  after JOIN. Subsequent drops happen approximately every **6–10 minutes**.
+- CrowBot announces a wild pet in that room's IMVU chat, with a **90-second**
+  catch window. Type `!catch` there to collect the pet.
+- Send `!drops` to see the room's active pet or the time until the next
+  automatic drop. Use `!petdrop` to create a manual drop immediately for
+  testing (once per room every three minutes).
+- `!drop <column>` remains the Connect Four move command; it is *not* a
+  collectible drop command.
+- Drop timers stop when the room disconnects or the chat monitor ends.
+  Drops are room-specific; a pet in Room A cannot be caught in Room B.
+  Collected pets are saved in the shared user-collection database.
+
+The room's **Now Playing** signal now also announces songs in that exact
+IMVU room via the outgoing chat queue:
+
+```text
+🎧 DJ NOW PLAYING: Arijit Singh - Song Title | Artist: Arijit Singh
+🎵 NOW PLAYING: Manually Requested Song
+```
+
+A single selected track is announced once per playback event, with no
+cross-room fallback. These messages confirm CrowBot selected the track;
+listen in IMVU and inspect the radio's FFmpeg logs to confirm audio.
+
+**Testing:** connect two rooms, send `!petdrop` in each, and verify
+`!catch` succeeds independently. Start `!dj Arijit Singh` in one room and
+verify the next downloaded song is announced there, not in the other room.
+
 ## Artist DJ, autoplay and music language
 
 Select a connected room in the table. All these actions affect **only that
