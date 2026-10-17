@@ -37,6 +37,39 @@ def normalize_language(value):
     )
 
 
+def detect_song_language(track):
+    """Best-effort music language from a video tag, title or search query."""
+    track = track or {}
+    text = (
+        str(track.get("title") or "") + " " +
+        str(track.get("search_query") or "")
+    ).casefold()
+    for language in LANGUAGES:
+        if re.search(r"\\b" + re.escape(language) + r"\\b", text):
+            return language
+    # Strongly distinctive scripts; Devanagari can also be Marathi, so
+    # explicit metadata takes precedence over that ambiguous script.
+    scripts = (
+        (r"[\\u0C00-\\u0C7F]", "telugu"),
+        (r"[\\u0B80-\\u0BFF]", "tamil"),
+        (r"[\\u0D00-\\u0D7F]", "malayalam"),
+        (r"[\\u0C80-\\u0CFF]", "kannada"),
+        (r"[\\u0980-\\u09FF]", "bengali"),
+        (r"[\\u0600-\\u06FF]", "urdu"),
+        (r"[\\uAC00-\\uD7AF]", "korean"),
+        (r"[\\u3040-\\u30FF]", "japanese"),
+    )
+    for expression, language in scripts:
+        if re.search(expression, text):
+            return language
+    code = str(track.get("dj_language") or track.get("language") or "")
+    code = code.strip().casefold().split("-")[0]
+    for language, expected in LANGUAGES.items():
+        if code in (language, expected):
+            return language
+    return ""
+
+
 def search_queries(artist="", language="", current_title="", round_index=0):
     """Rotate discovery terms, excluding previous songs by YouTube ID."""
     artist = str(artist or "").strip()
@@ -172,6 +205,8 @@ class AutoDJ(QObject):
         self.music_controller = music_controller
         self.artist = ""
         self.language = ""
+        self.match_current_language = False
+        self._detected_language = ""
         self.enabled = False
         self._generation = 0
         self._worker = None
@@ -185,6 +220,7 @@ class AutoDJ(QObject):
         self._timer = QTimer(self)
         self._timer.setInterval(4000)
         self._timer.timeout.connect(self._maybe_fill)
+        self.music_controller.now_playing_changed.connect(self._observe_song)
         self.music_controller.now_playing_changed.connect(self._maybe_fill)
         self.music_controller.queue_changed.connect(self._maybe_fill)
 
@@ -212,7 +248,21 @@ class AutoDJ(QObject):
 
     @property
     def label(self):
-        return self.mode + (" · " + self.language.title() if self.language else " · Any language")
+        if self.match_current_language:
+            return self.mode + " · Match current: " + (
+                self._detected_language.title() if self._detected_language
+                else "Unknown (any until detected)"
+            )
+        return self.mode + (
+            " · " + self.language.title() if self.language else " · Any language"
+        )
+
+    def _observe_song(self, song):
+        if not song or not self.match_current_language:
+            return
+        detected = detect_song_language(song)
+        if detected:
+            self._detected_language = detected
 
     def set_artist(self, artist):
         text = " ".join(str(artist or "").strip().split())
@@ -236,12 +286,18 @@ class AutoDJ(QObject):
         return self.label
 
     def set_language(self, language):
-        selected = normalize_language(language)
-        if selected != self.language:
+        text = str(language or "").strip().casefold()
+        auto = text in ("match", "match current", "match current song", "auto")
+        selected = "" if auto else normalize_language(language)
+        if selected != self.language or auto != self.match_current_language:
             self._change()
             self.language = selected
+            self.match_current_language = auto
+            self._detected_language = ""
+            if auto:
+                self._observe_song(self.music_controller.get_current_song())
             self._drop_prefetched()
-        self.status_changed.emit("Music language: " + (selected.title() if selected else "Any"))
+        self.status_changed.emit("Music discovery language: " + self.label)
         self._maybe_fill()
         return self.label
 
@@ -280,8 +336,12 @@ class AutoDJ(QObject):
             return
         current = self.music_controller.get_current_song()
         title = (current or {}).get("title", "")
+        effective_language = (
+            self._detected_language if self.match_current_language
+            else self.language
+        )
         worker = DJFetchWorker(
-            self.artist, self.language, tuple(self._seen),
+            self.artist, effective_language, tuple(self._seen),
             title, self._round
         )
         generation = self._generation
