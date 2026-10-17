@@ -174,13 +174,22 @@ class AutoDJ(QObject):
         self._round = 0
         self._retry_at = 0.0
         self._closed = False
+        self.radio_ready = False
 
         self._timer = QTimer(self)
         self._timer.setInterval(4000)
         self._timer.timeout.connect(self._maybe_fill)
-        self._timer.start()
         self.music_controller.now_playing_changed.connect(self._maybe_fill)
         self.music_controller.queue_changed.connect(self._maybe_fill)
+
+    def set_ready(self, ready):
+        self.radio_ready = bool(ready)
+        if self.radio_ready:
+            if not self._timer.isActive():
+                self._timer.start()
+            self._maybe_fill()
+        else:
+            self._timer.stop()
 
     @property
     def mode(self):
@@ -237,7 +246,8 @@ class AutoDJ(QObject):
             self._worker.requestInterruption()
 
     def _maybe_fill(self, *args):
-        if self._closed or not self.enabled or self._worker is not None:
+        if (self._closed or not self.radio_ready or not self.enabled
+                or self._worker is not None):
             return
         if time.monotonic() < self._retry_at:
             return
