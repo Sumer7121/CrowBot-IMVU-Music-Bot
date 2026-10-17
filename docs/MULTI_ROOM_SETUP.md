@@ -38,6 +38,26 @@ The configured owner automatically has the same protected-command
 permissions as every moderator they appoint. There is **no lower or higher
 moderator tier**. Each room's owner/mod list is persisted independently.
 
+### Moderator-controlled command locks
+
+The room owner and **every appointed moderator** can independently lock or
+unlock commands for ordinary room participants. Locks are saved in CrowBot
+settings for that room only; they survive reconnects and restarts.
+
+```text
+!lock play       Stop regular members from requesting songs (!p too)
+!lock quiz       Lock the quiz game
+!lock catch      Prevent regular members catching wild pet drops
+!unlock play     Let regular members request songs again
+!locks           List the commands currently locked in this room
+```
+
+Locks apply to command aliases (for example `!lock play` also locks
+`!p`), and do **not** restrict the owner or moderators. These commands
+cannot themselves be locked: `!lock`, `!unlock`, `!locks`,
+`!addmod`, `!removemod`, and `!mods`. This prevents accidental
+loss of moderation access. Unknown commands cannot be locked.
+
 Protected chat commands:
 
 ```text
