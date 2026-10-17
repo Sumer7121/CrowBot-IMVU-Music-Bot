@@ -50,6 +50,56 @@ else:
         FFMPEG_DIR = PROJECT_ROOT / "bin"
 
 
+def _run_cancellable(command, timeout, capture_output=False, cancel_check=None):
+    """Run yt-dlp while allowing room disconnect to interrupt slow downloads."""
+    flags = (
+        subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+    )
+    if cancel_check is None:
+        return subprocess.run(
+            command,
+            capture_output=capture_output,
+            text=capture_output,
+            encoding="utf-8" if capture_output else None,
+            errors="replace" if capture_output else None,
+            timeout=timeout,
+            creationflags=flags,
+        )
+    proc = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE if capture_output else subprocess.DEVNULL,
+        stderr=subprocess.PIPE if capture_output else subprocess.DEVNULL,
+        text=capture_output,
+        encoding="utf-8" if capture_output else None,
+        errors="replace" if capture_output else None,
+        creationflags=flags,
+    )
+    end = time.monotonic() + timeout
+    try:
+        while True:
+            if cancel_check():
+                raise RuntimeError("AutoDJ request cancelled.")
+            remaining = end - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout)
+            try:
+                stdout, stderr = proc.communicate(timeout=min(0.4, remaining))
+                return subprocess.CompletedProcess(
+                    command, proc.returncode, stdout, stderr
+                )
+            except subprocess.TimeoutExpired:
+                continue
+    except BaseException:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+        raise
+
+
 # =============================================================
 # REUSABLE HTTP SERVER
 # =============================================================
@@ -151,6 +201,7 @@ class YouTubeOwnedProvider:
         self,
         query,
         limit=10,
+        cancel_check=None,
     ):
 
         query = str(query or "").strip()
@@ -177,18 +228,9 @@ class YouTubeOwnedProvider:
         )
 
         try:
-            process = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=45,
-                creationflags=(
-                    subprocess.CREATE_NO_WINDOW
-                    if hasattr(subprocess, "CREATE_NO_WINDOW")
-                    else 0
-                ),
+            process = _run_cancellable(
+                command, timeout=45, capture_output=True,
+                cancel_check=cancel_check,
             )
 
         except subprocess.TimeoutExpired as error:
@@ -281,6 +323,7 @@ class YouTubeOwnedProvider:
     def _get_video_metadata(
         self,
         candidate,
+        cancel_check=None,
     ):
 
         youtube_url = candidate["youtube_url"]
@@ -416,6 +459,7 @@ class YouTubeOwnedProvider:
         candidate,
         query,
         requested_by,
+        cancel_check=None,
     ):
 
         video_id = candidate["id"]
@@ -435,6 +479,7 @@ class YouTubeOwnedProvider:
         mp3_path = self._download_mp3(
             video_id,
             youtube_url,
+            cancel_check=cancel_check,
         )
 
         self._start_http_server()
@@ -472,6 +517,7 @@ class YouTubeOwnedProvider:
         self,
         video_id,
         youtube_url,
+        cancel_check=None,
     ):
 
         # Each request receives its own file. Two rooms requesting the same
@@ -502,14 +548,8 @@ class YouTubeOwnedProvider:
         )
 
         try:
-            process = subprocess.run(
-                command,
-                timeout=600,
-                creationflags=(
-                    subprocess.CREATE_NO_WINDOW
-                    if hasattr(subprocess, "CREATE_NO_WINDOW")
-                    else 0
-                ),
+            process = _run_cancellable(
+                command, timeout=600, cancel_check=cancel_check
             )
 
         except subprocess.TimeoutExpired as error:
