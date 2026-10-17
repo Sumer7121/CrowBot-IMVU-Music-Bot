@@ -141,6 +141,8 @@ class RoomSession:
                 return "🔒 Configure the room owner username in CrowBot's app first."
             if account_username and not self.permissions.is_owner(account_username):
                 return "🔒 This visible IMVU account is not the configured room owner."
+            if not user_id and account_username and self.permissions.is_owner(account_username):
+                return "✅ IMVU owner username is already recognized. Use !whoami."
             if not user_id:
                 return (
                     "🔒 IMVU provided neither a profile account username nor a "
