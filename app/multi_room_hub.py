@@ -588,35 +588,6 @@ class MultiRoomHub(QObject):
         )
         self.refresh_ui()
 
-    def add_room_admin(self, room_id, username):
-        """Local dashboard is the only place to grant admin permissions."""
-        if room_id not in self.room_ids:
-            return
-        policy = (self.sessions[room_id].permissions
-                  if room_id in self.sessions else RoomPermissions(room_id))
-        try:
-            added = policy.add_mod(username)
-        except ValueError as error:
-            self._log(room_id, "ADMIN ERROR: " + str(error))
-            return
-        self._log(room_id, (
-            "Room admin added: " + username if added
-            else "Room owner already has admin permissions."
-        ))
-        self.refresh_ui()
-
-    def remove_room_admin(self, room_id, username):
-        if room_id not in self.room_ids:
-            return
-        policy = (self.sessions[room_id].permissions
-                  if room_id in self.sessions else RoomPermissions(room_id))
-        removed = policy.remove_mod(username)
-        self._log(room_id, (
-            "Room admin removed: " + username if removed
-            else "No matching appointed admin. The owner cannot be removed here."
-        ))
-        self.refresh_ui()
-
     def artist_dj(self, room_id, artist):
         session = self.sessions.get(room_id)
         if not session or not session.stream_url:
