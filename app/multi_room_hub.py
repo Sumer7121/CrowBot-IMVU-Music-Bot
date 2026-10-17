@@ -462,6 +462,12 @@ class MultiRoomHub(QObject):
                     "source": "—", "clients": 0, "stream_url": "",
                 })
         self.window.room_panel.set_rooms(records)
+        ready = sum(1 for rid in self.sessions if self.states.get(rid) == "Connected")
+        connecting = len(self.sessions) - ready
+        title = f"●  {ready} CONNECTED / {len(self.room_ids)} ROOMS"
+        if connecting:
+            title += f" · {connecting} STARTING / NEED ATTENTION"
+        self.window.connection_status.setText(title)
 
     def shutdown(self):
         for room_id in list(self.sessions):
