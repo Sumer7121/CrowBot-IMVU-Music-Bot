@@ -829,7 +829,7 @@ class IMVUOpenRoomWorker(QThread):
 
 class SecondaryRoomWorker(QThread):
     """Room-specific chat monitor; music state lives in RoomSession."""
-    message_received = Signal(str, str, str)
+    message_received = Signal(str, str, str, str)
     failed = Signal(str, str)
     ready = Signal(str)
 
@@ -858,6 +858,7 @@ class SecondaryRoomWorker(QThread):
                         self.room_url,
                         (event.get("username") or "").strip(),
                         (event.get("message") or "").strip(),
+                        (event.get("account_username") or "").strip(),
                     )
         except Exception as error:
             self.failed.emit(self.room_url, str(error))
@@ -2441,7 +2442,7 @@ class MainWindow(QMainWindow):
         self.room_panel.language_requested.connect(self.room_hub.set_language)
         self.room_panel.dj_off_requested.connect(self.room_hub.stop_dj)
         self.room_panel.owner_requested.connect(self.room_hub.set_room_owner)
-        self.room_panel.owner_chat_name_requested.connect(self.room_hub.set_owner_chat_name)
+
         self.connect_button.clicked.connect(
 
 
