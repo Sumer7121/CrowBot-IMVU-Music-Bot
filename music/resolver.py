@@ -1,4 +1,6 @@
-﻿from music.youtube_owned import get_shared_youtube_provider
+﻿import time
+
+from music.youtube_owned import get_shared_youtube_provider
 
 
 class MusicResolver:
@@ -29,7 +31,16 @@ class MusicResolver:
         room_id="legacy",
         session_key="legacy",
         cancel_check=None,
+        progress_callback=None,
     ):
+        # Full searches can involve several YouTube metadata requests. Bound
+        # the *whole* request, including download, to a reasonable deadline.
+        deadline = time.monotonic() + 180
+
+        def interrupted():
+            return (bool(cancel_check and cancel_check())
+                    or time.monotonic() >= deadline)
+
         query = str(
             query or ""
         ).strip()
@@ -52,7 +63,8 @@ class MusicResolver:
             track = self.youtube.search(
                 query, requested_by=requested_by,
                 room_id=room_id, session_key=session_key,
-                cancel_check=cancel_check,
+                cancel_check=interrupted,
+                progress_callback=progress_callback,
             )
 
         except Exception as error:
