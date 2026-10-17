@@ -36,11 +36,11 @@ class MultiRoomHub(QObject):
         self.retired_workers = []
         self.retired_djs = []
         self._epoch = {}
-        self.radio_event.connect(self._on_radio_event, Qt.ConnectionType.QueuedConnection)
-        self.tunnel_ready_event.connect(self._tunnel_ready, Qt.ConnectionType.QueuedConnection)
-        self.tunnel_error_event.connect(self._tunnel_error, Qt.ConnectionType.QueuedConnection)
-        self.tunnel_status_event.connect(self._tunnel_status, Qt.ConnectionType.QueuedConnection)
-        self.tunnel_stopped_event.connect(self._tunnel_stopped, Qt.ConnectionType.QueuedConnection)
+        self.radio_event.connect(self._on_radio_event, Qt.ConnectionType.AutoConnection)
+        self.tunnel_ready_event.connect(self._tunnel_ready, Qt.ConnectionType.AutoConnection)
+        self.tunnel_error_event.connect(self._tunnel_error, Qt.ConnectionType.AutoConnection)
+        self.tunnel_status_event.connect(self._tunnel_status, Qt.ConnectionType.AutoConnection)
+        self.tunnel_stopped_event.connect(self._tunnel_stopped, Qt.ConnectionType.AutoConnection)
         self.restore_rooms()
 
     def restore_rooms(self):
