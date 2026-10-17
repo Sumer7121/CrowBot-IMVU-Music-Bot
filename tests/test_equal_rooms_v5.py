@@ -211,7 +211,7 @@ class FakeSession:
     def stop_radio(self):
         self.stopped = True
 
-    def process(self, user, message, account_username=""):
+    def process(self, user, message, account_username="", user_id=""):
         return self.command_handler.handle(message, account_username or user)
 
 
