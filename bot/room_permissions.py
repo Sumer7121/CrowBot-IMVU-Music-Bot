@@ -116,12 +116,12 @@ class RoomPermissions:
         identity = str(user_id or "").strip()
         if key:
             if self.owner and key == self.owner.casefold():
-                if self.owner_user_id and identity and identity != self.owner_user_id:
+                if self.owner_user_id and identity != self.owner_user_id:
                     return ""
                 return self.owner
             if key in self.mods:
                 known = self.mod_user_ids.get(key, "")
-                if known and identity and identity != known:
+                if known and identity != known:
                     return ""
                 return self.mods[key]
             return name
