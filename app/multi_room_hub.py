@@ -5,7 +5,7 @@ individually, while all Playwright workers share one dedicated Chrome profile.
 """
 import socket
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, Slot, Qt, QThread, QTimer
 
 from bot.room_ids import make_room_url, normalize_room_id
 from bot.room_session import RoomSession
@@ -14,6 +14,12 @@ from config.settings import load_settings, save_settings
 
 class MultiRoomHub(QObject):
     radio_event = Signal(str, str)
+    # Cloudflare emits from Python validator/reader threads. Its callbacks
+    # must be marshalled onto the Qt GUI thread before creating QThreads.
+    tunnel_ready_event = Signal(str, int, str)
+    tunnel_error_event = Signal(str, int, str)
+    tunnel_status_event = Signal(str, int, str)
+    tunnel_stopped_event = Signal(str, int)
 
     def __init__(self, window, open_worker, monitor_worker, radio_worker):
         super().__init__(window)
@@ -30,7 +36,11 @@ class MultiRoomHub(QObject):
         self.retired_workers = []
         self.retired_djs = []
         self._epoch = {}
-        self.radio_event.connect(self._on_radio_event)
+        self.radio_event.connect(self._on_radio_event, Qt.ConnectionType.QueuedConnection)
+        self.tunnel_ready_event.connect(self._tunnel_ready, Qt.ConnectionType.QueuedConnection)
+        self.tunnel_error_event.connect(self._tunnel_error, Qt.ConnectionType.QueuedConnection)
+        self.tunnel_status_event.connect(self._tunnel_status, Qt.ConnectionType.QueuedConnection)
+        self.tunnel_stopped_event.connect(self._tunnel_stopped, Qt.ConnectionType.QueuedConnection)
         self.restore_rooms()
 
     def restore_rooms(self):
@@ -151,16 +161,16 @@ class MultiRoomHub(QObject):
             lambda user, text, rid=room_id, e=epoch: self._async_response(rid, e, text)
         )
         session.tunnel.tunnel_started.connect(
-            lambda url, rid=room_id, e=epoch: self._tunnel_ready(rid, e, url)
+            lambda url, rid=room_id, e=epoch: self.tunnel_ready_event.emit(rid, e, url)
         )
         session.tunnel.tunnel_error.connect(
-            lambda err, rid=room_id, e=epoch: self._fail(rid, e, "TUNNEL ERROR: " + err)
+            lambda err, rid=room_id, e=epoch: self.tunnel_error_event.emit(rid, e, str(err))
         )
         session.tunnel.tunnel_stopped.connect(
-            lambda rid=room_id, e=epoch: self._tunnel_stopped(rid, e)
+            lambda rid=room_id, e=epoch: self.tunnel_stopped_event.emit(rid, e)
         )
         session.tunnel.status_changed.connect(
-            lambda text, rid=room_id, e=epoch: self._session_event(rid, e, "Tunnel: " + text)
+            lambda text, rid=room_id, e=epoch: self.tunnel_status_event.emit(rid, e, str(text))
         )
         self._log(room_id, f"Connecting with private radio port {port}...")
         worker = self.open_worker_class(session.room_url + "/", self.window)
@@ -224,6 +234,15 @@ class MultiRoomHub(QObject):
             self._fail(room_id, epoch, "RADIO: " + str(error))
         self.refresh_ui()
 
+    @Slot(str, int, str)
+    def _tunnel_error(self, room_id, epoch, message):
+        self._fail(room_id, epoch, "TUNNEL ERROR: " + message)
+
+    @Slot(str, int, str)
+    def _tunnel_status(self, room_id, epoch, message):
+        self._session_event(room_id, epoch, "Tunnel: " + message)
+
+    @Slot(str, int)
     def _tunnel_stopped(self, room_id, epoch):
         if not self._current(room_id, epoch):
             return
@@ -234,6 +253,7 @@ class MultiRoomHub(QObject):
         self._log(room_id, "Cloudflare tunnel stopped; radio URL is no longer usable.")
         self.refresh_ui()
 
+    @Slot(str, int, str)
     def _tunnel_ready(self, room_id, epoch, url):
         if not self._current(room_id, epoch):
             return
