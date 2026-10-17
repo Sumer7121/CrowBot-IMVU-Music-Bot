@@ -113,6 +113,8 @@ class CommandHandler(QObject):
         self.music_resolver = MusicResolver(
             timeout=10,
         )
+        # Set by RoomSession. Each IMVU room has its own AutoDJ.
+        self.dj_controller = None
 
         # -----------------------------------------------------
         # YOUTUBE SEARCH PROVIDER
@@ -153,6 +155,11 @@ class CommandHandler(QObject):
 
         self.commands = {
             "play": self.play,
+            "dj": self.artist_dj,
+            "autoplay": self.autoplay,
+            "language": self.music_language,
+            "lang": self.music_language,
+            "djstatus": self.dj_status,
             "ytsearch": self.ytsearch,
             "queue": self.show_queue,
             "nowplaying": self.now_playing,
@@ -839,6 +846,67 @@ class CommandHandler(QObject):
 
         self.start_next_music_resolve()
     # =========================================================
+    # PER-ROOM AUTOMATIC DJ
+    # =========================================================
+
+    def _room_dj(self):
+        return self.dj_controller
+
+    def artist_dj(self, arguments, username):
+        dj = self._room_dj()
+        if dj is None:
+            return "DJ mode is available inside a connected multi-room session."
+        name = " ".join(arguments).strip()
+        if not name or name.casefold() in ("status", "help"):
+            return (
+                "🎧 ARTIST DJ | " + dj.label +
+                f"\\nUse {self.prefix}dj <artist name> to play the artist continuously, "
+                f"or {self.prefix}dj off."
+            )
+        if name.casefold() in ("off", "stop", "disable"):
+            dj.off()
+            return "🎧 Artist DJ and autoplay disabled. The current song continues."
+        try:
+            return "🎧 " + dj.set_artist(name)
+        except ValueError as error:
+            return str(error)
+
+    def autoplay(self, arguments, username):
+        dj = self._room_dj()
+        if dj is None:
+            return "Autoplay is available inside a connected multi-room session."
+        choice = " ".join(arguments).strip().casefold()
+        if not choice or choice == "status":
+            return "🎶 AutoDJ | " + dj.label
+        if choice in ("on", "yes", "enable", "start"):
+            return "🎶 " + dj.set_autoplay(True)
+        if choice in ("off", "no", "disable", "stop"):
+            return "🎶 " + dj.set_autoplay(False)
+        return f"Usage: {self.prefix}autoplay on|off|status"
+
+    def music_language(self, arguments, username):
+        dj = self._room_dj()
+        if dj is None:
+            return "Music language settings are available inside a connected room."
+        name = " ".join(arguments).strip()
+        if not name:
+            return (
+                "🌐 DJ language: " + (dj.language.title() if dj.language else "Any") +
+                f"\\nUse {self.prefix}language Hindi, Telugu, Tamil, English, etc., or off."
+            )
+        try:
+            dj.set_language(name)
+        except ValueError as error:
+            return "🌐 " + str(error)
+        return "🌐 Music discovery language set to " + (
+            dj.language.title() if dj.language else "Any"
+        ) + ". The change affects upcoming AutoDJ songs."
+
+    def dj_status(self, arguments, username):
+        dj = self._room_dj()
+        return "🎧 DJ status: " + dj.label if dj is not None else "DJ unavailable."
+
+    # =========================================================
     # YOUTUBE SEARCH
     # =========================================================
 
@@ -1112,9 +1180,12 @@ class CommandHandler(QObject):
         username,
     ):
 
+        dj = self._room_dj()
+        if dj is not None and dj.enabled:
+            dj.set_autoplay(False)
         self.music_controller.stop()
 
-        return "Music stopped."
+        return "Music stopped. Autoplay is off."
 
     # =========================================================
     # CLEAR
@@ -2140,6 +2211,11 @@ class CommandHandler(QObject):
             "music": (
                 "🎵 MUSIC\n"
                 f"{p}p <song> — request song\n"
+                f"{p}dj <artist> — artist-only continuous DJ\n"
+                f"{p}dj off — turn off artist DJ\n"
+                f"{p}autoplay on|off — continuous YouTube music\n"
+                f"{p}language <name> — language for next DJ songs\n"
+                f"{p}djstatus — active DJ mode\n"
                 f"{p}q — queue\n"
                 f"{p}np — now playing\n"
                 f"{p}s — skip\n"
