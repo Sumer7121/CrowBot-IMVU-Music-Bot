@@ -163,16 +163,19 @@ class RoomTrackLibrary:
     def stage_for_room(self, video_id, room_id, session_key):
         """Copy a validated master, atomically, into this room session only."""
         video_id = _safe_token(video_id, "video ID")
-        master = self.master_path(video_id)
-        if not is_valid_mp3(master):
-            raise RuntimeError(f"Master MP3 missing or invalid: {video_id}")
         folder = self.room_path(room_id, session_key)
         folder.mkdir(parents=True, exist_ok=True)
         token = uuid.uuid4().hex[:12]
         target = folder / f"{video_id}-{token}.mp3"
         temp = folder / f"{video_id}-{token}.part"
         try:
-            shutil.copyfile(master, temp)
+            # Prevent concurrent LRU eviction while another room copies a
+            # master file. Every room stages under the same video-ID lock.
+            with self._video_lock(video_id):
+                master = self.master_path(video_id)
+                if not is_valid_mp3(master):
+                    raise RuntimeError(f"Master MP3 missing or invalid: {video_id}")
+                shutil.copyfile(master, temp)
             if not is_valid_mp3(temp):
                 raise RuntimeError("Room MP3 copy failed validation.")
             os.replace(temp, target)
