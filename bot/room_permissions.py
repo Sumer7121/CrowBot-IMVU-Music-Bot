@@ -31,7 +31,7 @@ DEFAULT_WELCOME = "👋 Welcome to {room}, {user}! Enjoy the music and games!"
 RESTRICTED = frozenset({
     "skip", "s", "stop", "clear", "remove", "rm", "pause", "pa",
     "resume", "r", "dj", "autoplay", "language", "lang",
-    "petdrop", "mods", "addmod", "removemod", "lock", "unlock", "locks",
+    "petdrop", "addmod", "removemod", "lock", "unlock",
     "welcome", "welcometest",
 })
 
