@@ -2536,7 +2536,11 @@ class CommandHandler(QObject):
             "system": (
                 "⚙️ SYSTEM / ROOM ADMINISTRATION\n"
                 f"{p}h — all command categories\n"
-                f"{p}mods — room owner and admins\n"                f"{p}whoami — show IMVU account username and role\n"
+                f"{p}mods — room owner and admins\n"
+                f"{p}whoami — show your verified chat role\n"
+                f"{p}linkowner — owner requests app verification\n"
+                f"{p}linkmod <user> — admin requests ID linking\n"
+                f"{p}approvemod <user> — owner approves admin link\n"
                 f"{p}addmod <user> — owner adds admin\n"
                 f"{p}removemod <user> — owner removes admin\n"
                 f"{p}lock <command> — admin locks public command\n"
