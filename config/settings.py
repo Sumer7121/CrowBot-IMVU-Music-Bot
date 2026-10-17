@@ -8,7 +8,8 @@ SETTINGS_FILE = get_settings_file()
 
 DEFAULT_SETTINGS = {
     "username": "",
-    "room_id": "",
+    "room_id": "",  # Legacy single-room setting; not used by multi-room UI.
+    "rooms": [],
     "bot_name": "",
     "prefix": "!",
     "music_mode": "Radio Stream",

@@ -29,20 +29,39 @@ class RadioStreamServer:
         self.broadcast_lock = threading.Lock()
 
         self._last_client_count = None
+        self.event_callback = None
+        self.source_set_at = time.monotonic()
+        self.last_song_audio_at = 0.0
+        self.last_song_audio_generation = -1
+        self.last_song_error = ""
+        self.last_ffmpeg_returncode = None
 
     # =========================================================
     # SOURCE MANAGEMENT
     # =========================================================
 
-    def set_source(self, url):
+    def _emit_event(self, message):
+        """Broadcast diagnostics via a caller-provided, thread-safe callback."""
+        callback = self.event_callback
+        if callback:
+            try:
+                callback(str(message))
+            except Exception:
+                pass
+
+    def set_source(self, url, force_restart=False):
         url = (url or "").strip()
 
         with self.broadcast_lock:
-            changed = url != self.current_source
+            changed = force_restart or url != self.current_source
 
             if changed:
                 self.current_source = url
                 self.source_generation += 1
+                self.source_set_at = time.monotonic()
+                self.last_song_audio_at = 0.0
+                self.last_song_audio_generation = -1
+                self.last_song_error = ""
 
             generation = self.source_generation
 
@@ -53,6 +72,10 @@ class RadioStreamServer:
             print(url if url else "<idle>")
 
             self.source_changed.set()
+            self._emit_event(
+                f"Source generation {generation}: "
+                + ("music encoder restart" if url else "idle/silent MP3")
+            )
 
         return True
 
@@ -98,6 +121,37 @@ class RadioStreamServer:
             and self.running
         )
 
+    def get_client_count(self):
+        with self.clients_lock:
+            return len(self.clients)
+
+    def get_health(self):
+        """Read-only status for the multi-room UI (no streaming side effects)."""
+        with self.broadcast_lock:
+            source = self.current_source
+            generation = self.source_generation
+            changed_at = self.source_set_at
+            audio_at = self.last_song_audio_at
+            audio_generation = self.last_song_audio_generation
+            error = self.last_song_error
+        process = self.ffmpeg_process
+        return {
+            "running": self.is_running(),
+            "source_set": bool(source),
+            "generation": generation,
+            "source_age": max(0.0, time.monotonic() - changed_at),
+            "audio_recent": (
+                bool(source) and audio_generation == generation
+                and bool(audio_at) and time.monotonic() - audio_at < 9
+            ),
+            "has_song_bytes": bool(audio_at) and audio_generation == generation,
+            "clients": self.get_client_count(),
+            "last_error": error,
+            "ffmpeg_alive": (
+                process is not None and process.poll() is None
+            ),
+        }
+
     def get_local_stream_url(self):
         return (
             f"http://{self.host}:{self.port}/stream.mp3"
@@ -124,6 +178,19 @@ class RadioStreamServer:
         class StreamHandler(BaseHTTPRequestHandler):
 
             protocol_version = "HTTP/1.1"
+
+            def handle(self):
+                try:
+                    super().handle()
+                except (
+                    ConnectionAbortedError,
+                    ConnectionResetError,
+                    BrokenPipeError,
+                    TimeoutError,
+                ):
+                    # Stream listeners may drop/reconnect while IMVU refreshes
+                    # radio audio. This is not a CrowBot song failure.
+                    pass
 
             def _headers(self):
                 self.send_header(
@@ -564,6 +631,17 @@ class RadioStreamServer:
                                     f"with code "
                                     f"{process.returncode}."
                                 )
+                                if process.returncode and total_bytes == 0:
+                                    with self.broadcast_lock:
+                                        if self.source_generation == session_generation:
+                                            self.last_song_error = (
+                                                f"FFmpeg exited {process.returncode} "
+                                                "without MP3 output"
+                                            )
+                                    self._emit_event(
+                                        f"FFmpeg exited {process.returncode} "
+                                        "without MP3 audio."
+                                    )
 
                                 (
                                     eof_source,
@@ -605,7 +683,16 @@ class RadioStreamServer:
                                 "received from FFmpeg: "
                                 f"{len(data)} bytes"
                             )
+                            self._emit_event(
+                                f"First song MP3 bytes received "
+                                f"(generation {session_generation}, {len(data)} bytes)."
+                            )
 
+                    if not idle_mode:
+                        with self.broadcast_lock:
+                            if self.source_generation == session_generation:
+                                self.last_song_audio_at = time.monotonic()
+                                self.last_song_audio_generation = session_generation
                     self._broadcast_data(data)
 
                 if (
@@ -620,10 +707,11 @@ class RadioStreamServer:
                     )
 
             except Exception as error:
-                print(
-                    "FFmpeg stream error:",
-                    error
-                )
+                print("FFmpeg stream error:", error)
+                self._emit_event(f"FFmpeg streaming error: {error}")
+                with self.broadcast_lock:
+                    if self.source_generation == session_generation:
+                        self.last_song_error = str(error)
 
             finally:
                 if process:
@@ -714,6 +802,7 @@ class RadioStreamServer:
                 "Broadcasting audio to "
                 f"{count} client(s)."
             )
+            self._emit_event(f"Connected radio listeners: {count}")
 
         for client_queue in clients:
             try:

@@ -1,4 +1,5 @@
 import json
+import uuid
 import shutil
 import subprocess
 import sys
@@ -8,7 +9,9 @@ import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from config.runtime_paths import get_youtube_temp_dir
+from music.track_library import RoomTrackLibrary, is_valid_mp3
 from urllib.parse import quote, unquote
+from music.song_ranking import ranked_candidates, candidate_score, query_parts
 
 
 # =============================================================
@@ -26,7 +29,9 @@ TEMP_DIR.mkdir(parents=True, exist_ok=True)
 # -------------------------------------------------------------
 
 HTTP_HOST = "127.0.0.1"
-HTTP_PORT = 8766
+# Let Windows select an unused ephemeral port. Fixed 8766 collided with
+# CrowBot's second room radio, leaving secondary rooms silent.
+HTTP_PORT = 0
 
 
 # -------------------------------------------------------------
@@ -44,6 +49,56 @@ else:
         FFMPEG_DIR = Path(system_ffmpeg).parent
     else:
         FFMPEG_DIR = PROJECT_ROOT / "bin"
+
+
+def _run_cancellable(command, timeout, capture_output=False, cancel_check=None):
+    """Run yt-dlp while allowing room disconnect to interrupt slow downloads."""
+    flags = (
+        subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+    )
+    if cancel_check is None:
+        return subprocess.run(
+            command,
+            capture_output=capture_output,
+            text=capture_output,
+            encoding="utf-8" if capture_output else None,
+            errors="replace" if capture_output else None,
+            timeout=timeout,
+            creationflags=flags,
+        )
+    proc = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE if capture_output else subprocess.DEVNULL,
+        stderr=subprocess.PIPE if capture_output else subprocess.DEVNULL,
+        text=capture_output,
+        encoding="utf-8" if capture_output else None,
+        errors="replace" if capture_output else None,
+        creationflags=flags,
+    )
+    end = time.monotonic() + timeout
+    try:
+        while True:
+            if cancel_check():
+                raise RuntimeError("AutoDJ request cancelled.")
+            remaining = end - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout)
+            try:
+                stdout, stderr = proc.communicate(timeout=min(0.4, remaining))
+                return subprocess.CompletedProcess(
+                    command, proc.returncode, stdout, stderr
+                )
+            except subprocess.TimeoutExpired:
+                continue
+    except BaseException:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+        raise
 
 
 # =============================================================
@@ -64,11 +119,14 @@ class YouTubeOwnedProvider:
     def __init__(self):
         self.http_server = None
         self.http_thread = None
+        self.http_port = None
 
         self.lock = threading.RLock()
 
         self.track_info = {}
         self.cleanup_started = set()
+        self.library = RoomTrackLibrary(TEMP_DIR)
+        self.library.prune_master()
 
         self._purge_old_temp_files()
 
@@ -146,6 +204,7 @@ class YouTubeOwnedProvider:
         self,
         query,
         limit=10,
+        cancel_check=None,
     ):
 
         query = str(query or "").strip()
@@ -172,18 +231,9 @@ class YouTubeOwnedProvider:
         )
 
         try:
-            process = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=45,
-                creationflags=(
-                    subprocess.CREATE_NO_WINDOW
-                    if hasattr(subprocess, "CREATE_NO_WINDOW")
-                    else 0
-                ),
+            process = _run_cancellable(
+                command, timeout=45, capture_output=True,
+                cancel_check=cancel_check,
             )
 
         except subprocess.TimeoutExpired as error:
@@ -276,6 +326,7 @@ class YouTubeOwnedProvider:
     def _get_video_metadata(
         self,
         candidate,
+        cancel_check=None,
     ):
 
         youtube_url = candidate["youtube_url"]
@@ -294,18 +345,11 @@ class YouTubeOwnedProvider:
         )
 
         try:
-            process = subprocess.run(
+            process = _run_cancellable(
                 command,
+                timeout=22,
                 capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=45,
-                creationflags=(
-                    subprocess.CREATE_NO_WINDOW
-                    if hasattr(subprocess, "CREATE_NO_WINDOW")
-                    else 0
-                ),
+                cancel_check=cancel_check,
             )
 
         except subprocess.TimeoutExpired:
@@ -338,6 +382,16 @@ class YouTubeOwnedProvider:
             or candidate.get("title", "Unknown")
         ).strip()
 
+        # YouTube can expose language and music artist in video metadata.
+        # AutoDJ uses these fields when present, and its language-specific
+        # search query when they are not available.
+        metadata["language"] = str(
+            data.get("language") or candidate.get("language") or ""
+        ).strip()
+        metadata["artist"] = str(
+            data.get("artist") or candidate.get("artist") or ""
+        ).strip()
+
         duration = (
             data.get("duration")
             or candidate.get("duration", 0)
@@ -357,42 +411,83 @@ class YouTubeOwnedProvider:
     # MAIN SEARCH
     # =========================================================
 
-    def search(
-        self,
-        query,
-        requested_by=None,
-    ):
-
-        candidates = self.search_candidates(
-            query,
-            limit=10,
-        )
-
-        if not candidates:
-            return None
-
-        selected = None
-
-        for candidate in candidates:
-
-            metadata = self._get_video_metadata(
-                candidate
+    def search(self, query, requested_by=None, room_id="legacy", session_key="legacy",
+               cancel_check=None, progress_callback=None):
+        """Resolve a cached request first; otherwise rank safe YouTube candidates."""
+        if progress_callback:
+            progress_callback("Checking master song library...")
+        cached = self.library.find_query(query)
+        if cached:
+            print(f"RESOLVER: MASTER INDEX HIT: {query}")
+            if progress_callback:
+                progress_callback("Master cache hit — copying song into this room...")
+            track = self._prepare_track(
+                cached, query, requested_by, room_id=room_id,
+                session_key=session_key, cancel_check=cancel_check
             )
-
-            if not metadata:
+            if progress_callback:
+                progress_callback("Cached song verified and ready for room playback.")
+            return track
+        song, artist = query_parts(query)
+        searches = [f"{artist} {song} official audio" if artist else f"{song} official audio"]
+        searches.append(query)
+        attempted = set()
+        last_error = None
+        for search_text in searches:
+            if cancel_check and cancel_check():
+                raise RuntimeError("Music request was cancelled.")
+            if search_text.casefold() in attempted:
                 continue
-
-            selected = metadata
-            break
-
-        if not selected:
-            return None
-
-        return self._prepare_track(
-            selected,
-            query,
-            requested_by,
-        )
+            attempted.add(search_text.casefold())
+            if progress_callback:
+                progress_callback("Searching YouTube: " + search_text[:70])
+            try:
+                candidates = ranked_candidates(
+                    self.search_candidates(
+                        search_text, limit=15, cancel_check=cancel_check
+                    ), query
+                )
+            except Exception as error:
+                print(f"YTDLP SEARCH ERROR: {error}")
+                continue
+            for candidate in candidates[:8]:
+                if cancel_check and cancel_check():
+                    raise RuntimeError("Music request was cancelled.")
+                metadata = self._get_video_metadata(
+                    candidate, cancel_check=cancel_check
+                )
+                if not metadata:
+                    continue
+                # Never download a candidate unless FULL metadata still
+                # matches the song/artist and duration is known.
+                duration = metadata.get("duration", 0)
+                if not duration or candidate_score(metadata, query) is None:
+                    print(f"YTDLP: Skipping non-song: {metadata.get('title')}")
+                    continue
+                try:
+                    if progress_callback:
+                        progress_callback(
+                            "Preparing MP3: " + str(metadata.get("title", "Track"))[:70]
+                        )
+                    track = self._prepare_track(
+                        metadata, query, requested_by, room_id=room_id,
+                        session_key=session_key, cancel_check=cancel_check
+                    )
+                    self.library.index_query(query, metadata)
+                    if progress_callback:
+                        progress_callback("Song verified and ready for room playback.")
+                    return track
+                except Exception as error:
+                    last_error = error
+                    if cancel_check and cancel_check():
+                        raise RuntimeError("Music request was cancelled.") from error
+                    print(f"YTDLP: Candidate failed, trying next: {error}")
+                    continue
+        if last_error is not None:
+            raise RuntimeError(
+                "No playable track could be prepared: " + str(last_error)
+            ) from last_error
+        return None
 
 
     # =========================================================
@@ -404,6 +499,9 @@ class YouTubeOwnedProvider:
         candidate,
         query,
         requested_by,
+        cancel_check=None,
+        room_id="legacy",
+        session_key="legacy",
     ):
 
         video_id = candidate["id"]
@@ -419,28 +517,37 @@ class YouTubeOwnedProvider:
 
         print()
         print("YTDLP: Preparing audio...")
+        was_in_master = is_valid_mp3(self.library.master_path(video_id))
 
-        mp3_path = self._download_mp3(
+        master_path = self._download_mp3(
             video_id,
             youtube_url,
+            cancel_check=cancel_check,
         )
-
-        self._start_http_server()
-
-        self._register_track(
-            mp3_path,
-            duration,
+        if cancel_check and cancel_check():
+            raise RuntimeError("Music preparation cancelled.")
+        mp3_path = self.library.stage_for_room(
+            video_id, room_id, session_key
         )
-
-        local_url = self._build_local_url(
-            mp3_path
+        try:
+            self._start_http_server()
+            local_url = self._build_local_url(mp3_path)
+            self._verify_local_song_url(local_url, mp3_path)
+        except Exception:
+            # Failed preparation must not leave unplayable files queued.
+            self.library.release_track(mp3_path, room_id, session_key)
+            raise
+        print(
+            f"ROOM MUSIC READY: room={room_id}; master={master_path.name}; "
+            f"copy={mp3_path.name}; url={local_url}"
         )
 
         return {
             "id": video_id,
             "title": title,
             "track_title": title,
-            "artist": channel,
+            "artist": candidate.get("artist") or channel,
+            "language": str(candidate.get("language") or ""),
             "duration": duration,
             "url": local_url,
             "youtube_url": youtube_url,
@@ -449,6 +556,10 @@ class YouTubeOwnedProvider:
             "search_query": query,
             "requested_by": requested_by,
             "temporary_file": str(mp3_path),
+            "room_id": room_id,
+            "room_session": session_key,
+            "cache_master_file": str(master_path),
+            "cache_hit": bool(was_in_master),
         }
 
 
@@ -456,83 +567,40 @@ class YouTubeOwnedProvider:
     # DOWNLOAD / CONVERT
     # =========================================================
 
-    def _download_mp3(
-        self,
-        video_id,
-        youtube_url,
-    ):
-
-        final_mp3 = TEMP_DIR / f"{video_id}.mp3"
-
-        output_template = str(
-            TEMP_DIR / f"{video_id}.%(ext)s"
-        )
-
-        if final_mp3.exists():
-            try:
-                final_mp3.unlink()
-            except OSError:
-                pass
-
-        print()
-        print("YTDLP: Downloading audio...")
-
-        command = (
-            self._ytdlp()
-            + [
+    def _download_mp3(self, video_id, youtube_url, cancel_check=None):
+        """Reuse validated masters; download and publish atomically on miss."""
+        def downloader(workspace, token):
+            output_template = str(workspace / (token + ".%(ext)s"))
+            command = self._ytdlp() + [
                 youtube_url,
                 "--extract-audio",
-                "--audio-format",
-                "mp3",
-                "--audio-quality",
-                "192K",
-                "--ffmpeg-location",
-                str(FFMPEG_DIR),
-                "--output",
-                output_template,
-                "--no-playlist",
-                "--no-warnings",
+                "--audio-format", "mp3",
+                "--audio-quality", "192K",
+                "--ffmpeg-location", str(FFMPEG_DIR),
+                "--output", output_template,
+                "--no-playlist", "--no-warnings",
             ]
-        )
-
-        try:
-            process = subprocess.run(
-                command,
-                timeout=600,
-                creationflags=(
-                    subprocess.CREATE_NO_WINDOW
-                    if hasattr(subprocess, "CREATE_NO_WINDOW")
-                    else 0
-                ),
+            print(f"YTDLP: Downloading new master MP3 for {video_id}...")
+            process = _run_cancellable(
+                command, timeout=600, cancel_check=cancel_check
             )
-
-        except subprocess.TimeoutExpired as error:
-            raise RuntimeError(
-                "yt-dlp audio download timed out."
-            ) from error
-
-        if process.returncode != 0:
-            raise RuntimeError(
-                "yt-dlp download or conversion failed."
-            )
-
-        if not final_mp3.exists():
-
-            candidates = list(
-                TEMP_DIR.glob(
-                    f"{video_id}*.mp3"
+            if process.returncode != 0:
+                raise RuntimeError(
+                    f"yt-dlp failed for {video_id} (exit {process.returncode})."
                 )
-            )
+            path = workspace / (token + ".mp3")
+            if not is_valid_mp3(path):
+                raise RuntimeError(f"yt-dlp returned missing or invalid MP3 for {video_id}.")
+            return path
 
-            if candidates:
-                final_mp3 = candidates[0]
-
-        if not final_mp3.exists():
-            raise RuntimeError(
-                "MP3 was not created."
-            )
-
-        return final_mp3
+        path, reused = self.library.get_or_download(
+            video_id, downloader, cancel_check=cancel_check
+        )
+        if reused:
+            print(f"ROOM MUSIC: Reusing master MP3 {path.name}")
+        else:
+            self.library.prune_master()
+        return path
 
 
     # =========================================================
@@ -583,6 +651,8 @@ class YouTubeOwnedProvider:
                         filename
                     )
 
+                    # Session files are cleaned after playback by RoomSession,
+                    # never by time-based HTTP request callbacks.
                     provider._file_requested(
                         filename
                     )
@@ -615,6 +685,7 @@ class YouTubeOwnedProvider:
                     f"{error}"
                 ) from error
 
+            self.http_port = self.http_server.server_address[1]
             self.http_thread = threading.Thread(
                 target=self.http_server.serve_forever,
                 daemon=True,
@@ -631,7 +702,7 @@ class YouTubeOwnedProvider:
 
             print(
                 f"http://{HTTP_HOST}:"
-                f"{HTTP_PORT}/"
+                f"{self.http_port}/"
             )
 
 
@@ -639,20 +710,38 @@ class YouTubeOwnedProvider:
     # LOCAL URL
     # =========================================================
 
-    def _build_local_url(
-        self,
-        mp3_path,
-    ):
-
-        filename = quote(
-            Path(mp3_path).name
-        )
-
+    def _build_local_url(self, mp3_path):
+        # Preserve rooms/<room-id>/<session-key>/<unique-track>.mp3 path;
+        # using only the basename caused 404 for staged room copies.
+        path = Path(mp3_path).resolve()
+        relative = path.relative_to(TEMP_DIR.resolve()).as_posix()
         return (
-            f"http://{HTTP_HOST}:"
-            f"{HTTP_PORT}/"
-            f"{filename}"
+            f"http://{HTTP_HOST}:{self.http_port}/"
+            + quote(relative, safe="/")
         )
+
+    def _verify_local_song_url(self, url, path):
+        """A song isn't 'ready' until the local HTTP service returns its file."""
+        from urllib.request import Request, urlopen
+        if not is_valid_mp3(path):
+            raise RuntimeError(f"Song is not a valid MP3: {path}")
+        try:
+            with urlopen(Request(url, method="HEAD"), timeout=7) as response:
+                size = int(response.headers.get("Content-Length") or 0)
+                if response.status != 200 or size < 2048:
+                    raise RuntimeError(
+                        f"Local MP3 server returned HTTP {response.status} / {size} bytes"
+                    )
+        except Exception as error:
+            raise RuntimeError(
+                f"Room music file failed local HTTP check: {error}"
+            ) from error
+
+    def cleanup_room_files(self, room_id, session_key):
+        self.library.cleanup_room(room_id, session_key)
+
+    def release_room_track(self, path, room_id, session_key):
+        self.library.release_track(path, room_id, session_key)
 
 
     # =========================================================
@@ -863,6 +952,7 @@ class YouTubeOwnedProvider:
 
             self.http_server = None
             self.http_thread = None
+            self.http_port = None
 
         if server:
 
@@ -901,3 +991,17 @@ class YouTubeOwnedProvider:
             pass
 
 
+
+
+# All CommandHandlers and AutoDJ workers in one CrowBot process reuse this
+# provider's temporary HTTP station. Radio stations remain per-room.
+_shared_provider = None
+_shared_provider_lock = threading.Lock()
+
+
+def get_shared_youtube_provider():
+    global _shared_provider
+    with _shared_provider_lock:
+        if _shared_provider is None:
+            _shared_provider = YouTubeOwnedProvider()
+        return _shared_provider
