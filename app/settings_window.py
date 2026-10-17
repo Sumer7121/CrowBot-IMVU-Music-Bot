@@ -294,10 +294,8 @@ class SettingsWindow(QDialog):
             self.username
         )
 
-        form.addRow(
-            "Room ID:",
-            self.room_id
-        )
+        # Room IDs are now managed independently in the multi-room dashboard.
+        # Keep the hidden legacy widget for compatibility, not as a setting.
 
         form.addRow(
             "Bot Name:",
@@ -357,15 +355,10 @@ class SettingsWindow(QDialog):
 
     def save_settings(self):
 
-        settings = {
+        settings = load_settings()
+        settings.update({
             "username": (
                 self.username
-                .text()
-                .strip()
-            ),
-
-            "room_id": (
-                self.room_id
                 .text()
                 .strip()
             ),
@@ -392,7 +385,7 @@ class SettingsWindow(QDialog):
                 self.music_mode
                 .currentText()
             ),
-        }
+        })
 
         save_settings(
             settings
