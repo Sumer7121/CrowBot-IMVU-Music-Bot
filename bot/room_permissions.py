@@ -165,6 +165,8 @@ class RoomPermissions:
             raise ValueError("Enter a username to promote.")
         if name.casefold() == self.owner.casefold():
             return False
+        if name.casefold() in self.mods:
+            return False
         # Do not silently carry an old account binding to a newly granted role.
         self.mod_user_ids.pop(name.casefold(), None)
         self.mods[name.casefold()] = name
