@@ -179,6 +179,19 @@ class RadioStreamServer:
 
             protocol_version = "HTTP/1.1"
 
+            def handle(self):
+                try:
+                    super().handle()
+                except (
+                    ConnectionAbortedError,
+                    ConnectionResetError,
+                    BrokenPipeError,
+                    TimeoutError,
+                ):
+                    # Stream listeners may drop/reconnect while IMVU refreshes
+                    # radio audio. This is not a CrowBot song failure.
+                    pass
+
             def _headers(self):
                 self.send_header(
                     "Content-Type",
