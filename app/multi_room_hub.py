@@ -588,17 +588,33 @@ class MultiRoomHub(QObject):
         )
         self.refresh_ui()
 
-    def set_welcome_message(self, room_id, message):
+    def add_room_admin(self, room_id, username):
+        """Local dashboard is the only place to grant admin permissions."""
         if room_id not in self.room_ids:
             return
+        policy = (self.sessions[room_id].permissions
+                  if room_id in self.sessions else RoomPermissions(room_id))
         try:
-            policy = (self.sessions[room_id].permissions
-                      if room_id in self.sessions else RoomPermissions(room_id))
-            policy.set_welcome(message)
+            added = policy.add_mod(username)
         except ValueError as error:
-            self._log(room_id, "WELCOME ERROR: " + str(error))
+            self._log(room_id, "ADMIN ERROR: " + str(error))
             return
-        self._log(room_id, "Automatic welcome template saved.")
+        self._log(room_id, (
+            "Room admin added: " + username if added
+            else "Room owner already has admin permissions."
+        ))
+        self.refresh_ui()
+
+    def remove_room_admin(self, room_id, username):
+        if room_id not in self.room_ids:
+            return
+        policy = (self.sessions[room_id].permissions
+                  if room_id in self.sessions else RoomPermissions(room_id))
+        removed = policy.remove_mod(username)
+        self._log(room_id, (
+            "Room admin removed: " + username if removed
+            else "No matching appointed admin. The owner cannot be removed here."
+        ))
         self.refresh_ui()
 
     def artist_dj(self, room_id, artist):
@@ -759,7 +775,7 @@ class MultiRoomHub(QObject):
                     status = self.states.get(room_id, "Connecting")
                 records.append({
                     "room_id": room_id, "status": status,
-                    "owner": policy.owner, "welcome": policy.welcome,
+                    "owner": policy.owner, "admins": list(policy.mods.values()),
                     "connected": True, "port": session.radio_port,
                     "dj_mode": session.dj.label,
                     "dj_activity": session.dj.last_activity,
@@ -777,7 +793,7 @@ class MultiRoomHub(QObject):
             else:
                 records.append({
                     "room_id": room_id, "status": "Offline",
-                    "owner": policy.owner, "welcome": policy.welcome,
+                    "owner": policy.owner, "admins": list(policy.mods.values()),
                     "connected": False,
                     "dj_mode": "DJ OFF", "dj_activity": "Offline",
                     "dj_error": "", "dj_language": "",
