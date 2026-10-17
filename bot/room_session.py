@@ -124,18 +124,21 @@ class RoomSession:
         if not message or not username:
             return None
         prefix = self.command_handler.prefix
-        if message.casefold() == f"{prefix}ping".casefold():
-            return f"🏓 CrowBot pong in this room, {username}!"
         if not message.startswith(prefix):
             # Record participant names for !spin without sending a reply.
             self.command_handler._remember_user(username)
             return None
         command = message[len(prefix):].split(maxsplit=1)[0].casefold()
         if not self.permissions.may_run(command, username):
+            if self.permissions.is_locked(command):
+                return ("🔒 !" + command + " is locked for regular users in this "
+                        "room. Ask a room moderator to unlock it.")
             if not self.permissions.owner:
                 return ("🔒 No room owner configured. Set the verified owner's "
                         "IMVU username in CrowBot's local Room Settings first.")
             return "🔒 This command is for the room owner and appointed moderators."
+        if command == "ping":
+            return f"🏓 CrowBot pong in this room, {username}!"
         if command in MUSIC_COMMANDS and not self.stream_url:
             return (
                 "🎵 Music streaming is not enabled in this room yet. "
