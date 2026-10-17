@@ -20,6 +20,7 @@ class MusicController(QObject):
         self.player = MusicPlayer()
 
         self.radio_server = None
+        self._radio_generation = None
 
         self.player.song_started.connect(
             self.on_song_started
@@ -170,6 +171,9 @@ class MusicController(QObject):
 
                 self.radio_server.set_source(url, force_restart=True)
 
+            # Save the specific FFmpeg generation for stale EOF protection.
+            self._radio_generation = self.radio_server.get_source_state()[1]
+
         # -----------------------------------------------------
         # Local playback
         # -----------------------------------------------------
@@ -252,6 +256,7 @@ class MusicController(QObject):
                 self.error_occurred.emit("Cannot resume: track URL missing.")
                 return False
             self.radio_server.set_source(url, force_restart=True)
+            self._radio_generation = self.radio_server.get_source_state()[1]
             self.player.play(url, current.get("title", "Unknown"))
             self.status_changed.emit(
                 "Music resumed in this room (track restarted)."
@@ -297,6 +302,7 @@ class MusicController(QObject):
         self.player.stop()
 
         self.queue.stop()
+        self._radio_generation = None
 
         if self.radio_server:
 
@@ -419,6 +425,29 @@ class MusicController(QObject):
         self.status_changed.emit(
             f"Started: {song_name}"
         )
+
+    def on_radio_track_finished(self, source_url, source_generation):
+        """Advance when public FFmpeg ends, even if local Qt player misses EOF.
+
+        Only the currently playing source *and* its generation can advance.
+        Late completion signals from a skipped/paused song are ignored.
+        """
+        current = self.queue.get_current_song()
+        if not current or self.queue.is_paused:
+            return False
+        if not self.radio_server:
+            return False
+        if current.get("url") != source_url:
+            return False
+        if self._radio_generation != source_generation:
+            return False
+        self.status_changed.emit(
+            "Public radio track finished; advancing this room's queue."
+        )
+        self.player.stop()
+        self._radio_generation = None
+        self.play_next()
+        return True
 
     # =========================================================
     # SONG FINISHED
