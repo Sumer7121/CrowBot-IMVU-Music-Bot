@@ -26,6 +26,9 @@ class MusicResolver:
         self,
         query,
         requested_by=None,
+        room_id="legacy",
+        session_key="legacy",
+        cancel_check=None,
     ):
         query = str(
             query or ""
@@ -47,8 +50,9 @@ class MusicResolver:
 
         try:
             track = self.youtube.search(
-                query,
-                requested_by=requested_by,
+                query, requested_by=requested_by,
+                room_id=room_id, session_key=session_key,
+                cancel_check=cancel_check,
             )
 
         except Exception as error:
