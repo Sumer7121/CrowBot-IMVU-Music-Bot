@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QObject, QCoreApplication, Signal
 from music.auto_dj import (
-    LANGUAGES, AutoDJ, candidate_allowed, detect_song_language,
+    LANGUAGES, AutoDJ, DJFetchWorker, candidate_allowed, detect_song_language,
     normalize_language, search_queries,
 )
 
@@ -62,6 +62,54 @@ class DJPolicyTests(unittest.TestCase):
         self.assertEqual(detect_song_language({
             "title": "Unidentified Song", "language": ""
         }), "")
+
+    def test_flat_search_with_missing_duration_is_checked_not_discarded(self):
+        flat = {
+            "id": "youtubevideo1",
+            "title": "Arijit Singh - Official Audio",
+            "channel": "Music Label",
+            "duration": None,  # common for yt-dlp --flat-playlist
+        }
+        self.assertTrue(candidate_allowed(
+            flat, "Arijit Singh", "Hindi", allow_missing_duration=True
+        ))
+        self.assertFalse(candidate_allowed(flat, "Arijit Singh", "Hindi"))
+        full = {**flat, "duration": 220, "language": "hi"}
+        self.assertTrue(candidate_allowed(full, "Arijit Singh", "Hindi"))
+
+    def test_dj_worker_prepares_song_after_flat_result_without_duration(self):
+        flat = {
+            "id": "youtubevideo1",
+            "title": "Arijit Singh - Official Audio",
+            "channel": "Music Label", "duration": None,
+        }
+        complete = {**flat, "duration": 220, "language": "hi",
+                    "youtube_url": "https://www.youtube.com/watch?v=youtubevideo1"}
+        track = {
+            "id": "youtubevideo1", "title": "Arijit Singh - Official Audio",
+            "url": "http://127.0.0.1:9000/rooms/111-1/audio.mp3",
+        }
+        provider = MagicMock()
+        provider.search_candidates.return_value = [flat]
+        provider._get_video_metadata.return_value = complete
+        provider._prepare_track.return_value = dict(track)
+        worker = DJFetchWorker(
+            "Arijit Singh", "Hindi", set(), "", 0, "111-1", "session123"
+        )
+        results, failures = [], []
+        worker.prepared.connect(results.append)
+        worker.failed.connect(failures.append)
+        with patch("music.auto_dj.get_shared_youtube_provider", return_value=provider):
+            worker.run()
+        self.assertEqual(failures, [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["dj_artist"], "Arijit Singh")
+        self.assertTrue(results[0]["dj_auto"])
+        self.assertEqual(provider._prepare_track.call_count, 1)
+        self.assertEqual(provider._prepare_track.call_args.kwargs["room_id"], "111-1")
+        self.assertEqual(
+            provider._prepare_track.call_args.kwargs["session_key"], "session123"
+        )
 
     def test_youtube_autoplay_seeds_with_current_music(self):
         queries = search_queries(
