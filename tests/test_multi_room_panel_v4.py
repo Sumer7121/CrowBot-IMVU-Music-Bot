@@ -17,14 +17,14 @@ class MultiRoomPanelTests(unittest.TestCase):
         self.panel = MultiRoomPanel()
         self.rooms = [
             {
-                "room_id": "111-1", "type": "Primary", "port": 8765,
+                "room_id": "111-1", "connected": True, "port": 8765,
                 "status": "Playing · broadcasting", "playing": "First song",
                 "source": "Music", "clients": 1,
                 "stream_url": "https://example.com/one/stream.mp3",
                 "queue": [{"title": "Later A", "requested_by": "Alice"}],
             },
             {
-                "room_id": "222-2", "type": "Secondary", "port": 8766,
+                "room_id": "222-2", "connected": True, "port": 8766,
                 "status": "Ready · idle", "playing": "Second song",
                 "source": "Idle", "clients": 1,
                 "stream_url": "https://example.com/two/stream.mp3",
@@ -39,8 +39,8 @@ class MultiRoomPanelTests(unittest.TestCase):
 
     def test_both_rooms_visible_with_correct_isolated_song_data(self):
         self.assertEqual(self.panel.room_table.rowCount(), 2)
-        self.assertEqual(self.panel.room_table.item(0, 4).text(), "First song")
-        self.assertEqual(self.panel.room_table.item(1, 4).text(), "Second song")
+        self.assertEqual(self.panel.room_table.item(0, 3).text(), "First song")
+        self.assertEqual(self.panel.room_table.item(1, 3).text(), "Second song")
         self.panel.room_table.selectRow(1)
         self.assertEqual(self.panel.selected_room(), "222-2")
         self.assertIn("Later B", self.panel.queue_list.item(0).text())
@@ -48,11 +48,11 @@ class MultiRoomPanelTests(unittest.TestCase):
         self.assertIn("/two/", self.panel.stream_url_input.text())
 
     def test_room_specific_logs_and_selection(self):
-        self.panel.add_log("111-1", "Primary station ready")
+        self.panel.add_log("111-1", "First room station ready")
         self.panel.add_log("222-2", "Secondary FFmpeg running")
         self.panel.room_table.selectRow(1)
         self.assertIn("Secondary FFmpeg", self.panel.log_view.toPlainText())
-        self.assertNotIn("Primary station ready", self.panel.log_view.toPlainText())
+        self.assertNotIn("First room station ready", self.panel.log_view.toPlainText())
 
     def test_add_reload_skip_stop_and_remove_emit_selected_room(self):
         requests = []
@@ -79,10 +79,30 @@ class MultiRoomPanelTests(unittest.TestCase):
             ("stop", "222-2"), ("remove", "222-2"),
         ])
 
-    def test_primary_cannot_be_removed(self):
+    def test_no_primary_room_and_both_can_be_removed(self):
         self.panel.room_table.selectRow(0)
-        self.assertFalse(self.panel.remove_button.isEnabled())
+        self.assertTrue(self.panel.remove_button.isEnabled())
         self.assertTrue(self.panel.reload_button.isEnabled())
+        self.panel.room_table.selectRow(1)
+        self.assertTrue(self.panel.remove_button.isEnabled())
+
+    def test_each_row_has_its_own_connect_disconnect_button(self):
+        self.panel.set_rooms([
+            {"room_id": "111-1", "connected": False, "status": "Offline"},
+            {"room_id": "222-2", "connected": True, "status": "Connected"},
+        ])
+        events = []
+        self.panel.connect_requested.connect(
+            lambda room_id: events.append(("connect", room_id))
+        )
+        self.panel.disconnect_requested.connect(
+            lambda room_id: events.append(("disconnect", room_id))
+        )
+        self.panel.room_table.cellWidget(0, 4).click()
+        self.panel.room_table.cellWidget(1, 4).click()
+        self.assertEqual(events, [
+            ("connect", "111-1"), ("disconnect", "222-2"),
+        ])
 
 
 if __name__ == "__main__":
