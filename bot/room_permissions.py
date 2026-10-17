@@ -5,11 +5,33 @@ chat claim. No unverified username may bootstrap moderator permissions.
 """
 from config.settings import load_settings, save_settings
 
+# Safety: lock management and moderator recovery must always remain available
+# to authenticated room moderators. Regular users cannot invoke these.
+UNLOCKABLE = frozenset({"lock", "unlock", "locks", "addmod", "removemod", "mods"})
+ALIASES = {
+    "p": "play", "q": "queue", "np": "nowplaying",
+    "s": "skip", "pa": "pause", "r": "resume", "rm": "remove",
+    "lang": "language", "dropstatus": "drops",
+    "pets": "collection", "cats": "collection", "dogs": "collection",
+    "h": "help", "j": "joke", "tr": "truth", "d": "dare",
+    "tt": "ttt", "m": "move", "g": "guess", "a": "quizanswer",
+    "c4": "five", "fiveaccept": "join", "fiveboard": "board",
+    "fivemove": "drop", "fiveend": "end4",
+}
+
+def canonical_command(command):
+    key = str(command or "").strip().lstrip("!").casefold()
+    seen = set()
+    while key in ALIASES and key not in seen:
+        seen.add(key)
+        key = ALIASES[key]
+    return key
+
 DEFAULT_WELCOME = "👋 Welcome to {room}, {user}! Enjoy the music and games!"
 RESTRICTED = frozenset({
     "skip", "s", "stop", "clear", "remove", "rm", "pause", "pa",
     "resume", "r", "dj", "autoplay", "language", "lang",
-    "petdrop", "addmod", "removemod", "mods",
+    "petdrop", "addmod", "removemod", "mods", "lock", "unlock", "locks",
     "welcome", "welcometest",
 })
 
@@ -28,6 +50,8 @@ class RoomPermissions:
                      for v in state.get("mods", []) if _username(v)}
         self.welcome = str(state.get("welcome", DEFAULT_WELCOME))[:240]
         self.welcome_enabled = bool(state.get("welcome_enabled", True))
+        self.locked_commands = {canonical_command(x) for x in state.get("locked_commands", [])}
+        self.locked_commands.difference_update(UNLOCKABLE)
 
     def save(self):
         settings = load_settings()
@@ -37,6 +61,7 @@ class RoomPermissions:
             "mods": list(self.mods.values()),
             "welcome": self.welcome,
             "welcome_enabled": self.welcome_enabled,
+            "locked_commands": sorted(self.locked_commands),
         }
         save_settings(settings)
 
@@ -91,5 +116,31 @@ class RoomPermissions:
             "{room}", self.room_id
         )
 
+    def lock_command(self, command, valid_commands):
+        name = canonical_command(command)
+        if name not in {canonical_command(x) for x in valid_commands}:
+            raise ValueError("Unknown CrowBot command. Use !help to see valid commands.")
+        if name in UNLOCKABLE:
+            raise ValueError("Moderator management and unlock commands cannot be locked.")
+        self.locked_commands.add(name)
+        self.save()
+        return name
+
+    def unlock_command(self, command, valid_commands):
+        name = canonical_command(command)
+        if name not in {canonical_command(x) for x in valid_commands}:
+            raise ValueError("Unknown CrowBot command.")
+        self.locked_commands.discard(name)
+        self.save()
+        return name
+
+    def is_locked(self, command):
+        return canonical_command(command) in self.locked_commands
+
     def may_run(self, command, username):
-        return command.casefold() not in RESTRICTED or self.is_mod(username)
+        name = canonical_command(command)
+        if self.is_mod(username):
+            return True
+        if name in self.locked_commands:
+            return False
+        return command.casefold() not in RESTRICTED
