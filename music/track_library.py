@@ -6,6 +6,7 @@ overwrite another room's active media. Only room copies are removed on room
 disconnect; master entries are reused until pruned by bounded cache limits.
 """
 import os
+import json
 import re
 import shutil
 import threading
@@ -54,6 +55,12 @@ class RoomTrackLibrary:
             directory.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._video_locks = {}
+        self.index_path = self.master / "song_index.json"
+        try:
+            value = json.loads(self.index_path.read_text(encoding="utf-8"))
+            self._query_index = value if isinstance(value, dict) else {}
+        except (OSError, ValueError):
+            self._query_index = {}
 
     def master_path(self, video_id):
         return self.master / (_safe_token(video_id, "video ID") + ".mp3")
@@ -62,6 +69,51 @@ class RoomTrackLibrary:
         return self.rooms / _safe_token(room_id, "room ID") / _safe_token(
             session_key, "room session"
         )
+
+    @staticmethod
+    def _query_key(query):
+        return " ".join(str(query or "").casefold().split())[:250]
+
+    def find_query(self, query):
+        """Look for previously downloaded and indexed songs before YouTube."""
+        key = self._query_key(query)
+        with self._lock:
+            candidate = self._query_index.get(key)
+            if not isinstance(candidate, dict):
+                return None
+            try:
+                if is_valid_mp3(self.master_path(candidate.get("id"))):
+                    return dict(candidate)
+            except ValueError:
+                pass
+            return None
+
+    def index_query(self, query, candidate):
+        key = self._query_key(query)
+        video_id = str(candidate.get("id") or "")
+        if not key or not video_id or not is_valid_mp3(self.master_path(video_id)):
+            return
+        record = {
+            field: candidate.get(field) for field in
+            ("id", "title", "channel", "duration", "youtube_url",
+             "artist", "language")
+        }
+        with self._lock:
+            self._query_index[key] = record
+            # Keep index bounded; a source file is always independently checked.
+            if len(self._query_index) > 5000:
+                self._query_index = dict(list(self._query_index.items())[-4000:])
+            tmp = self.index_path.with_name(
+                self.index_path.name + "." + uuid.uuid4().hex + ".tmp"
+            )
+            try:
+                tmp.write_text(
+                    json.dumps(self._query_index, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                os.replace(tmp, self.index_path)
+            finally:
+                tmp.unlink(missing_ok=True)
 
     def _video_lock(self, video_id):
         with self._lock:
