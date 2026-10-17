@@ -220,6 +220,7 @@ class CommandHandler(QObject):
             "unlock": self.unlock_command,
             "locks": self.list_locked_commands,
             "mods": self.list_mods,
+            "whoami": self.whoami,
             "addmod": self.add_mod,
             "removemod": self.remove_mod,
             "welcome": self.configure_welcome,
@@ -2266,6 +2267,23 @@ class CommandHandler(QObject):
                 if permissions.remove_mod(target)
                 else "That user is not an appointed admin.")
 
+    def whoami(self, arguments, username):
+        """Show the distinction between decorated chat name and account handle."""
+        display = str(getattr(self, "actor_display_name", username) or username)
+        account = str(getattr(self, "actor_account_username", "") or "")
+        if not account:
+            return (
+                "👤 Chat name: " + display +
+                "\nIMVU account username: not exposed by chat profile markup. "
+                "Admin commands remain protected until the account can be verified."
+            )
+        permissions = getattr(self, "room_permissions", None)
+        role = ("owner" if permissions and permissions.is_owner(account)
+                else "admin" if permissions and permissions.is_mod(account)
+                else "member")
+        return ("👤 Chat name: " + display +
+                "\nIMVU username: @" + account + " | Role: " + role)
+
     def list_mods(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.owner:
@@ -2478,7 +2496,7 @@ class CommandHandler(QObject):
             "system": (
                 "⚙️ SYSTEM / ROOM ADMINISTRATION\n"
                 f"{p}h — all command categories\n"
-                f"{p}mods — room owner and admins\n"
+                f"{p}mods — room owner and admins\n"                f"{p}whoami — show IMVU account username and role\n"
                 f"{p}addmod <user> — owner adds admin\n"
                 f"{p}removemod <user> — owner removes admin\n"
                 f"{p}lock <command> — admin locks public command\n"
