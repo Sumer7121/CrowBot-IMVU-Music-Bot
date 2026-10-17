@@ -130,10 +130,13 @@ class DJFetchWorker(QThread):
     prepared = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, artist, language, seen_ids, current_title, round_index):
+    def __init__(self, artist, language, seen_ids, current_title, round_index,
+                 room_id="legacy", session_key="legacy"):
         super().__init__()
         self.artist = artist
         self.language = language
+        self.room_id = room_id
+        self.session_key = session_key
         self.seen_ids = set(seen_ids)
         self.current_title = current_title
         self.round_index = round_index
@@ -176,6 +179,8 @@ class DJFetchWorker(QThread):
                         "CrowBot AutoDJ",
                         "CrowBot DJ",
                         cancel_check=self.isInterruptionRequested,
+                        room_id=self.room_id,
+                        session_key=self.session_key,
                     )
                 except Exception as error:
                     failures.append(str(error))
@@ -200,9 +205,11 @@ class DJFetchWorker(QThread):
 class AutoDJ(QObject):
     status_changed = Signal(str)
 
-    def __init__(self, music_controller):
+    def __init__(self, music_controller, room_id="legacy", session_key="legacy"):
         super().__init__()
         self.music_controller = music_controller
+        self.room_id = room_id
+        self.session_key = session_key
         self.artist = ""
         self.language = ""
         self.match_current_language = False
@@ -342,7 +349,7 @@ class AutoDJ(QObject):
         )
         worker = DJFetchWorker(
             self.artist, effective_language, tuple(self._seen),
-            title, self._round
+            title, self._round, self.room_id, self.session_key
         )
         generation = self._generation
         self._worker = worker
