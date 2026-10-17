@@ -25,78 +25,42 @@ Your saved room IDs appear when CrowBot is restarted, **offline until you click
 CONNECT**. Remove one using **REMOVE SELECTED**. All rooms use one application,
 one dedicated Chrome profile, and their own room tabs.
 
-## Per-room owner, moderators and customized automatic welcomes
+## Room admins: app-only assignment, bot-chat configuration
 
-Use the **SET ROOM OWNER** control under the selected room in CrowBot's
-local dashboard. Enter the actual IMVU room-owner username after verifying
-it in IMVU. **Do not** assume that a chat message claiming to be an owner
-is trustworthy. The bot cannot automatically verify the IMVU ownership
-metadata in the current browser integration; this trusted dashboard action
-is the bootstrap step.
+The **only permission setup in the desktop app** is for selecting a room,
+setting its verified IMVU room owner, and **ADD ADMIN / REMOVE ADMIN**. Enter
+the exact IMVU username; granting admin status from IMVU chat is disabled.
+CrowBot cannot independently verify the room's owner from existing chat data;
+the operator must verify ownership before entering it in the desktop app.
 
-The configured owner automatically has the same protected-command
-permissions as every moderator they appoint. There is **no lower or higher
-moderator tier**. Each room's owner/mod list is persisted independently.
-
-### Moderator-controlled command locks
-
-The room owner and **every appointed moderator** can independently lock or
-unlock commands for ordinary room participants. Locks are saved in CrowBot
-settings for that room only; they survive reconnects and restarts.
+The owner and all appointed admins have the **same command permissions**.
+Their permissions and room's settings persist across restarts. They can
+configure the room from IMVU chat, including:
 
 ```text
-!lock play       Stop regular members from requesting songs (!p too)
-!lock quiz       Lock the quiz game
-!lock catch      Prevent regular members catching wild pet drops
-!unlock play     Let regular members request songs again
-!locks           List the commands currently locked in this room
+!welcome Welcome {user} to {room}!   Set this room's automatic greeting
+!welcome off                        Disable welcome messages
+!welcome on                         Enable welcome messages
+!welcometest                        Preview the greeting
+!lock play                          Lock song requests (!play and !p)
+!unlock play                        Reopen song requests
+!locks                              List room-specific command locks
+!mods                               Show owner/admins
+!dj Arijit Singh                    Artist DJ
+!language Hindi                     DJ language
+!petdrop                            Manually trigger a pet drop
 ```
 
-Locks apply to command aliases (for example `!lock play` also locks
-`!p`), and do **not** restrict the owner or moderators. These commands
-cannot themselves be locked: `!lock`, `!unlock`, `!locks`,
-`!addmod`, `!removemod`, and `!mods`. This prevents accidental
-loss of moderation access. Unknown commands cannot be locked.
+Ordinary users can use public commands unless an admin locks them. Room
+admins still have access to locked commands, and the essential recovery
+commands `!lock`, `!unlock`, `!locks`, `!mods` cannot be locked.
+`!addmod` and `!removemod` are no longer IMVU chat commands: appoint
+and revoke admins **from the desktop app only**.
 
-Protected chat commands:
-
-```text
-!addmod <username>        Owner or mod adds a new moderator
-!removemod <username>     Owner or mod removes a moderator
-!mods                    List the owner and moderators
-!welcome <text>          Change the automatic welcome for this room
-!welcome off             Disable greetings
-!welcome on              Enable greetings
-!welcometest             Preview greeting text
-!dj <artist>             Control Artist DJ
-!autoplay on|off         Control automatic music
-!language <name>         Choose music language
-!skip / !stop / !pause / !resume / !clear
-!petdrop                 Manually trigger a wild cat/dog
-```
-
-Non-moderators can continue using public `!play`, `!q`, `!np`,
-`!catch`, `!pets`, chat games and information commands. Moderator powers
-do not grant access to CrowBot's local settings or other rooms.
-
-Custom welcome messages can also be saved in the selected room's dashboard
-using **SAVE AUTO WELCOME**. The template can include `{user}` and
-`{room}`, for example:
-
-```text
-👋 Welcome {user} to room {room}! Enjoy the music and games!
-```
-
-**Join detection limitation:** Current IMVU chat monitoring detects user
-chat messages, not reliable silent member-entry events. CrowBot greets a
-participant **the first time they speak after the bot connects to that
-room**. It does not claim to welcome silent entrants immediately.
-
-**Automatic drops never depend on chat quietness or music activity.** Every
-joined room has its own independent QTimer and receives a cat/dog drop even
-while songs, games and conversations are active. Only an existing 90-second
-unclaimed drop prevents a simultaneous second wild pet. Room chat-monitor
-disconnect stops its timer.
+Automatic pet drops keep running even if the room is busy. Welcome messages
+are triggered on the **first observed chat message** from a participant
+after CrowBot connects; current IMVU integration cannot detect every silent
+room entry, so it does not send an immediate greeting on a silent join.
 
 ## Automatic cat/dog drops and Now Playing announcements
 
