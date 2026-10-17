@@ -14,6 +14,7 @@ from config.settings import load_settings, save_settings
 
 class MultiRoomHub(QObject):
     radio_event = Signal(str, str)
+    radio_finished_event = Signal(str, int, str, int)
     # Cloudflare emits from Python validator/reader threads. Its callbacks
     # must be marshalled onto the Qt GUI thread before creating QThreads.
     tunnel_ready_event = Signal(str, int, str)
@@ -41,6 +42,7 @@ class MultiRoomHub(QObject):
         self.retired_djs = []
         self._epoch = {}
         self.radio_event.connect(self._on_radio_event, Qt.ConnectionType.AutoConnection)
+        self.radio_finished_event.connect(self._radio_track_finished, Qt.ConnectionType.AutoConnection)
         self.tunnel_ready_event.connect(self._tunnel_ready, Qt.ConnectionType.AutoConnection)
         self.tunnel_error_event.connect(self._tunnel_error, Qt.ConnectionType.AutoConnection)
         self.tunnel_status_event.connect(self._tunnel_status, Qt.ConnectionType.AutoConnection)
@@ -149,6 +151,10 @@ class MultiRoomHub(QObject):
         self.states[room_id] = "Opening tab"
         session.radio_server.event_callback = (
             lambda msg, rid=room_id: self.radio_event.emit(rid, msg)
+        )
+        session.radio_server.track_finished_callback = (
+            lambda source, generation, rid=room_id, e=epoch:
+            self.radio_finished_event.emit(rid, e, source, generation)
         )
         session.music_controller.now_playing_changed.connect(
             lambda song, rid=room_id, e=epoch: self._song_changed(rid, e, song)
@@ -385,6 +391,15 @@ class MultiRoomHub(QObject):
                     f"{mode}: {song.get('id', 'unknown')} | "
                     f"room copy: {str(song.get('temporary_file', '')).rsplit('/', 1)[-1].rsplit(chr(92), 1)[-1]}"
                 )
+            self.refresh_ui()
+
+    @Slot(str, int, str, int)
+    def _radio_track_finished(self, room_id, epoch, url, generation):
+        if not self._current(room_id, epoch):
+            return
+        session = self.sessions[room_id]
+        if session.music_controller.on_radio_track_finished(url, generation):
+            self._log(room_id, "AutoDJ: Public song ended; next room track requested.")
             self.refresh_ui()
 
     def _on_radio_event(self, room_id, message):
