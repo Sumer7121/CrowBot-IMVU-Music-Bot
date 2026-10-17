@@ -419,15 +419,22 @@ class YouTubeOwnedProvider:
     # =========================================================
 
     def search(self, query, requested_by=None, room_id="legacy", session_key="legacy",
-               cancel_check=None):
+               cancel_check=None, progress_callback=None):
         """Resolve a cached request first; otherwise rank safe YouTube candidates."""
+        if progress_callback:
+            progress_callback("Checking master song library...")
         cached = self.library.find_query(query)
         if cached:
             print(f"RESOLVER: MASTER INDEX HIT: {query}")
-            return self._prepare_track(
+            if progress_callback:
+                progress_callback("Master cache hit — copying song into this room...")
+            track = self._prepare_track(
                 cached, query, requested_by, room_id=room_id,
                 session_key=session_key, cancel_check=cancel_check
             )
+            if progress_callback:
+                progress_callback("Cached song verified and ready for room playback.")
+            return track
         song, artist = query_parts(query)
         searches = [f"{artist} {song} official audio" if artist else f"{song} official audio"]
         searches.append(query)
@@ -439,6 +446,8 @@ class YouTubeOwnedProvider:
             if search_text.casefold() in attempted:
                 continue
             attempted.add(search_text.casefold())
+            if progress_callback:
+                progress_callback("Searching YouTube: " + search_text[:70])
             try:
                 candidates = ranked_candidates(
                     self.search_candidates(
@@ -463,11 +472,17 @@ class YouTubeOwnedProvider:
                     print(f"YTDLP: Skipping non-song: {metadata.get('title')}")
                     continue
                 try:
+                    if progress_callback:
+                        progress_callback(
+                            "Preparing MP3: " + str(metadata.get("title", "Track"))[:70]
+                        )
                     track = self._prepare_track(
                         metadata, query, requested_by, room_id=room_id,
                         session_key=session_key, cancel_check=cancel_check
                     )
                     self.library.index_query(query, metadata)
+                    if progress_callback:
+                        progress_callback("Song verified and ready for room playback.")
                     return track
                 except Exception as error:
                     last_error = error
