@@ -25,6 +25,53 @@ Your saved room IDs appear when CrowBot is restarted, **offline until you click
 CONNECT**. Remove one using **REMOVE SELECTED**. All rooms use one application,
 one dedicated Chrome profile, and their own room tabs.
 
+## Artist DJ, autoplay and music language
+
+Select a connected room in the table. All these actions affect **only that
+room**; other rooms keep their songs, queues and DJ settings.
+
+- In **DJ ARTIST**, enter e.g. `Arijit Singh` and choose **START ARTIST DJ**.
+  CrowBot discovers additional songs by that artist from available YouTube
+  search results, downloads/prepares the next supported track in the
+  background and keeps one song ready ahead of time.
+- Choose **AUTOPLAY ON** for continuous YouTube song discovery (even with
+  nothing manually added to the queue). A currently playing song becomes a
+  recommendation seed when possible. **AUTOPLAY OFF** stops future DJ
+  discoveries; your current song continues.
+- Select a **DJ MUSIC LANGUAGE** and choose **SET LANGUAGE**. Hindi, Telugu,
+  Tamil, Malayalam, English, Punjabi, Spanish, and several other languages
+  are supported. The selection guides **upcoming automatic songs**.
+- **Match Current** attempts to infer the next song's language from the
+  current song's YouTube language metadata, title or distinctive script.
+  When no reliable language can be inferred, discovery falls back to a
+  broader search. Music tagging is imperfect, so choose a language
+  explicitly if you require a stricter playlist.
+- **DJ OFF** disables artist radio and autoplay for the selected room.
+- Requested songs take priority over automatic selections; stale
+  AutoDJ-prefetched tracks are removed when changing modes or language.
+- **STOP MUSIC** stops the current song and disables autoplay in that room.
+
+IMVU chat supports the same controls:
+
+```
+!dj Arijit Singh
+!dj off
+!autoplay on
+!autoplay off
+!language Hindi
+!language Telugu
+!language match
+!language off
+!djstatus
+```
+
+**Limits:** "Artist DJ" searches the YouTube catalog; it cannot guarantee an
+artist's entire discography. Songs unavailable to the resolver, deleted,
+restricted or mismatched to the requested artist/language may be skipped.
+AutoDJ does not bypass YouTube availability or access restrictions. YouTube
+music-language labels are not guaranteed to reflect the actual sung language.
+The bot and its local media server must remain running for autoplay to work.
+
 ## Troubleshooting a room with no audio
 
 - The public URL is unique per connected room; never paste the same URL into
