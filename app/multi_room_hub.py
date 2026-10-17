@@ -393,6 +393,12 @@ class MultiRoomHub(QObject):
             return
         self._next_epoch(room_id)
         self._log(room_id, "Disconnecting only this room...")
+        # Clear pending chat messages for this room, not the other rooms.
+        target = make_room_url(room_id).rstrip("/")
+        self.window._outgoing_chat_queue = [
+            (url, message) for url, message in self.window._outgoing_chat_queue
+            if str(url or "").rstrip("/") != target
+        ]
         self._retire(room_id, self.chat_workers, timeout=2500)
         self._retire(room_id, self.open_workers, timeout=500)
         self._retire(room_id, self.radio_workers, timeout=500)
