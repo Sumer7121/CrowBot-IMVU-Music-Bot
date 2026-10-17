@@ -102,6 +102,46 @@ class MasterRoomMusicTests(unittest.TestCase):
             )
         self.assertFalse(self.library.master_path("cancelledSong").exists())
 
+    def test_provider_prepares_two_isolated_tracks_from_one_master(self):
+        from music.youtube_owned import YouTubeOwnedProvider
+        from urllib.request import Request, urlopen
+
+        with patch("music.youtube_owned.TEMP_DIR", self.root):
+            provider = YouTubeOwnedProvider()
+            provider.library = self.library
+            try:
+                def download(workspace, token):
+                    return write_dummy_mp3(workspace / (token + ".mp3"))
+                master, hit = self.library.get_or_download("dualTrack01", download)
+                self.assertFalse(hit)
+                candidate = {
+                    "id": "dualTrack01",
+                    "title": "Two Room Song",
+                    "channel": "Test Artist",
+                    "duration": 180,
+                    "youtube_url": "https://youtube.com/watch?v=dualTrack01",
+                }
+                with patch.object(provider, "_download_mp3", return_value=master):
+                    a = provider._prepare_track(
+                        candidate, "Two Room Song", "Alice",
+                        room_id="111-1", session_key="sessionAA"
+                    )
+                    b = provider._prepare_track(
+                        candidate, "Two Room Song", "Bob",
+                        room_id="222-2", session_key="sessionBB"
+                    )
+                self.assertNotEqual(a["url"], b["url"])
+                self.assertNotEqual(a["temporary_file"], b["temporary_file"])
+                self.assertTrue(Path(a["temporary_file"]).is_file())
+                self.assertTrue(Path(b["temporary_file"]).is_file())
+                provider.cleanup_room_files("111-1", "sessionAA")
+                self.assertFalse(Path(a["temporary_file"]).exists())
+                with urlopen(Request(b["url"], method="HEAD"), timeout=4) as response:
+                    self.assertEqual(response.status, 200)
+                self.assertTrue(master.exists())
+            finally:
+                provider.cleanup()
+
     def test_http_preflight_serves_full_room_relative_path(self):
         from music.youtube_owned import YouTubeOwnedProvider
         with patch("music.youtube_owned.TEMP_DIR", self.root):
