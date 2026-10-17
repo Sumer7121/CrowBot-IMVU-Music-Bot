@@ -216,6 +216,9 @@ class CommandHandler(QObject):
             "top": self.game_scores,
             "catch": self.catch_collectible,
             "petdrop": self.pet_drop_manual,
+            "lock": self.lock_command,
+            "unlock": self.unlock_command,
+            "locks": self.list_locked_commands,
             "addmod": self.add_mod,
             "removemod": self.remove_mod,
             "mods": self.list_mods,
@@ -2199,6 +2202,38 @@ class CommandHandler(QObject):
 
     def meme(self, arguments, username):
         return self.social.meme()
+
+    def lock_command(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Only this room's owner or moderators can lock commands."
+        if not arguments:
+            return f"Usage: {self.prefix}lock <command>"
+        try:
+            name = permissions.lock_command(arguments[0], self.commands)
+        except ValueError as error:
+            return str(error)
+        return f"🔒 !{name} is now locked for regular users in this room."
+
+    def unlock_command(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Only this room's owner or moderators can unlock commands."
+        if not arguments:
+            return f"Usage: {self.prefix}unlock <command>"
+        try:
+            name = permissions.unlock_command(arguments[0], self.commands)
+        except ValueError as error:
+            return str(error)
+        return f"🔓 !{name} is now available to regular users in this room."
+
+    def list_locked_commands(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None:
+            return "Room permissions are unavailable."
+        locked = sorted(permissions.locked_commands)
+        return ("🔒 Locked commands: " + ", ".join("!" + v for v in locked)
+                if locked else "🔓 No additional commands are locked.")
 
     def add_mod(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
