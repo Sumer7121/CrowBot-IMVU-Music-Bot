@@ -1,6 +1,8 @@
 """Unit tests for per-room artist DJ, autoplay discovery, and language mode."""
 import os
 import unittest
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -178,6 +180,44 @@ class AutoDJControllerTests(unittest.TestCase):
                 self.assertEqual(other._detected_language, "")
             finally:
                 other.shutdown()
+
+    def test_worker_prepared_from_background_thread_updates_room_on_qt_thread(self):
+        ui_thread = threading.get_ident()
+        observed_threads = []
+        original_add = self.music.add_song
+
+        def recording_add(song):
+            observed_threads.append(threading.get_ident())
+            return original_add(song)
+
+        self.music.add_song = recording_add
+        with patch("music.auto_dj.DJFetchWorker"):
+            self.dj.set_ready(True)
+            self.dj.set_autoplay(True)
+            generation = self.dj._generation
+            track = {
+                "id": "video-thread-1", "title": "Thread-Safe DJ Song",
+                "url": "http://localhost/song.mp3",
+            }
+            bg = threading.Thread(
+                target=lambda: self.dj.prepared_event.emit(generation, track)
+            )
+            bg.start()
+            bg.join(timeout=2)
+            deadline = time.monotonic() + 2
+            while not observed_threads and time.monotonic() < deadline:
+                self.app.processEvents()
+                time.sleep(0.01)
+            self.assertEqual(observed_threads, [ui_thread])
+            self.assertEqual(self.music.songs[0]["title"], "Thread-Safe DJ Song")
+
+    def test_search_error_is_exposed_in_dj_status(self):
+        with patch("music.auto_dj.DJFetchWorker"):
+            self.dj.set_ready(True)
+            self.dj.set_autoplay(True)
+            self.dj._on_failed(self.dj._generation, "yt-dlp search timed out")
+            self.assertIn("yt-dlp search timed out", self.dj.last_error)
+            self.assertTrue(self.dj._retry_at > time.monotonic())
 
     def test_off_invalidates_pending_song(self):
         with patch("music.auto_dj.DJFetchWorker"):
