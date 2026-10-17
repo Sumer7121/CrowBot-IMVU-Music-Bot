@@ -2305,8 +2305,10 @@ class CommandHandler(QObject):
         account = str(getattr(self, "actor_account_username", "") or "")
         user_id = str(getattr(self, "actor_user_id", "") or "")
         permissions = getattr(self, "room_permissions", None)
-        role = ("owner" if permissions and permissions.is_owner(account)
-                else "admin" if permissions and permissions.is_mod(account)
+        resolved = (permissions.resolve_account(account, user_id)
+                    if permissions else "")
+        role = ("owner" if permissions and permissions.is_owner(resolved)
+                else "admin" if permissions and permissions.is_mod(resolved)
                 else "member")
         if account:
             return ("👤 Chat name: " + display +
@@ -2315,7 +2317,7 @@ class CommandHandler(QObject):
             return (
                 "👤 Chat name: " + display +
                 "\nAccount username hidden by IMVU; chat account ID detected. " +
-                "Role: " + role + "\nOwner: use !linkowner; "
+                "Role: " + role + "\nOwner: use !linkowner if not linked; "
                 "appointed admin: use !linkmod <username>."
             )
         return (
