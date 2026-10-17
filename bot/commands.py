@@ -216,6 +216,11 @@ class CommandHandler(QObject):
             "top": self.game_scores,
             "catch": self.catch_collectible,
             "petdrop": self.pet_drop_manual,
+            "addmod": self.add_mod,
+            "removemod": self.remove_mod,
+            "mods": self.list_mods,
+            "welcome": self.configure_welcome,
+            "welcometest": self.preview_welcome,
             "drops": self.drop_status,
             "dropstatus": self.drop_status,
             "collection": self.show_collection,
@@ -2194,6 +2199,63 @@ class CommandHandler(QObject):
 
     def meme(self, arguments, username):
         return self.social.meme()
+
+    def add_mod(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Only this room's owner or moderator can add moderators."
+        target = " ".join(arguments).strip()
+        if not target:
+            return f"Usage: {self.prefix}addmod <username>"
+        try:
+            permissions.add_mod(target)
+        except ValueError as error:
+            return str(error)
+        return f"✅ @{target.lstrip('@')} is now a room moderator."
+
+    def remove_mod(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Only this room's owner or moderator can remove moderators."
+        target = " ".join(arguments).strip()
+        if not target:
+            return f"Usage: {self.prefix}removemod <username>"
+        if target.lstrip("@").casefold() == permissions.owner.casefold():
+            return "🔒 The room owner cannot be removed from moderators."
+        return (f"✅ Removed @{target.lstrip('@')} from room moderators."
+                if permissions.remove_mod(target)
+                else "That user is not a moderator.")
+
+    def list_mods(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner:
+            return "🔒 Set the verified room owner from the local CrowBot dashboard."
+        return ("👑 Owner: " + permissions.owner +
+                "\n🛡️ Mods: " + (", ".join(permissions.mods.values()) or "None"))
+
+    def configure_welcome(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Only the room owner or appointed moderators may change welcomes."
+        message = " ".join(arguments).strip()
+        if not message:
+            return ("👋 Current welcome: " + permissions.welcome +
+                    f"\nUse {self.prefix}welcome <text> with {{user}} or {{room}}.")
+        if message.casefold() in ("on", "off"):
+            permissions.welcome_enabled = message.casefold() == "on"
+            permissions.save()
+            return "👋 Automatic welcome " + message.upper()
+        try:
+            permissions.set_welcome(message)
+        except ValueError as error:
+            return str(error)
+        return "✅ Room welcome updated: " + permissions.welcome
+
+    def preview_welcome(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Room moderators only."
+        return permissions.welcome_message(username) or "Welcome is disabled."
 
     def pet_drop_manual(self, arguments, username):
         """Rate-limited manual drop for hosts/players to test the pet game.
