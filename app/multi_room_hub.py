@@ -4,6 +4,8 @@ There is deliberately no primary room. Rooms are connected/disconnected
 individually, while all Playwright workers share one dedicated Chrome profile.
 """
 import socket
+import random
+import time
 
 from PySide6.QtCore import QObject, Signal, Slot, Qt, QThread, QTimer
 
@@ -38,6 +40,8 @@ class MultiRoomHub(QObject):
         self.open_workers = {}
         self.chat_workers = {}
         self.radio_workers = {}
+        self.drop_timers = {}
+        self._announced_tracks = {}
         self.retired_workers = []
         self.retired_djs = []
         self._epoch = {}
@@ -233,6 +237,7 @@ class MultiRoomHub(QObject):
         self._worker_finished(self.chat_workers, room_id, worker)
         if self._current(room_id, epoch) and self.states.get(room_id) != "Error":
             self.states[room_id] = "Chat disconnected"
+            self._stop_room_drops(room_id)
             self._log(room_id, "Chat listener ended. Disconnect and reconnect this room.")
             self.refresh_ui()
 
@@ -242,11 +247,82 @@ class MultiRoomHub(QObject):
         session = self.sessions[room_id]
         self.states[room_id] = "Starting private station"
         self._log(room_id, f"JOIN confirmed. Starting radio {session.radio_port} and own tunnel.")
+        self._start_room_drops(room_id, epoch)
         try:
             session.start_radio()
         except Exception as error:
             self._fail(room_id, epoch, "RADIO: " + str(error))
         self.refresh_ui()
+
+    def _send_room_announcement(self, room_id, epoch, message):
+        """All automatic chat responses require an explicit IMVU room URL."""
+        if not self._current(room_id, epoch):
+            return
+        clean = " ".join(str(message or "").split())
+        if not clean:
+            return
+        try:
+            self.window.send_bot_response_to_imvu(
+                clean[:300], room_url=make_room_url(room_id)
+            )
+        except Exception as error:
+            self._log(room_id, "IMVU announcement queue failed: " + str(error))
+
+    def _start_room_drops(self, room_id, epoch):
+        """Create a separate automatic cat/dog-drop timer for every joined room."""
+        if not self._current(room_id, epoch):
+            return
+        self._stop_room_drops(room_id)
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(
+            lambda rid=room_id, e=epoch: self._spawn_room_drop(rid, e)
+        )
+        self.drop_timers[room_id] = timer
+        self._schedule_room_drop(room_id, epoch, initial=True)
+        self._log(room_id, "Automatic cat/dog drops enabled. Use !drops or !petdrop.")
+
+    def _schedule_room_drop(self, room_id, epoch, initial=False):
+        if not self._current(room_id, epoch):
+            return
+        timer = self.drop_timers.get(room_id)
+        if timer is None:
+            return
+        # First drop is fairly quick; follow-up drops are spaced to avoid
+        # interrupting IMVU chat and music every minute.
+        milliseconds = random.randint(60_000, 90_000) if initial else random.randint(
+            6 * 60_000, 10 * 60_000
+        )
+        self.sessions[room_id].command_handler.next_auto_drop_at = (
+            time.monotonic() + milliseconds / 1000.0
+        )
+        timer.start(milliseconds)
+
+    def _spawn_room_drop(self, room_id, epoch):
+        if not self._current(room_id, epoch):
+            return
+        session = self.sessions[room_id]
+        try:
+            session.command_handler.collectibles.expired()
+            message = session.command_handler.collectibles.spawn()
+            if message:
+                self._log(room_id, "PET DROP: " + " ".join(message.split()))
+                self._send_room_announcement(room_id, epoch, message)
+            else:
+                self._log(room_id, "Pet drop postponed: an existing wild pet is active.")
+        except Exception as error:
+            self._log(room_id, "PET DROP ERROR: " + str(error))
+        finally:
+            self._schedule_room_drop(room_id, epoch)
+
+    def _stop_room_drops(self, room_id):
+        timer = self.drop_timers.pop(room_id, None)
+        if timer is not None:
+            timer.stop()
+            timer.deleteLater()
+        session = self.sessions.get(room_id)
+        if session is not None:
+            session.command_handler.next_auto_drop_at = None
 
     @Slot(str, int, str)
     def _tunnel_error(self, room_id, epoch, message):
@@ -384,6 +460,26 @@ class MultiRoomHub(QObject):
     def _song_changed(self, room_id, epoch, song):
         if self._current(room_id, epoch):
             self._log(room_id, "Now playing: " + (song or {}).get("title", "Nothing"))
+            if not song:
+                self._announced_tracks.pop(room_id, None)
+            else:
+                session = self.sessions[room_id]
+                fingerprint = (
+                    id(song),
+                    str(song.get("url") or ""),
+                    getattr(session.music_controller, "_radio_generation", None),
+                )
+                if (session.stream_url
+                        and self._announced_tracks.get(room_id) != fingerprint):
+                    self._announced_tracks[room_id] = fingerprint
+                    title = " ".join(str(song.get("title") or "Unknown").split())[:150]
+                    if song.get("dj_auto"):
+                        artist = str(song.get("dj_artist") or "").strip()
+                        suffix = (" | Artist: " + artist[:65]) if artist else ""
+                        announcement = "🎧 DJ NOW PLAYING: " + title + suffix
+                    else:
+                        announcement = "🎵 NOW PLAYING: " + title
+                    self._send_room_announcement(room_id, epoch, announcement)
             if song and song.get("cache_master_file"):
                 mode = "MASTER CACHE HIT" if song.get("cache_hit") else "MASTER CACHE SAVED"
                 self._log(
@@ -544,6 +640,8 @@ class MultiRoomHub(QObject):
             self.refresh_ui()
             return
         self._next_epoch(room_id)
+        self._stop_room_drops(room_id)
+        self._announced_tracks.pop(room_id, None)
         self._log(room_id, "Disconnecting only this room...")
         # Clear pending chat messages for this room, not the other rooms.
         target = make_room_url(room_id).rstrip("/")
