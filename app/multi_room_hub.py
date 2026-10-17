@@ -588,6 +588,19 @@ class MultiRoomHub(QObject):
         )
         self.refresh_ui()
 
+    def set_owner_chat_name(self, room_id, username):
+        if room_id not in self.room_ids:
+            return
+        try:
+            policy = (self.sessions[room_id].permissions
+                      if room_id in self.sessions else RoomPermissions(room_id))
+            policy.set_owner_chat_name_from_dashboard(username)
+        except ValueError as error:
+            self._log(room_id, "OWNER CHAT NAME ERROR: " + str(error))
+            return
+        self._log(room_id, "Verified owner chat name approved in app: " + policy.owner_chat_name)
+        self.refresh_ui()
+
     def artist_dj(self, room_id, artist):
         session = self.sessions.get(room_id)
         if not session or not session.stream_url:
@@ -746,7 +759,8 @@ class MultiRoomHub(QObject):
                     status = self.states.get(room_id, "Connecting")
                 records.append({
                     "room_id": room_id, "status": status,
-                    "owner": policy.owner, "admins": list(policy.mods.values()),
+                    "owner": policy.owner, "owner_chat_name": policy.owner_chat_name,
+                    "admins": list(policy.mods.values()),
                     "connected": True, "port": session.radio_port,
                     "dj_mode": session.dj.label,
                     "dj_activity": session.dj.last_activity,
@@ -764,7 +778,8 @@ class MultiRoomHub(QObject):
             else:
                 records.append({
                     "room_id": room_id, "status": "Offline",
-                    "owner": policy.owner, "admins": list(policy.mods.values()),
+                    "owner": policy.owner, "owner_chat_name": policy.owner_chat_name,
+                    "admins": list(policy.mods.values()),
                     "connected": False,
                     "dj_mode": "DJ OFF", "dj_activity": "Offline",
                     "dj_error": "", "dj_language": "",
