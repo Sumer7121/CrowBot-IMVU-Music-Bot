@@ -20,6 +20,7 @@ from bot.collectibles import CollectibleDrops
 
 class MusicResolveWorker(QThread):
 
+    progress = Signal(str)
     resolved = Signal(str, str, object)
     failed = Signal(str, str, str)
 
@@ -54,6 +55,7 @@ class MusicResolveWorker(QThread):
                 self.query, requested_by=self.username,
                 room_id=self.room_id, session_key=self.session_key,
                 cancel_check=self.isInterruptionRequested,
+                progress_callback=self.progress.emit,
             )
             if self.isInterruptionRequested():
                 return
@@ -658,6 +660,7 @@ class CommandHandler(QObject):
 
         self.active_music_worker = worker
 
+        worker.progress.connect(self.music_preparation_progress)
         worker.resolved.connect(
             self.music_resolve_succeeded
         )
@@ -683,6 +686,13 @@ class CommandHandler(QObject):
         )
 
         worker.start()
+
+    @Slot(str)
+    def music_preparation_progress(self, message):
+        if not self._music_shutting_down:
+            self.music_controller.status_changed.emit(
+                "MUSIC PREPARATION: " + str(message)
+            )
 
     # =========================================================
     # BACKGROUND MUSIC SUCCESS
