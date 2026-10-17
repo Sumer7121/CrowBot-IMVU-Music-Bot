@@ -9,7 +9,7 @@ class PartyCommandTests(unittest.TestCase):
     def setUp(self):
         self.patches = [
             patch("bot.commands.MusicResolver"),
-            patch("bot.commands.YouTubeOwnedProvider"),
+            patch("bot.commands.get_shared_youtube_provider"),
             patch("bot.commands.CollectibleDrops"),
         ]
         for p in self.patches:
@@ -55,6 +55,37 @@ class PartyCommandTests(unittest.TestCase):
     def test_riddle_answer_via_ra(self):
         self.handler.party_games.riddle = {"question": "Test?", "answer": "clock"}
         self.assertIn("solved it", self.handler.handle("!ra clock", "Alice"))
+
+    def test_artist_autoplay_and_music_language_commands(self):
+        dj = MagicMock()
+        dj.label = "OFF · Any language"
+        dj.language = ""
+        dj.enabled = False
+        dj.set_artist.return_value = "ARTIST DJ: Arijit Singh · Hindi"
+        dj.set_autoplay.return_value = "YOUTUBE AUTOPLAY · Hindi"
+        dj.set_language.return_value = "OFF · Hindi"
+        self.handler.dj_controller = dj
+        self.assertIn(
+            "ARTIST DJ: Arijit Singh",
+            self.handler.handle("!dj Arijit Singh", "Alice"),
+        )
+        dj.set_artist.assert_called_once_with("Arijit Singh")
+        self.handler.handle("!language Hindi", "Alice")
+        dj.set_language.assert_called_once_with("Hindi")
+        self.handler.handle("!autoplay on", "Alice")
+        dj.set_autoplay.assert_called_with(True)
+        self.handler.handle("!autoplay off", "Alice")
+        dj.set_autoplay.assert_called_with(False)
+        self.handler.handle("!dj off", "Alice")
+        dj.off.assert_called_once()
+
+    def test_stop_disables_autoplay(self):
+        dj = MagicMock()
+        dj.enabled = True
+        self.handler.dj_controller = dj
+        self.handler.handle("!stop", "Alice")
+        dj.set_autoplay.assert_called_with(False)
+        self.handler.music_controller.stop.assert_called()
 
     def test_party_help_documents_new_commands(self):
         text = self.handler.handle("!h f", "Alice")
