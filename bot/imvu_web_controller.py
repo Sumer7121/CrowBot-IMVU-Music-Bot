@@ -520,11 +520,63 @@ class IMVUWebController:
 
                 }
 
+                // IMVU display names are arbitrary and can contain emoji,
+                // spaces and duplicate nicknames. They are NOT identities.
+                // Resolve the actual account handle from profile links
+                // or explicit machine-readable account-username attributes.
+                // Never grant role access based on the display name.
+                const validHandle = (value) => {
+                    const name = String(value || "").trim().replace(/^@/, "");
+                    return /^[a-zA-Z0-9_.-]{1,60}$/.test(name) ? name : "";
+                };
+                let accountUsername = "";
+                const nodes = [
+                    row, displayName,
+                    row.querySelector(".chat-row-profile"),
+                    row.querySelector(".chat-row-profile img"),
+                ].filter(Boolean);
+                for (const node of nodes) {
+                    for (const key of ["data-username", "data-user-name",
+                                       "data-account-username", "data-avatar-name"]) {
+                        const name = validHandle(node.getAttribute(key));
+                        if (name) {
+                            accountUsername = name;
+                            break;
+                        }
+                    }
+                    if (accountUsername) break;
+                }
+                if (!accountUsername) {
+                    for (const link of row.querySelectorAll("a[href]")) {
+                        try {
+                            const profile = new URL(link.getAttribute("href"), location.href);
+                            const host = profile.hostname.toLowerCase();
+                            if (host !== "imvu.com" &&
+                                host !== "www.imvu.com" &&
+                                host !== "avatars.imvu.com") continue;
+                            const match = profile.pathname.match(
+                                /^\\/(?:next\\/av\\/|profile\\/)?([^/?#]+)\\/?$/i
+                            );
+                            if (!match) continue;
+                            // For imvu.com accept a recognized profile route
+                            // only; don't interpret arbitrary web paths as users.
+                            if (host !== "avatars.imvu.com" &&
+                                !/^\\/(?:next\\/av\\/|profile\\/)/i.test(
+                                    profile.pathname
+                                )) continue;
+                            accountUsername = validHandle(decodeURIComponent(match[1]));
+                            if (accountUsername) break;
+                        } catch (_) {
+                            // Ignore malformed/non-profile URLs.
+                        }
+                    }
+                }
                 return {
                     entry_id: entryId,
                     user_id: userId,
                     timestamp: timestamp,
                     username: username,
+                    account_username: accountUsername,
                     message: message,
                     is_me: isMe,
                 };
