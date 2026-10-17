@@ -19,24 +19,24 @@ class RoomSessionTests(unittest.TestCase):
         self.music_patch.stop()
 
     def test_sessions_have_distinct_handlers(self):
-        a = self.RoomSession("https://imvu.com/next/chat/room-1/")
-        b = self.RoomSession("https://imvu.com/next/chat/room-2/")
+        a = self.RoomSession("https://imvu.com/next/chat/room-1-1/")
+        b = self.RoomSession("https://imvu.com/next/chat/room-2-2/")
         self.assertIsNot(a.command_handler, b.command_handler)
         self.assertIsNot(a.music_controller, b.music_controller)
         self.assertNotEqual(a.room_url, b.room_url)
 
     def test_ping_responds_per_room(self):
-        room = self.RoomSession("https://imvu.com/next/chat/room-1/")
+        room = self.RoomSession("https://imvu.com/next/chat/room-1-1/")
         room.command_handler.prefix = "!"
         self.assertIn("Alice", room.process("Alice", "!ping"))
 
     def test_secondary_music_disabled(self):
-        room = self.RoomSession("https://imvu.com/next/chat/room-1/")
+        room = self.RoomSession("https://imvu.com/next/chat/room-1-1/")
         room.command_handler.prefix = "!"
         self.assertIn("not enabled", room.process("Alice", "!p song"))
 
     def test_non_music_forwarded(self):
-        room = self.RoomSession("https://imvu.com/next/chat/room-1/")
+        room = self.RoomSession("https://imvu.com/next/chat/room-1-1/")
         room.command_handler.prefix = "!"
         room.command_handler.handle.return_value = "game started"
         self.assertEqual(room.process("Alice", "!ttt"), "game started")
