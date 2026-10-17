@@ -25,6 +25,42 @@ Your saved room IDs appear when CrowBot is restarted, **offline until you click
 CONNECT**. Remove one using **REMOVE SELECTED**. All rooms use one application,
 one dedicated Chrome profile, and their own room tabs.
 
+## IMVU chat identity verification for room owners and admins
+
+CrowBot stores and assigns **real IMVU usernames only** (e.g.
+`Sleepyhead222`), never arbitrary decorated display names (e.g.
+`Sleepy`). IMVU sometimes hides a user's account handle in the room's
+chat HTML. A matching display name is not enough to authorize `!lock`,
+`!welcome` or `!addmod`.
+
+When `!whoami` says that the account username is hidden but a chat
+account ID was detected:
+
+1. In the desktop app, select the room and set the verified room owner
+   username (`Sleepyhead222`, for example).
+2. The actual owner types `!linkowner` inside that IMVU room.
+3. The CrowBot app displays **Owner link pending** with the chat display
+   name. The trusted app operator confirms the person's real identity in
+   IMVU and clicks **APPROVE OWNER LINK**; the confirmation dialog also
+   displays the IMVU chat account ID. Requests expire after five minutes.
+4. The owner can use `!lock p`, `!welcome ...`, `!addmod username`,
+   `!removemod username` etc. All these commands now share the same
+   verified account authorization path.
+
+When an appointed admin's IMVU username is also hidden, the room owner
+first appoints their username using `!addmod Username`. Then the admin
+types `!linkmod Username`, and the owner approves from chat with
+`!approvemod Username` within five minutes. The bot internally pairs
+the chat account ID with that **app-approved username**; it never adds a
+display nickname to the admin roster.
+
+These ID pairings survive reconnects. Reassigning the room owner revokes
+the old owner ID, and removing an admin revokes its linked ID. If both
+the IMVU account username **and** a stable chat account ID are absent,
+CrowBot cannot securely grant privileged access based on chat markup alone.
+In that case `!whoami` explains the blocker; new IMVU identity data or
+an authenticated provider integration would be required.
+
 ## Room owner and admin assignment
 
 In CrowBot's desktop app, select the room and configure its **verified
