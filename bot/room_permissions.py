@@ -46,6 +46,7 @@ class RoomPermissions:
         settings = load_settings()
         state = settings.get("room_policies", {}).get(self.room_id, {})
         self.owner = _username(state.get("owner"))
+        self.owner_chat_name = _username(state.get("owner_chat_name"))
         self.mods = {_username(v).casefold(): _username(v)
                      for v in state.get("mods", []) if _username(v)}
         self.welcome = str(state.get("welcome", DEFAULT_WELCOME))[:240]
@@ -58,6 +59,7 @@ class RoomPermissions:
         policies = settings.setdefault("room_policies", {})
         policies[self.room_id] = {
             "owner": self.owner,
+            "owner_chat_name": self.owner_chat_name,
             "mods": list(self.mods.values()),
             "welcome": self.welcome,
             "welcome_enabled": self.welcome_enabled,
@@ -65,16 +67,32 @@ class RoomPermissions:
         }
         save_settings(settings)
 
+    def is_owner(self, username):
+        key = _username(username).casefold()
+        return bool(self.owner and key and (
+            key == self.owner.casefold()
+            or (self.owner_chat_name and key == self.owner_chat_name.casefold())
+        ))
+
     def is_mod(self, username):
         key = _username(username).casefold()
-        return bool(key and (
-            key == self.owner.casefold() or key in self.mods
-        ))
+        return self.is_owner(username) or bool(key and key in self.mods)
+
+    def set_owner_chat_name_from_dashboard(self, username):
+        if not self.owner:
+            raise ValueError("First configure the verified room owner.")
+        name = _username(username)
+        if not name:
+            raise ValueError("Enter the owner's exact display name as shown in room chat.")
+        self.owner_chat_name = name
+        self.save()
 
     def set_owner_from_dashboard(self, username):
         name = _username(username)
         if not name:
             raise ValueError("Enter the verified IMVU room owner's username.")
+        if self.owner.casefold() != name.casefold():
+            self.owner_chat_name = ""  # Never carry a nickname to a new owner.
         self.owner = name
         self.mods.pop(name.casefold(), None)
         self.save()
