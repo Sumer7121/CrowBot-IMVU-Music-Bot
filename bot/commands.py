@@ -891,15 +891,19 @@ class CommandHandler(QObject):
         name = " ".join(arguments).strip()
         if not name:
             return (
-                "🌐 DJ language: " + (dj.language.title() if dj.language else "Any") +
-                f"\nUse {self.prefix}language Hindi, Telugu, Tamil, English, etc., or off."
+                "🌐 DJ language: " + (
+                    "Match Current Song" if dj.match_current_language
+                    else dj.language.title() if dj.language else "Any"
+                ) +
+                f"\nUse {self.prefix}language Hindi, Telugu, Tamil, English, match, or off."
             )
         try:
             dj.set_language(name)
         except ValueError as error:
             return "🌐 " + str(error)
         return "🌐 Music discovery language set to " + (
-            dj.language.title() if dj.language else "Any"
+            "Match Current Song" if dj.match_current_language
+            else dj.language.title() if dj.language else "Any"
         ) + ". The change affects upcoming AutoDJ songs."
 
     def dj_status(self, arguments, username):
