@@ -45,19 +45,19 @@ def detect_song_language(track):
         str(track.get("search_query") or "")
     ).casefold()
     for language in LANGUAGES:
-        if re.search(r"\\b" + re.escape(language) + r"\\b", text):
+        if re.search(r"\b" + re.escape(language) + r"\b", text):
             return language
     # Strongly distinctive scripts; Devanagari can also be Marathi, so
     # explicit metadata takes precedence over that ambiguous script.
     scripts = (
-        (r"[\\u0C00-\\u0C7F]", "telugu"),
-        (r"[\\u0B80-\\u0BFF]", "tamil"),
-        (r"[\\u0D00-\\u0D7F]", "malayalam"),
-        (r"[\\u0C80-\\u0CFF]", "kannada"),
-        (r"[\\u0980-\\u09FF]", "bengali"),
-        (r"[\\u0600-\\u06FF]", "urdu"),
-        (r"[\\uAC00-\\uD7AF]", "korean"),
-        (r"[\\u3040-\\u30FF]", "japanese"),
+        (r"[\u0C00-\u0C7F]", "telugu"),
+        (r"[\u0B80-\u0BFF]", "tamil"),
+        (r"[\u0D00-\u0D7F]", "malayalam"),
+        (r"[\u0C80-\u0CFF]", "kannada"),
+        (r"[\u0980-\u09FF]", "bengali"),
+        (r"[\u0600-\u06FF]", "urdu"),
+        (r"[\uAC00-\uD7AF]", "korean"),
+        (r"[\u3040-\u30FF]", "japanese"),
     )
     for expression, language in scripts:
         if re.search(expression, text):
