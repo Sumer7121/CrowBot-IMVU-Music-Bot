@@ -118,9 +118,10 @@ class RoomSession:
         )
 
 
-    def process(self, username, message):
+    def process(self, username, message, account_username=""):
         message = str(message or "").strip()
         username = str(username or "").strip()
+        account_username = str(account_username or "").strip()
         if not message or not username:
             return None
         prefix = self.command_handler.prefix
@@ -129,14 +130,20 @@ class RoomSession:
             self.command_handler._remember_user(username)
             return None
         command = message[len(prefix):].split(maxsplit=1)[0].casefold()
-        if not self.permissions.may_run(command, username):
+        if not self.permissions.may_run(command, account_username):
             if self.permissions.is_locked(command):
                 return ("🔒 !" + command + " is locked for regular users in this "
                         "room. Ask a room moderator to unlock it.")
             if not self.permissions.owner:
                 return ("🔒 No room owner configured. Set the verified owner's "
                         "IMVU username in CrowBot's local Room Settings first.")
-            return "🔒 This command is for the room owner and appointed moderators."
+            if not account_username:
+                return (
+                    "🔒 IMVU did not expose a verified account username for "
+                    "this chat message. Try !whoami; display nicknames cannot "
+                    "grant admin permissions."
+                )
+            return "🔒 This command is for the registered room owner or admins."
         if command == "ping":
             return f"🏓 CrowBot pong in this room, {username}!"
         if command in MUSIC_COMMANDS and not self.stream_url:
@@ -144,4 +151,10 @@ class RoomSession:
                 "🎵 Music streaming is not enabled in this room yet. "
                 "Games and chat commands are available."
             )
-        return self.command_handler.handle(message, username)
+        # Authorization always uses the IMVU account username. Chat games
+        # may keep the visible name, but privileged handler methods must see
+        # the same verified identity as the permission gate above.
+        self.command_handler.actor_display_name = username
+        self.command_handler.actor_account_username = account_username
+        actor = account_username or username
+        return self.command_handler.handle(message, actor)
