@@ -218,6 +218,18 @@ class MultiRoomHub(QObject):
     def _tunnel_ready(self, room_id, epoch, url):
         if not self._current(room_id, epoch):
             return
+        for other_id, other in self.sessions.items():
+            if other_id != room_id and (
+                other.stream_url == url or (
+                    other.tunnel and other.tunnel.get_stream_url() == url
+                )
+            ):
+                self._fail(
+                    room_id, epoch,
+                    f"Duplicate Cloudflare radio URL detected with room {other_id}; "
+                    "refusing to attach another room to that same stream."
+                )
+                return
         self._log(room_id, f"Private Cloudflare stream validated: {url}")
         self._load_radio(room_id, epoch, url)
 
@@ -352,11 +364,15 @@ class MultiRoomHub(QObject):
         worker = registry.pop(room_id, None)
         if worker is None:
             return
-        worker.stop() if hasattr(worker, "stop") else None
-        if worker.isRunning() and not worker.wait(timeout):
+        if hasattr(worker, "stop"):
+            worker.stop()
+        if worker.isRunning():
+            worker.wait(timeout)
+        # finished() is responsible for deleteLater(). Keep the worker
+        # referenced until the queued finished signal is delivered, even
+        # when wait() has already returned; don't delete a QThread twice.
+        if worker not in self.retired_workers:
             self.retired_workers.append(worker)
-        elif not worker.isRunning():
-            worker.deleteLater()
 
     def disconnect_room(self, room_id):
         if room_id not in self.sessions:
