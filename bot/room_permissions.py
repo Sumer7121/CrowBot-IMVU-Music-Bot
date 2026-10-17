@@ -218,6 +218,14 @@ class RoomPermissions:
         self.save()
         return name
 
+    def room_role(self, account_username="", user_id=""):
+        account = self.resolve_account(account_username, user_id)
+        if self.is_owner(account):
+            return "owner"
+        if self.is_mod(account):
+            return "admin"
+        return "member"
+
     def is_locked(self, command):
         return canonical_command(command) in self.locked_commands
 
