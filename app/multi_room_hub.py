@@ -19,7 +19,7 @@ class MultiRoomHub(QObject):
     radio_event = Signal(str, str)
     radio_finished_event = Signal(str, int, str, int)
     room_joined_event = Signal(str, int)
-    room_chat_event = Signal(str, int, str, str, str)
+    room_chat_event = Signal(str, int, str, str, str, str)
     chat_finished_event = Signal(str, int, object)
     # Cloudflare emits from Python validator/reader threads. Its callbacks
     # must be marshalled onto the Qt GUI thread before creating QThreads.
@@ -231,8 +231,8 @@ class MultiRoomHub(QObject):
             lambda url, err, rid=room_id, e=epoch: self._fail(rid, e, "JOIN/LISTENER: " + err)
         )
         worker.message_received.connect(
-            lambda url, user, text, account, rid=room_id, e=epoch:
-            self.room_chat_event.emit(rid, e, user, text, account)
+            lambda url, user, text, account, identity, rid=room_id, e=epoch:
+            self.room_chat_event.emit(rid, e, user, text, account, identity)
         )
         worker.finished.connect(
             lambda w=worker, rid=room_id, e=epoch:
@@ -523,8 +523,8 @@ class MultiRoomHub(QObject):
                 str(text), room_url=make_room_url(room_id)
             )
 
-    @Slot(str, int, str, str, str)
-    def _chat(self, room_id, epoch, username, message, account_username=""):
+    @Slot(str, int, str, str, str, str)
+    def _chat(self, room_id, epoch, username, message, account_username="", user_id=""):
         if not self._current(room_id, epoch) or not username or not message:
             return
         session = self.sessions[room_id]
@@ -539,7 +539,8 @@ class MultiRoomHub(QObject):
                 self._send_room_announcement(room_id, epoch, welcome)
         try:
             result = session.process(
-                username, message, account_username=account_username
+                username, message, account_username=account_username,
+                user_id=user_id,
             )
         except Exception as error:
             self._log(room_id, f"Command error: {error}")
@@ -588,6 +589,46 @@ class MultiRoomHub(QObject):
         self._log(
             room_id, "Trusted dashboard configured room owner: " + policy.owner
         )
+        self.refresh_ui()
+
+    def approve_owner_link(self, room_id):
+        """Trusted local approval of a pending IMVU account-ID claim."""
+        session = self.sessions.get(room_id)
+        if session is None:
+            self._log(room_id, "Connect this room before approving an owner link.")
+            return
+        pending = getattr(session, "pending_owner_link", None)
+        if not pending:
+            self._log(room_id, "No pending owner link. Ask the owner to send !linkowner.")
+            return
+        if time.monotonic() - pending["created_at"] > 300:
+            session.pending_owner_link = None
+            self._log(room_id, "Owner link expired. Send !linkowner again.")
+            self.refresh_ui()
+            return
+        from PySide6.QtWidgets import QMessageBox
+        question = (
+            f"Approve this IMVU chat account as @{session.permissions.owner}?\n\n"
+            f"Room: {room_id}\n"
+            f"Chat display: {pending['display']}\n"
+            f"Account ID: {pending['user_id']}\n\n"
+            "Verify the actual room owner's identity in IMVU before approving. "
+            "A display name alone is not proof of identity."
+        )
+        answer = QMessageBox.question(
+            self.window, "Approve verified room owner", question,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            session.permissions.link_owner_from_dashboard(pending["user_id"])
+        except ValueError as error:
+            self._log(room_id, "OWNER LINK ERROR: " + str(error))
+            return
+        session.pending_owner_link = None
+        self._log(room_id, "Room owner account link verified: @" + session.permissions.owner)
         self.refresh_ui()
 
     def artist_dj(self, room_id, artist):
@@ -748,7 +789,10 @@ class MultiRoomHub(QObject):
                     status = self.states.get(room_id, "Connecting")
                 records.append({
                     "room_id": room_id, "status": status,
-                    "owner": policy.owner, "admins": list(policy.mods.values()),
+                    "owner": policy.owner,
+                    "owner_linked": bool(getattr(policy, "owner_user_id", "")),
+                    "pending_owner_link": dict(getattr(session, "pending_owner_link", None) or {}) if session else {},
+                    "admins": list(policy.mods.values()),
                     "connected": True, "port": session.radio_port,
                     "dj_mode": session.dj.label,
                     "dj_activity": session.dj.last_activity,
@@ -766,7 +810,10 @@ class MultiRoomHub(QObject):
             else:
                 records.append({
                     "room_id": room_id, "status": "Offline",
-                    "owner": policy.owner, "admins": list(policy.mods.values()),
+                    "owner": policy.owner,
+                    "owner_linked": bool(getattr(policy, "owner_user_id", "")),
+                    "pending_owner_link": dict(getattr(session, "pending_owner_link", None) or {}) if session else {},
+                    "admins": list(policy.mods.values()),
                     "connected": False,
                     "dj_mode": "DJ OFF", "dj_activity": "Offline",
                     "dj_error": "", "dj_language": "",
