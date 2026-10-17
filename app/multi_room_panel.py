@@ -8,7 +8,7 @@ from collections import defaultdict
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton,
+    QComboBox, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton,
     QSplitter, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
     QHeaderView,
 )
@@ -24,6 +24,10 @@ class MultiRoomPanel(QWidget):
     skip_requested = Signal(str)
     stop_requested = Signal(str)
     song_requested = Signal(str, str)
+    artist_requested = Signal(str, str)
+    autoplay_requested = Signal(str, bool)
+    language_requested = Signal(str, str)
+    dj_off_requested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -90,6 +94,35 @@ class MultiRoomPanel(QWidget):
         song_row.addWidget(self.song_button)
         group_layout.addLayout(song_row)
 
+        # Artist radio / discovery autoplay belong to the selected room only.
+        dj_row = QHBoxLayout()
+        self.artist_input = QLineEdit()
+        self.artist_input.setPlaceholderText("DJ artist (e.g. Arijit Singh)")
+        self.artist_button = QPushButton("START ARTIST DJ")
+        self.dj_off_button = QPushButton("DJ OFF")
+        dj_row.addWidget(self.artist_input, 2)
+        dj_row.addWidget(self.artist_button)
+        dj_row.addWidget(self.dj_off_button)
+        group_layout.addLayout(dj_row)
+
+        preference_row = QHBoxLayout()
+        self.language_select = QComboBox()
+        self.language_select.addItems([
+            "Any", "English", "Hindi", "Telugu", "Tamil", "Malayalam",
+            "Kannada", "Punjabi", "Bengali", "Urdu", "Spanish", "French",
+            "Arabic", "Korean", "Japanese", "Portuguese", "German",
+            "Italian", "Marathi"
+        ])
+        self.set_language_button = QPushButton("SET LANGUAGE")
+        self.autoplay_on_button = QPushButton("AUTOPLAY ON")
+        self.autoplay_off_button = QPushButton("AUTOPLAY OFF")
+        preference_row.addWidget(QLabel("DJ MUSIC LANGUAGE"))
+        preference_row.addWidget(self.language_select)
+        preference_row.addWidget(self.set_language_button)
+        preference_row.addWidget(self.autoplay_on_button)
+        preference_row.addWidget(self.autoplay_off_button)
+        group_layout.addLayout(preference_row)
+
         details = QSplitter(Qt.Orientation.Horizontal)
         queue_side = QWidget()
         queue_layout = QVBoxLayout(queue_side)
@@ -124,6 +157,22 @@ class MultiRoomPanel(QWidget):
             lambda: QGuiApplication.clipboard().setText(self.stream_url_input.text())
             if self.stream_url_input.text() else None
         )
+        self.artist_button.clicked.connect(self._request_artist)
+        self.artist_input.returnPressed.connect(self._request_artist)
+        self.dj_off_button.clicked.connect(
+            lambda: self.dj_off_requested.emit(self.selected_room())
+        )
+        self.set_language_button.clicked.connect(
+            lambda: self.language_requested.emit(
+                self.selected_room(), self.language_select.currentText()
+            )
+        )
+        self.autoplay_on_button.clicked.connect(
+            lambda: self.autoplay_requested.emit(self.selected_room(), True)
+        )
+        self.autoplay_off_button.clicked.connect(
+            lambda: self.autoplay_requested.emit(self.selected_room(), False)
+        )
         self.song_button.clicked.connect(self._request_song)
         self.song_input.returnPressed.connect(self._request_song)
         self.remove_button.clicked.connect(self._request_removal)
@@ -144,6 +193,12 @@ class MultiRoomPanel(QWidget):
             return ""
         item = self.room_table.item(row, 0)
         return item.text() if item else ""
+
+    def _request_artist(self):
+        room_id = self.selected_room()
+        artist = self.artist_input.text().strip()
+        if room_id and artist:
+            self.artist_requested.emit(room_id, artist)
 
     def _request_song(self):
         room_id = self.selected_room()
@@ -209,7 +264,9 @@ class MultiRoomPanel(QWidget):
         record = self._snapshots.get(room_id, {})
         self.remove_button.setEnabled(bool(room_id))
         for button in (self.reload_button, self.skip_button, self.stop_button,
-                       self.song_button):
+                       self.song_button, self.artist_button, self.dj_off_button,
+                       self.set_language_button, self.autoplay_on_button,
+                       self.autoplay_off_button):
             button.setEnabled(bool(room_id and record.get("connected")))
         if not room_id:
             self.detail_label.setText("Select a room to inspect its music and queue.")
@@ -218,13 +275,15 @@ class MultiRoomPanel(QWidget):
             self.stream_url_input.clear()
             return
         self.stream_url_input.setText(record.get("stream_url", ""))
+        language = record.get("dj_language", "")
+        self.language_select.setCurrentText(language.title() if language else "Any")
         playing = record.get("playing", "Nothing playing")
         status = record.get("status", "Offline")
         source = record.get("source", "Idle")
         clients = record.get("clients", "—")
         self.detail_label.setText(
             f"ROOM {room_id} · {status} · Now: {playing} · Source: {source} · "
-            f"Listeners: {clients}"
+            f"Listeners: {clients} · {record.get('dj_mode', 'DJ OFF')}"
         )
         self.queue_list.clear()
         for index, song in enumerate(record.get("queue", []), start=1):
