@@ -96,16 +96,27 @@ def search_queries(artist="", language="", current_title="", round_index=0):
     return (variants[offset], variants[(offset + 1) % len(variants)])
 
 
-def candidate_allowed(candidate, artist="", language=""):
-    """Conservative metadata filter; a language label is not audio analysis."""
+def candidate_allowed(candidate, artist="", language="", allow_missing_duration=False):
+    """Apply title/artist checks to search results, duration to full metadata.
+
+    yt-dlp --flat-playlist frequently omits video duration. Rejecting it
+    before resolving the full record caused Artist DJ to find *zero* songs.
+    """
     title = str(candidate.get("title") or "").strip()
     channel = str(candidate.get("channel") or "").strip()
-    duration = candidate.get("duration") or 0
-    try:
-        duration = int(duration)
-    except (TypeError, ValueError):
+    if not title or title.casefold() in ("unknown", "deleted video", "private video"):
         return False
-    if duration < 65 or duration > 900:
+    raw_duration = candidate.get("duration")
+    duration = None
+    if raw_duration not in (None, "", 0, "0"):
+        try:
+            duration = int(float(raw_duration))
+        except (TypeError, ValueError):
+            return False
+    if duration is None:
+        if not allow_missing_duration:
+            return False
+    elif duration < 65 or duration > 900:
         return False
     normalized = (title + " " + channel + " " +
                   str(candidate.get("artist") or "")).casefold()
@@ -127,6 +138,7 @@ def candidate_allowed(candidate, artist="", language=""):
 
 
 class DJFetchWorker(QThread):
+    progress = Signal(str)
     prepared = Signal(object)
     failed = Signal(str)
 
@@ -142,64 +154,120 @@ class DJFetchWorker(QThread):
         self.round_index = round_index
 
     def run(self):
+        """Try search pages incrementally; validate a few full videos per page.
+
+        Searching 2*35 videos first + metadata for dozens more could take
+        several minutes. A successful first artist match should play quickly.
+        """
         try:
             provider = get_shared_youtube_provider()
-            candidates = []
-            for phrase in search_queries(
-                self.artist, self.language, self.current_title, self.round_index
-            ):
-                if self.isInterruptionRequested():
-                    return
-                found = provider.search_candidates(
-                    phrase, limit=35, cancel_check=self.isInterruptionRequested
-                )
-                candidates.extend(found)
-            random.shuffle(candidates)
             checked = set()
-            failures = []
-            for candidate in candidates:
+            errors = []
+            examined = 0
+            downloads = 0
+            search_phrases = search_queries(
+                self.artist, self.language, self.current_title, self.round_index
+            )
+            for phrase in search_phrases:
                 if self.isInterruptionRequested():
                     return
-                identity = str(candidate.get("id") or "")
-                if not identity or identity in self.seen_ids or identity in checked:
-                    continue
-                checked.add(identity)
-                if not candidate_allowed(candidate, self.artist, self.language):
-                    continue
-                metadata = provider._get_video_metadata(
-                    candidate, cancel_check=self.isInterruptionRequested
-                )
-                if metadata is None or not candidate_allowed(
-                    metadata, self.artist, self.language
-                ):
-                    continue
+                self.progress.emit("Searching YouTube: " + phrase)
                 try:
-                    track = provider._prepare_track(
-                        metadata,
-                        "CrowBot AutoDJ",
-                        "CrowBot DJ",
-                        cancel_check=self.isInterruptionRequested,
-                        room_id=self.room_id,
-                        session_key=self.session_key,
+                    found = provider.search_candidates(
+                        phrase, limit=18, cancel_check=self.isInterruptionRequested
                     )
                 except Exception as error:
-                    failures.append(str(error))
-                    if len(failures) >= 3:
-                        break
+                    errors.append("Search failed: " + str(error))
                     continue
-                track["dj_auto"] = True
-                track["dj_language"] = self.language
-                track["dj_artist"] = self.artist
-                self.prepared.emit(track)
-                return
+
+                # Rank official artist records, then vary among the good ones.
+                # Never reject an otherwise valid flat-list result solely
+                # because the initial search has no duration.
+                eligible = [
+                    item for item in found
+                    if candidate_allowed(
+                        item, self.artist, self.language,
+                        allow_missing_duration=True,
+                    )
+                    and str(item.get("id") or "") not in self.seen_ids
+                ]
+                random.shuffle(eligible)
+                eligible.sort(
+                    key=lambda item: 0 if any(
+                        tag in str(item.get("title") or "").casefold()
+                        for tag in ("official audio", "official music video", "topic")
+                    ) else 1
+                )
+
+                for candidate in eligible:
+                    if self.isInterruptionRequested():
+                        return
+                    identity = str(candidate.get("id") or "")
+                    if not identity or identity in checked:
+                        continue
+                    checked.add(identity)
+                    if examined >= 12:
+                        break
+                    examined += 1
+                    self.progress.emit(
+                        f"Checking candidate {examined}/12: " +
+                        str(candidate.get("title") or "")[:70]
+                    )
+                    try:
+                        metadata = provider._get_video_metadata(
+                            candidate, cancel_check=self.isInterruptionRequested
+                        )
+                    except Exception as error:
+                        errors.append(str(error))
+                        continue
+                    if metadata is None or not candidate_allowed(
+                        metadata, self.artist, self.language
+                    ):
+                        continue
+                    if self.isInterruptionRequested():
+                        return
+                    if downloads >= 3:
+                        break
+                    downloads += 1
+                    self.progress.emit(
+                        "Preparing song: " + str(metadata.get("title") or "")[:70]
+                    )
+                    try:
+                        track = provider._prepare_track(
+                            metadata, "CrowBot AutoDJ", "CrowBot DJ",
+                            cancel_check=self.isInterruptionRequested,
+                            room_id=self.room_id,
+                            session_key=self.session_key,
+                        )
+                    except Exception as error:
+                        errors.append(str(error))
+                        continue
+                    if self.isInterruptionRequested():
+                        # A cancelled DJ job must not queue music into an old room.
+                        provider.release_room_track(
+                            track.get("temporary_file"), self.room_id,
+                            self.session_key,
+                        )
+                        return
+                    track["dj_auto"] = True
+                    track["dj_language"] = self.language
+                    track["dj_artist"] = self.artist
+                    self.prepared.emit(track)
+                    return
+                if examined >= 12 or downloads >= 3:
+                    break
+
             if self.isInterruptionRequested():
                 return
-            reason = (failures[-1] if failures else
-                      "No new matching playable songs in this YouTube search.")
-            self.failed.emit(reason)
+            detail = (errors[-1] if errors else
+                      "No matching playable music candidates passed verification.")
+            self.failed.emit(
+                f"Artist DJ checked {examined} video(s) and prepared "
+                f"{downloads} candidate(s), but none played. {detail}"
+            )
         except Exception as error:
             if not self.isInterruptionRequested():
-                self.failed.emit(str(error))
+                self.failed.emit(f"AutoDJ preparation failed: {error}")
 
 
 class AutoDJ(QObject):
