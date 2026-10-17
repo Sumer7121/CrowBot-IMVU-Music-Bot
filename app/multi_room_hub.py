@@ -20,6 +20,10 @@ class MultiRoomHub(QObject):
     tunnel_error_event = Signal(str, int, str)
     tunnel_status_event = Signal(str, int, str)
     tunnel_stopped_event = Signal(str, int)
+    imvu_radio_progress_event = Signal(str, int, str)
+    imvu_radio_loaded_event = Signal(str, int, str)
+    imvu_radio_error_event = Signal(str, int, str)
+    imvu_radio_worker_finished_event = Signal(str, object)
 
     def __init__(self, window, open_worker, monitor_worker, radio_worker):
         super().__init__(window)
@@ -41,6 +45,10 @@ class MultiRoomHub(QObject):
         self.tunnel_error_event.connect(self._tunnel_error, Qt.ConnectionType.AutoConnection)
         self.tunnel_status_event.connect(self._tunnel_status, Qt.ConnectionType.AutoConnection)
         self.tunnel_stopped_event.connect(self._tunnel_stopped, Qt.ConnectionType.AutoConnection)
+        self.imvu_radio_progress_event.connect(self._imvu_radio_progress, Qt.ConnectionType.AutoConnection)
+        self.imvu_radio_loaded_event.connect(self._radio_loaded, Qt.ConnectionType.AutoConnection)
+        self.imvu_radio_error_event.connect(self._imvu_radio_failed, Qt.ConnectionType.AutoConnection)
+        self.imvu_radio_worker_finished_event.connect(self._imvu_radio_worker_finished, Qt.ConnectionType.AutoConnection)
         self.restore_rooms()
 
     def restore_rooms(self):
@@ -294,19 +302,19 @@ class MultiRoomHub(QObject):
             if hasattr(worker, "progress"):
                 worker.progress.connect(
                     lambda message, rid=room_id, e=epoch:
-                    self._session_event(rid, e, "RADIO LOAD: " + str(message))
+                    self.imvu_radio_progress_event.emit(rid, e, str(message))
                 )
             worker.succeeded.connect(
                 lambda stream, prev, rid=room_id, e=epoch:
-                self._radio_loaded(rid, e, stream)
+                self.imvu_radio_loaded_event.emit(rid, e, stream)
             )
             worker.failed.connect(
                 lambda err, rid=room_id, e=epoch:
-                self._fail(rid, e, "IMVU RADIO LOAD: " + err)
+                self.imvu_radio_error_event.emit(rid, e, str(err))
             )
             worker.finished.connect(
                 lambda w=worker, rid=room_id:
-                self._worker_finished(self.radio_workers, rid, w)
+                self.imvu_radio_worker_finished_event.emit(rid, w)
             )
             worker.start()
             self._log(room_id, "RADIO LOAD: Worker started, awaiting IMVU confirmation...")
@@ -333,6 +341,19 @@ class MultiRoomHub(QObject):
                 "selected room's Radio Streaming controls and permissions."
             )
 
+    @Slot(str, int, str)
+    def _imvu_radio_progress(self, room_id, epoch, message):
+        self._session_event(room_id, epoch, "RADIO LOAD: " + message)
+
+    @Slot(str, int, str)
+    def _imvu_radio_failed(self, room_id, epoch, error):
+        self._fail(room_id, epoch, "IMVU RADIO LOAD: " + error)
+
+    @Slot(str, object)
+    def _imvu_radio_worker_finished(self, room_id, worker):
+        self._worker_finished(self.radio_workers, room_id, worker)
+
+    @Slot(str, int, str)
     def _radio_loaded(self, room_id, epoch, url):
         if not self._current(room_id, epoch):
             return
