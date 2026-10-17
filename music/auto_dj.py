@@ -74,7 +74,8 @@ def candidate_allowed(candidate, artist="", language=""):
         return False
     if duration < 65 or duration > 900:
         return False
-    normalized = (title + " " + channel).casefold()
+    normalized = (title + " " + channel + " " +
+                  str(candidate.get("artist") or "")).casefold()
     if any(term in normalized for term in (
         "reaction to", "reaction video", "movie trailer", "full movie",
         "interview with", "behind the scenes", "tutorial", "8d audio",
