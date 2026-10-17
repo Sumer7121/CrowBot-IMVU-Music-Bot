@@ -19,6 +19,7 @@ class MultiRoomHub(QObject):
     radio_event = Signal(str, str)
     radio_finished_event = Signal(str, int, str, int)
     room_joined_event = Signal(str, int)
+    room_chat_event = Signal(str, int, str, str)
     chat_finished_event = Signal(str, int, object)
     # Cloudflare emits from Python validator/reader threads. Its callbacks
     # must be marshalled onto the Qt GUI thread before creating QThreads.
@@ -51,6 +52,7 @@ class MultiRoomHub(QObject):
         self.radio_event.connect(self._on_radio_event, Qt.ConnectionType.AutoConnection)
         self.radio_finished_event.connect(self._radio_track_finished, Qt.ConnectionType.AutoConnection)
         self.room_joined_event.connect(self._room_joined, Qt.ConnectionType.AutoConnection)
+        self.room_chat_event.connect(self._chat, Qt.ConnectionType.AutoConnection)
         self.chat_finished_event.connect(self._chat_finished, Qt.ConnectionType.AutoConnection)
         self.tunnel_ready_event.connect(self._tunnel_ready, Qt.ConnectionType.AutoConnection)
         self.tunnel_error_event.connect(self._tunnel_error, Qt.ConnectionType.AutoConnection)
@@ -229,7 +231,8 @@ class MultiRoomHub(QObject):
             lambda url, err, rid=room_id, e=epoch: self._fail(rid, e, "JOIN/LISTENER: " + err)
         )
         worker.message_received.connect(
-            lambda url, user, text, rid=room_id, e=epoch: self._chat(rid, e, user, text)
+            lambda url, user, text, rid=room_id, e=epoch:
+            self.room_chat_event.emit(rid, e, user, text)
         )
         worker.finished.connect(
             lambda w=worker, rid=room_id, e=epoch:
@@ -520,6 +523,7 @@ class MultiRoomHub(QObject):
                 str(text), room_url=make_room_url(room_id)
             )
 
+    @Slot(str, int, str, str)
     def _chat(self, room_id, epoch, username, message):
         if not self._current(room_id, epoch) or not username or not message:
             return
