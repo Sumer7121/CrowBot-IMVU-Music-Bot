@@ -7,7 +7,7 @@ from config.settings import load_settings, save_settings
 
 # Safety: lock management and moderator recovery must always remain available
 # to authenticated room moderators. Regular users cannot invoke these.
-UNLOCKABLE = frozenset({"lock", "unlock", "locks", "addmod", "removemod", "mods"})
+UNLOCKABLE = frozenset({"lock", "unlock", "locks", "mods"})
 ALIASES = {
     "p": "play", "q": "queue", "np": "nowplaying",
     "s": "skip", "pa": "pause", "r": "resume", "rm": "remove",
@@ -31,7 +31,7 @@ DEFAULT_WELCOME = "👋 Welcome to {room}, {user}! Enjoy the music and games!"
 RESTRICTED = frozenset({
     "skip", "s", "stop", "clear", "remove", "rm", "pause", "pa",
     "resume", "r", "dj", "autoplay", "language", "lang",
-    "petdrop", "addmod", "removemod", "mods", "lock", "unlock", "locks",
+    "petdrop", "mods", "lock", "unlock", "locks",
     "welcome", "welcometest",
 })
 
@@ -121,7 +121,7 @@ class RoomPermissions:
         if name not in {canonical_command(x) for x in valid_commands}:
             raise ValueError("Unknown CrowBot command. Use !help to see valid commands.")
         if name in UNLOCKABLE:
-            raise ValueError("Moderator management and unlock commands cannot be locked.")
+            raise ValueError("Admin status and unlock commands cannot be locked.")
         self.locked_commands.add(name)
         self.save()
         return name
