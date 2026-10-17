@@ -25,6 +25,59 @@ Your saved room IDs appear when CrowBot is restarted, **offline until you click
 CONNECT**. Remove one using **REMOVE SELECTED**. All rooms use one application,
 one dedicated Chrome profile, and their own room tabs.
 
+## Per-room owner, moderators and customized automatic welcomes
+
+Use the **SET ROOM OWNER** control under the selected room in CrowBot's
+local dashboard. Enter the actual IMVU room-owner username after verifying
+it in IMVU. **Do not** assume that a chat message claiming to be an owner
+is trustworthy. The bot cannot automatically verify the IMVU ownership
+metadata in the current browser integration; this trusted dashboard action
+is the bootstrap step.
+
+The configured owner automatically has the same protected-command
+permissions as every moderator they appoint. There is **no lower or higher
+moderator tier**. Each room's owner/mod list is persisted independently.
+
+Protected chat commands:
+
+```text
+!addmod <username>        Owner or mod adds a new moderator
+!removemod <username>     Owner or mod removes a moderator
+!mods                    List the owner and moderators
+!welcome <text>          Change the automatic welcome for this room
+!welcome off             Disable greetings
+!welcome on              Enable greetings
+!welcometest             Preview greeting text
+!dj <artist>             Control Artist DJ
+!autoplay on|off         Control automatic music
+!language <name>         Choose music language
+!skip / !stop / !pause / !resume / !clear
+!petdrop                 Manually trigger a wild cat/dog
+```
+
+Non-moderators can continue using public `!play`, `!q`, `!np`,
+`!catch`, `!pets`, chat games and information commands. Moderator powers
+do not grant access to CrowBot's local settings or other rooms.
+
+Custom welcome messages can also be saved in the selected room's dashboard
+using **SAVE AUTO WELCOME**. The template can include `{user}` and
+`{room}`, for example:
+
+```text
+👋 Welcome {user} to room {room}! Enjoy the music and games!
+```
+
+**Join detection limitation:** Current IMVU chat monitoring detects user
+chat messages, not reliable silent member-entry events. CrowBot greets a
+participant **the first time they speak after the bot connects to that
+room**. It does not claim to welcome silent entrants immediately.
+
+**Automatic drops never depend on chat quietness or music activity.** Every
+joined room has its own independent QTimer and receives a cat/dog drop even
+while songs, games and conversations are active. Only an existing 90-second
+unclaimed drop prevents a simultaneous second wild pet. Room chat-monitor
+disconnect stops its timer.
+
 ## Automatic cat/dog drops and Now Playing announcements
 
 Each joined IMVU room now runs its **own drop timer**, independent of the
