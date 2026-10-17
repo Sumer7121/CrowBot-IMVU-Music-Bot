@@ -2314,11 +2314,14 @@ class CommandHandler(QObject):
             return ("👤 Chat name: " + display +
                     "\nIMVU username: @" + account + " | Role: " + role)
         if user_id:
+            note = ("Owner verification is complete."
+                    if role == "owner" else
+                    "Owner: use !linkowner and app approval; "
+                    "appointed admin: use !linkmod <username>.")
             return (
                 "👤 Chat name: " + display +
                 "\nAccount username hidden by IMVU; chat account ID detected. " +
-                "Role: " + role + "\nOwner: use !linkowner if not linked; "
-                "appointed admin: use !linkmod <username>."
+                "Role: " + role + "\n" + note
             )
         return (
             "👤 Chat name: " + display +
