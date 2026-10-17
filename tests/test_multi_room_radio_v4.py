@@ -77,6 +77,47 @@ class MusicControllerRadioTests(unittest.TestCase):
         self.assertEqual(radio.set_source.call_count, 2)
         radio.set_source.assert_called_with(song["url"], force_restart=True)
 
+    def test_radio_ffmpeg_eof_advances_only_matching_generation(self):
+        from music.controller import MusicController
+        from music.player import MusicPlayer
+
+        with patch("music.controller.MusicPlayer", autospec=True):
+            controller = MusicController()
+        radio = RadioStreamServer(port=8777)
+        radio.is_running = lambda: True
+        controller.attach_radio_server(radio)
+        first = {"title": "Track A", "url": "http://127.0.0.1:9020/a.mp3"}
+        second = {"title": "Track B", "url": "http://127.0.0.1:9020/b.mp3"}
+        self.assertTrue(controller.add_song(first))
+        controller.add_song(second)
+        generation = controller._radio_generation
+        self.assertEqual(controller.get_current_song()["title"], "Track A")
+        radio.set_source("")
+        self.assertTrue(controller.on_radio_track_finished(first["url"], generation))
+        self.assertEqual(controller.get_current_song()["title"], "Track B")
+        self.assertFalse(controller.on_radio_track_finished(first["url"], generation))
+        self.assertEqual(controller.get_current_song()["title"], "Track B")
+
+    def test_public_radio_eof_from_room_a_does_not_advance_room_b(self):
+        from music.controller import MusicController
+
+        with patch("music.controller.MusicPlayer"):
+            a = MusicController()
+            b = MusicController()
+        radios = [RadioStreamServer(port=8778), RadioStreamServer(port=8779)]
+        for controller, radio in zip((a, b), radios):
+            radio.is_running = lambda: True
+            controller.attach_radio_server(radio)
+        a.add_song({"title": "First A", "url": "http://local/a.mp3"})
+        a.add_song({"title": "Second A", "url": "http://local/a2.mp3"})
+        b.add_song({"title": "First B", "url": "http://local/b.mp3"})
+        b.add_song({"title": "Second B", "url": "http://local/b2.mp3"})
+        old_gen = a._radio_generation
+        radios[0].clear_sources()
+        self.assertTrue(a.on_radio_track_finished("http://local/a.mp3", old_gen))
+        self.assertEqual(a.get_current_song()["title"], "Second A")
+        self.assertEqual(b.get_current_song()["title"], "First B")
+
     def test_independent_music_controllers(self):
         a, radio_a = self._create()
         b, radio_b = self._create()
