@@ -25,42 +25,41 @@ Your saved room IDs appear when CrowBot is restarted, **offline until you click
 CONNECT**. Remove one using **REMOVE SELECTED**. All rooms use one application,
 one dedicated Chrome profile, and their own room tabs.
 
-## Room admins: app-only assignment, bot-chat configuration
+## Room owner and admin assignment
 
-The **only permission setup in the desktop app** is for selecting a room,
-setting its verified IMVU room owner, and **ADD ADMIN / REMOVE ADMIN**. Enter
-the exact IMVU username; granting admin status from IMVU chat is disabled.
-CrowBot cannot independently verify the room's owner from existing chat data;
-the operator must verify ownership before entering it in the desktop app.
+In CrowBot's desktop app, select the room and configure its **verified
+room-owner IMVU username**. This is the only identity setup done through
+the app. Confirm the username belongs to the actual owner before saving.
 
-The owner and all appointed admins have the **same command permissions**.
-Their permissions and room's settings persist across restarts. They can
-configure the room from IMVU chat, including:
+Only that registered room owner can appoint or revoke room admins by
+sending these commands **in the same room's IMVU chat**:
 
 ```text
-!welcome Welcome {user} to {room}!   Set this room's automatic greeting
-!welcome off                        Disable welcome messages
-!welcome on                         Enable welcome messages
-!welcometest                        Preview the greeting
-!lock play                          Lock song requests (!play and !p)
-!unlock play                        Reopen song requests
-!locks                              List room-specific command locks
-!mods                               Show owner/admins
-!dj Arijit Singh                    Artist DJ
-!language Hindi                     DJ language
-!petdrop                            Manually trigger a pet drop
+!addmod username      Register a new room admin (owner only)
+!removemod username   Revoke a room admin (owner only)
+!mods                 Display configured room owner and admins
 ```
 
-Ordinary users can use public commands unless an admin locks them. Room
-admins still have access to locked commands, and the essential recovery
-commands `!lock`, `!unlock`, `!locks`, `!mods` cannot be locked.
-`!addmod` and `!removemod` are no longer IMVU chat commands: appoint
-and revoke admins **from the desktop app only**.
+Appointed admins have the **same permissions as the owner for other bot
+features**: `!welcome`, `!lock`, `!unlock`, `!dj`, music controls and
+manual drops. Admins cannot grant or revoke admin access. Admin and owner
+lists persist per room across restarts. No chat command can claim or
+replace the room owner.
 
-Automatic pet drops keep running even if the room is busy. Welcome messages
-are triggered on the **first observed chat message** from a participant
-after CrowBot connects; current IMVU integration cannot detect every silent
-room entry, so it does not send an immediate greeting on a silent join.
+Other room management through IMVU chat:
+
+```text
+!welcome Welcome {user} to {room}!   Save the automatic room greeting
+!welcome on / !welcome off         Enable or disable greetings
+!welcometest                       Preview welcome
+!lock play                         Disable public song requests (!p too)
+!unlock play                       Reopen song requests
+!locks                             Show locked commands
+```
+
+Automatic drops are independent of chat activity. Welcome messages are
+currently sent when CrowBot first observes a user's chat message after
+connecting, not on an undetected silent entry.
 
 ## Automatic cat/dog drops and Now Playing announcements
 
