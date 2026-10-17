@@ -345,18 +345,11 @@ class YouTubeOwnedProvider:
         )
 
         try:
-            process = subprocess.run(
+            process = _run_cancellable(
                 command,
+                timeout=22,
                 capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=45,
-                creationflags=(
-                    subprocess.CREATE_NO_WINDOW
-                    if hasattr(subprocess, "CREATE_NO_WINDOW")
-                    else 0
-                ),
+                cancel_check=cancel_check,
             )
 
         except subprocess.TimeoutExpired:
