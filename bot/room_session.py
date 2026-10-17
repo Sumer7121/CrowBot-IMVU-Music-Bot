@@ -4,6 +4,7 @@ Each RoomSession owns its own CommandHandler, MusicController and station;
 commands must never reuse the primary room's music controller.
 """
 from bot.commands import CommandHandler
+from music.auto_dj import AutoDJ
 from music.controller import MusicController
 from radio_server.server import RadioStreamServer
 from radio_server.cloudflare import CloudflareTunnel
@@ -23,6 +24,8 @@ class RoomSession:
         self.command_handler = CommandHandler(
             self.music_controller, user_manager, prefix
         )
+        self.dj = AutoDJ(self.music_controller)
+        self.command_handler.dj_controller = self.dj
         self.welcomed_users = set()
         self.radio_port = radio_port
         self.radio_server = None
@@ -43,6 +46,7 @@ class RoomSession:
         self.tunnel.start()
 
     def stop_radio(self):
+        self.dj.shutdown()
         if self.tunnel is not None and self.tunnel.is_running():
             self.tunnel.stop()
         if self.radio_server is not None and self.radio_server.is_running():
