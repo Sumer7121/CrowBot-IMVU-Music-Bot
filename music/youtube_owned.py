@@ -9,6 +9,7 @@ import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from config.runtime_paths import get_youtube_temp_dir
+from music.track_library import RoomTrackLibrary, is_valid_mp3
 from urllib.parse import quote, unquote
 from music.song_ranking import ranked_candidates, candidate_score, query_parts
 
@@ -124,6 +125,7 @@ class YouTubeOwnedProvider:
 
         self.track_info = {}
         self.cleanup_started = set()
+        self.library = RoomTrackLibrary(TEMP_DIR)
 
         self._purge_old_temp_files()
 
@@ -415,8 +417,16 @@ class YouTubeOwnedProvider:
     # MAIN SEARCH
     # =========================================================
 
-    def search(self, query, requested_by=None):
-        """Filter/rank search results BEFORE media is downloaded."""
+    def search(self, query, requested_by=None, room_id="legacy", session_key="legacy",
+               cancel_check=None):
+        """Resolve a cached request first; otherwise rank safe YouTube candidates."""
+        cached = self.library.find_query(query)
+        if cached:
+            print(f"RESOLVER: MASTER INDEX HIT: {query}")
+            return self._prepare_track(
+                cached, query, requested_by, room_id=room_id,
+                session_key=session_key, cancel_check=cancel_check
+            )
         song, artist = query_parts(query)
         searches = [f"{artist} {song} official audio" if artist else f"{song} official audio"]
         searches.append(query)
@@ -443,7 +453,12 @@ class YouTubeOwnedProvider:
                     print(f"YTDLP: Skipping non-song: {metadata.get('title')}")
                     continue
                 try:
-                    return self._prepare_track(metadata, query, requested_by)
+                    track = self._prepare_track(
+                        metadata, query, requested_by, room_id=room_id,
+                        session_key=session_key, cancel_check=cancel_check
+                    )
+                    self.library.index_query(query, metadata)
+                    return track
                 except Exception as error:
                     print(f"YTDLP: Candidate failed, trying next: {error}")
                     continue
@@ -460,6 +475,8 @@ class YouTubeOwnedProvider:
         query,
         requested_by,
         cancel_check=None,
+        room_id="legacy",
+        session_key="legacy",
     ):
 
         video_id = candidate["id"]
@@ -476,21 +493,27 @@ class YouTubeOwnedProvider:
         print()
         print("YTDLP: Preparing audio...")
 
-        mp3_path = self._download_mp3(
+        master_path = self._download_mp3(
             video_id,
             youtube_url,
             cancel_check=cancel_check,
         )
-
-        self._start_http_server()
-
-        self._register_track(
-            mp3_path,
-            duration,
+        if cancel_check and cancel_check():
+            raise RuntimeError("Music preparation cancelled.")
+        mp3_path = self.library.stage_for_room(
+            video_id, room_id, session_key
         )
-
-        local_url = self._build_local_url(
-            mp3_path
+        try:
+            self._start_http_server()
+            local_url = self._build_local_url(mp3_path)
+            self._verify_local_song_url(local_url, mp3_path)
+        except Exception:
+            # Failed preparation must not leave unplayable files queued.
+            self.library.release_track(mp3_path, room_id, session_key)
+            raise
+        print(
+            f"ROOM MUSIC READY: room={room_id}; master={master_path.name}; "
+            f"copy={mp3_path.name}; url={local_url}"
         )
 
         return {
@@ -507,6 +530,9 @@ class YouTubeOwnedProvider:
             "search_query": query,
             "requested_by": requested_by,
             "temporary_file": str(mp3_path),
+            "room_id": room_id,
+            "room_session": session_key,
+            "cache_master_file": str(master_path),
         }
 
 
@@ -514,72 +540,38 @@ class YouTubeOwnedProvider:
     # DOWNLOAD / CONVERT
     # =========================================================
 
-    def _download_mp3(
-        self,
-        video_id,
-        youtube_url,
-        cancel_check=None,
-    ):
-
-        # Each request receives its own file. Two rooms requesting the same
-        # video must never delete or overwrite each other's active stream.
-        unique_name = f"{video_id}-{uuid.uuid4().hex[:12]}"
-        final_mp3 = TEMP_DIR / f"{unique_name}.mp3"
-        output_template = str(TEMP_DIR / f"{unique_name}.%(ext)s")
-
-        print()
-        print("YTDLP: Downloading audio...")
-
-        command = (
-            self._ytdlp()
-            + [
+    def _download_mp3(self, video_id, youtube_url, cancel_check=None):
+        """Reuse validated masters; download and publish atomically on miss."""
+        def downloader(workspace, token):
+            output_template = str(workspace / (token + ".%(ext)s"))
+            command = self._ytdlp() + [
                 youtube_url,
                 "--extract-audio",
-                "--audio-format",
-                "mp3",
-                "--audio-quality",
-                "192K",
-                "--ffmpeg-location",
-                str(FFMPEG_DIR),
-                "--output",
-                output_template,
-                "--no-playlist",
-                "--no-warnings",
+                "--audio-format", "mp3",
+                "--audio-quality", "192K",
+                "--ffmpeg-location", str(FFMPEG_DIR),
+                "--output", output_template,
+                "--no-playlist", "--no-warnings",
             ]
-        )
-
-        try:
+            print(f"YTDLP: Downloading new master MP3 for {video_id}...")
             process = _run_cancellable(
                 command, timeout=600, cancel_check=cancel_check
             )
-
-        except subprocess.TimeoutExpired as error:
-            raise RuntimeError(
-                "yt-dlp audio download timed out."
-            ) from error
-
-        if process.returncode != 0:
-            raise RuntimeError(
-                "yt-dlp download or conversion failed."
-            )
-
-        if not final_mp3.exists():
-
-            candidates = list(
-                TEMP_DIR.glob(
-                    f"{video_id}*.mp3"
+            if process.returncode != 0:
+                raise RuntimeError(
+                    f"yt-dlp failed for {video_id} (exit {process.returncode})."
                 )
-            )
+            path = workspace / (token + ".mp3")
+            if not is_valid_mp3(path):
+                raise RuntimeError(f"yt-dlp returned missing or invalid MP3 for {video_id}.")
+            return path
 
-            if candidates:
-                final_mp3 = candidates[0]
-
-        if not final_mp3.exists():
-            raise RuntimeError(
-                "MP3 was not created."
-            )
-
-        return final_mp3
+        path, reused = self.library.get_or_download(
+            video_id, downloader, cancel_check=cancel_check
+        )
+        if reused:
+            print(f"ROOM MUSIC: Reusing master MP3 {path.name}")
+        return path
 
 
     # =========================================================
@@ -630,6 +622,8 @@ class YouTubeOwnedProvider:
                         filename
                     )
 
+                    # Session files are cleaned after playback by RoomSession,
+                    # never by time-based HTTP request callbacks.
                     provider._file_requested(
                         filename
                     )
@@ -687,20 +681,38 @@ class YouTubeOwnedProvider:
     # LOCAL URL
     # =========================================================
 
-    def _build_local_url(
-        self,
-        mp3_path,
-    ):
-
-        filename = quote(
-            Path(mp3_path).name
-        )
-
+    def _build_local_url(self, mp3_path):
+        # Preserve rooms/<room-id>/<session-key>/<unique-track>.mp3 path;
+        # using only the basename caused 404 for staged room copies.
+        path = Path(mp3_path).resolve()
+        relative = path.relative_to(TEMP_DIR.resolve()).as_posix()
         return (
-            f"http://{HTTP_HOST}:"
-            f"{self.http_port}/"
-            f"{filename}"
+            f"http://{HTTP_HOST}:{self.http_port}/"
+            + quote(relative, safe="/")
         )
+
+    def _verify_local_song_url(self, url, path):
+        """A song isn't 'ready' until the local HTTP service returns its file."""
+        from urllib.request import Request, urlopen
+        if not is_valid_mp3(path):
+            raise RuntimeError(f"Song is not a valid MP3: {path}")
+        try:
+            with urlopen(Request(url, method="HEAD"), timeout=7) as response:
+                size = int(response.headers.get("Content-Length") or 0)
+                if response.status != 200 or size < 2048:
+                    raise RuntimeError(
+                        f"Local MP3 server returned HTTP {response.status} / {size} bytes"
+                    )
+        except Exception as error:
+            raise RuntimeError(
+                f"Room music file failed local HTTP check: {error}"
+            ) from error
+
+    def cleanup_room_files(self, room_id, session_key):
+        self.library.cleanup_room(room_id, session_key)
+
+    def release_room_track(self, path, room_id, session_key):
+        self.library.release_track(path, room_id, session_key)
 
 
     # =========================================================
