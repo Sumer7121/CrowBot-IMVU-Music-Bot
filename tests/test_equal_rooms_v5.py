@@ -228,6 +228,12 @@ class EqualRoomsTests(unittest.TestCase):
         self.hub.request_song("111-1", "Orange")
         self.hub.request_song("222-2", "Blue")
         self.hub._chat("111-1", self.hub._epoch["111-1"], "Alice", "Hello")
+        self.window.send_bot_response_to_imvu.assert_any_call(
+            "OK", room_url="https://www.imvu.com/next/chat/room-111-1/"
+        )
+        self.window.send_bot_response_to_imvu.assert_any_call(
+            "OK", room_url="https://www.imvu.com/next/chat/room-222-2/"
+        )
         self.assertIn("Alice: Hello", "\n".join(self.window.room_panel._logs["111-1"]))
         self.assertNotIn("Alice: Hello", "\n".join(self.window.room_panel._logs["222-2"]))
         self.assertEqual(
