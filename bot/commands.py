@@ -219,8 +219,6 @@ class CommandHandler(QObject):
             "lock": self.lock_command,
             "unlock": self.unlock_command,
             "locks": self.list_locked_commands,
-            "addmod": self.add_mod,
-            "removemod": self.remove_mod,
             "mods": self.list_mods,
             "welcome": self.configure_welcome,
             "welcometest": self.preview_welcome,
@@ -2235,38 +2233,13 @@ class CommandHandler(QObject):
         return ("🔒 Locked commands: " + ", ".join("!" + v for v in locked)
                 if locked else "🔓 No additional commands are locked.")
 
-    def add_mod(self, arguments, username):
-        permissions = getattr(self, "room_permissions", None)
-        if permissions is None or not permissions.is_mod(username):
-            return "🔒 Only this room's owner or moderator can add moderators."
-        target = " ".join(arguments).strip()
-        if not target:
-            return f"Usage: {self.prefix}addmod <username>"
-        try:
-            permissions.add_mod(target)
-        except ValueError as error:
-            return str(error)
-        return f"✅ @{target.lstrip('@')} is now a room moderator."
-
-    def remove_mod(self, arguments, username):
-        permissions = getattr(self, "room_permissions", None)
-        if permissions is None or not permissions.is_mod(username):
-            return "🔒 Only this room's owner or moderator can remove moderators."
-        target = " ".join(arguments).strip()
-        if not target:
-            return f"Usage: {self.prefix}removemod <username>"
-        if target.lstrip("@").casefold() == permissions.owner.casefold():
-            return "🔒 The room owner cannot be removed from moderators."
-        return (f"✅ Removed @{target.lstrip('@')} from room moderators."
-                if permissions.remove_mod(target)
-                else "That user is not a moderator.")
-
     def list_mods(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.owner:
             return "🔒 Set the verified room owner from the local CrowBot dashboard."
-        return ("👑 Owner: " + permissions.owner +
-                "\n🛡️ Mods: " + (", ".join(permissions.mods.values()) or "None"))
+        return ("👑 Room owner: " + permissions.owner +
+                "\n🛡️ Room admins: " + (", ".join(permissions.mods.values()) or "None") +
+                "\nAdmins are appointed from the CrowBot app only.")
 
     def configure_welcome(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
