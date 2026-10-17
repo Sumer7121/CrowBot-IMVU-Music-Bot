@@ -2428,6 +2428,10 @@ class MainWindow(QMainWindow):
             lambda room_id: self.room_hub.control_music(room_id, "stop")
         )
         self.room_panel.song_requested.connect(self.room_hub.request_song)
+        self.room_panel.artist_requested.connect(self.room_hub.artist_dj)
+        self.room_panel.autoplay_requested.connect(self.room_hub.set_autoplay)
+        self.room_panel.language_requested.connect(self.room_hub.set_language)
+        self.room_panel.dj_off_requested.connect(self.room_hub.stop_dj)
         self.connect_button.clicked.connect(
 
 
