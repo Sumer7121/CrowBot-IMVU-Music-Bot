@@ -465,9 +465,24 @@ class IMVUWebController:
                     (row.getAttribute("data-chat-entry") || "")
                     .trim();
 
-                const userId =
-                    (row.getAttribute("data-id") || "")
-                    .trim();
+                // Prefer account-scoped identifiers from the chat profile.
+                // Older IMVU rooms expose only row[data-id].
+                const identityNodes = [
+                    row.querySelector(".chat-row-profile"),
+                    row.querySelector(".chat-row-profile img"),
+                    row,
+                ].filter(Boolean);
+                let userId = "";
+                for (const node of identityNodes) {
+                    for (const attribute of [
+                        "data-user-id", "data-avatar-id", "data-account-id",
+                        "data-imvu-id", "data-id",
+                    ]) {
+                        const found = (node.getAttribute(attribute) || "").trim();
+                        if (found) { userId = found; break; }
+                    }
+                    if (userId) break;
+                }
 
                 const timestamp =
                     (row.getAttribute("data-timestamp") || "")
