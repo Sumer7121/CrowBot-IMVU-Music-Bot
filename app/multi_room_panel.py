@@ -29,6 +29,7 @@ class MultiRoomPanel(QWidget):
     language_requested = Signal(str, str)
     dj_off_requested = Signal(str)
     owner_requested = Signal(str, str)
+    approve_owner_link_requested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -131,6 +132,13 @@ class MultiRoomPanel(QWidget):
         owner_row.addWidget(self.owner_input, 2)
         owner_row.addWidget(self.owner_button)
         group_layout.addLayout(owner_row)
+        verify_row = QHBoxLayout()
+        self.owner_verify_label = QLabel("Owner verification: awaiting !linkowner")
+        self.owner_verify_label.setWordWrap(True)
+        self.owner_verify_button = QPushButton("APPROVE OWNER LINK")
+        verify_row.addWidget(self.owner_verify_label, 3)
+        verify_row.addWidget(self.owner_verify_button)
+        group_layout.addLayout(verify_row)
         details = QSplitter(Qt.Orientation.Horizontal)
         queue_side = QWidget()
         queue_layout = QVBoxLayout(queue_side)
@@ -169,6 +177,10 @@ class MultiRoomPanel(QWidget):
             lambda: self.owner_requested.emit(
                 self.selected_room(), self.owner_input.text().strip()
             ) if self.selected_room() and self.owner_input.text().strip() else None
+        )
+        self.owner_verify_button.clicked.connect(
+            lambda: self.approve_owner_link_requested.emit(self.selected_room())
+            if self.selected_room() else None
         )
         self.artist_button.clicked.connect(self._request_artist)
         self.artist_input.returnPressed.connect(self._request_artist)
@@ -282,12 +294,23 @@ class MultiRoomPanel(QWidget):
                        self.autoplay_off_button):
             button.setEnabled(bool(room_id and record.get("connected")))
         if not room_id:
+            self.owner_verify_label.setText("Owner verification: select a room.")
+            self.owner_verify_button.setEnabled(False)
             self.detail_label.setText("Select a room to inspect its music and queue.")
             self.queue_list.clear()
             self.log_view.clear()
             self.stream_url_input.clear()
             return
         self.stream_url_input.setText(record.get("stream_url", ""))
+        request = record.get("pending_owner_link") or {}
+        self.owner_verify_button.setEnabled(bool(request))
+        self.owner_verify_label.setText(
+            ("Owner link pending: " + str(request.get("display", "")) +
+             " (review identity before approving)")
+            if request else
+            ("Owner account verified" if record.get("owner_linked") else
+             "Owner not linked: ask them to type !linkowner in IMVU chat")
+        )
         if not self.owner_input.hasFocus():
             self.owner_input.setText(record.get("owner", ""))
         language = record.get("dj_language", "")
