@@ -343,6 +343,16 @@ class YouTubeOwnedProvider:
             or candidate.get("title", "Unknown")
         ).strip()
 
+        # YouTube can expose language and music artist in video metadata.
+        # AutoDJ uses these fields when present, and its language-specific
+        # search query when they are not available.
+        metadata["language"] = str(
+            data.get("language") or candidate.get("language") or ""
+        ).strip()
+        metadata["artist"] = str(
+            data.get("artist") or candidate.get("artist") or ""
+        ).strip()
+
         duration = (
             data.get("duration")
             or candidate.get("duration", 0)
