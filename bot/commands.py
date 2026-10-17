@@ -860,7 +860,7 @@ class CommandHandler(QObject):
         if not name or name.casefold() in ("status", "help"):
             return (
                 "🎧 ARTIST DJ | " + dj.label +
-                f"\\nUse {self.prefix}dj <artist name> to play the artist continuously, "
+                f"\nUse {self.prefix}dj <artist name> to play the artist continuously, "
                 f"or {self.prefix}dj off."
             )
         if name.casefold() in ("off", "stop", "disable"):
@@ -892,7 +892,7 @@ class CommandHandler(QObject):
         if not name:
             return (
                 "🌐 DJ language: " + (dj.language.title() if dj.language else "Any") +
-                f"\\nUse {self.prefix}language Hindi, Telugu, Tamil, English, etc., or off."
+                f"\nUse {self.prefix}language Hindi, Telugu, Tamil, English, etc., or off."
             )
         try:
             dj.set_language(name)
