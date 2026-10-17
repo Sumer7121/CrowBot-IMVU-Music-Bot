@@ -135,6 +135,11 @@ class MultiRoomHub(QObject):
             lambda song, rid=room_id, e=epoch: self._song_changed(rid, e, song)
         )
         session.music_controller.queue_changed.connect(self.refresh_ui)
+        session.dj.status_changed.connect(
+            lambda message, rid=room_id, e=epoch: self._session_event(
+                rid, e, "DJ: " + str(message)
+            )
+        )
         session.music_controller.status_changed.connect(
             lambda status, rid=room_id, e=epoch: self._session_event(rid, e, status)
         )
@@ -273,6 +278,7 @@ class MultiRoomHub(QObject):
             return
         self.sessions[room_id].stream_url = url
         self.states[room_id] = "Connected"
+        self.sessions[room_id].dj.set_ready(True)
         self._log(room_id, "Own radio link loaded in IMVU. Confirm audio by checking listeners.")
         self.refresh_ui()
 
@@ -345,6 +351,48 @@ class MultiRoomHub(QObject):
             )
         self.refresh_ui()
 
+    def artist_dj(self, room_id, artist):
+        session = self.sessions.get(room_id)
+        if not session or not session.stream_url:
+            self._log(room_id, "Connect this room's radio before starting DJ.")
+            return
+        try:
+            label = session.dj.set_artist(artist)
+        except ValueError as error:
+            self._log(room_id, str(error))
+            return
+        self._log(room_id, "Artist radio enabled: " + label)
+        self.refresh_ui()
+
+    def set_autoplay(self, room_id, enabled):
+        session = self.sessions.get(room_id)
+        if not session or not session.stream_url:
+            self._log(room_id, "Connect this room's radio first.")
+            return
+        mode = session.dj.set_autoplay(enabled)
+        self._log(room_id, "Autoplay set to: " + mode)
+        self.refresh_ui()
+
+    def set_language(self, room_id, language):
+        session = self.sessions.get(room_id)
+        if not session:
+            self._log(room_id, "Connect this room before selecting a DJ language.")
+            return
+        try:
+            mode = session.dj.set_language(language)
+        except ValueError as error:
+            self._log(room_id, str(error))
+            return
+        self._log(room_id, "Language preference updated: " + mode)
+        self.refresh_ui()
+
+    def stop_dj(self, room_id):
+        session = self.sessions.get(room_id)
+        if session:
+            session.dj.off()
+            self._log(room_id, "Artist DJ and autoplay switched off.")
+            self.refresh_ui()
+
     def control_music(self, room_id, action):
         session = self.sessions.get(room_id)
         if not session:
@@ -353,6 +401,7 @@ class MultiRoomHub(QObject):
         if action == "skip":
             session.music_controller.skip()
         elif action == "stop":
+            session.dj.set_autoplay(False)
             session.music_controller.stop()
         self._log(room_id, "Selected-room action: " + action)
         self.refresh_ui()
@@ -447,6 +496,8 @@ class MultiRoomHub(QObject):
                 records.append({
                     "room_id": room_id, "status": status,
                     "connected": True, "port": session.radio_port,
+                    "dj_mode": session.dj.label,
+                    "dj_language": session.dj.language,
                     "playing": song.get("title", "Unknown") if song else "—",
                     "queue": session.music_controller.get_queue(),
                     "source": "Music" if health["source_set"] else "Idle",
@@ -458,6 +509,7 @@ class MultiRoomHub(QObject):
             else:
                 records.append({
                     "room_id": room_id, "status": "Offline", "connected": False,
+                    "dj_mode": "DJ OFF", "dj_language": "",
                     "port": "—", "playing": "—", "queue": [],
                     "source": "—", "clients": 0, "stream_url": "",
                 })
