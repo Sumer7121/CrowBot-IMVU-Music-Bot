@@ -29,9 +29,13 @@ class MusicResolveWorker(QThread):
         query,
         username,
         parent=None,
+        room_id="legacy",
+        session_key="legacy",
     ):
         super().__init__(parent)
 
+        self.room_id = room_id
+        self.session_key = session_key
         self.resolver = resolver
         self.query = str(query or "").strip()
         self.username = str(username or "").strip()
@@ -47,9 +51,12 @@ class MusicResolveWorker(QThread):
             )
 
             result = self.resolver.resolve(
-                self.query,
-                requested_by=self.username,
+                self.query, requested_by=self.username,
+                room_id=self.room_id, session_key=self.session_key,
+                cancel_check=self.isInterruptionRequested,
             )
+            if self.isInterruptionRequested():
+                return
 
             if not result:
                 self.failed.emit(
@@ -148,6 +155,9 @@ class CommandHandler(QObject):
         #
         self.music_prepare_queue = []
         self.active_music_worker = None
+        self.room_id = "legacy"
+        self.room_session = "legacy"
+        self._music_shutting_down = False
 
         # -----------------------------------------------------
         # COMMANDS
@@ -566,6 +576,8 @@ class CommandHandler(QObject):
         Only one MusicResolveWorker is allowed to run at a time.
         """
 
+        if self._music_shutting_down:
+            return
         request = {
             "query": str(query or "").strip(),
             "username": str(username or "").strip(),
@@ -608,7 +620,7 @@ class CommandHandler(QObject):
         If a worker is already running, this method does nothing.
         """
 
-        if self.active_music_worker is not None:
+        if self._music_shutting_down or self.active_music_worker is not None:
             return
 
         if not self.music_prepare_queue:
@@ -640,6 +652,8 @@ class CommandHandler(QObject):
             query,
             username,
             self,
+            room_id=self.room_id,
+            session_key=self.room_session,
         )
 
         self.active_music_worker = worker
@@ -681,6 +695,8 @@ class CommandHandler(QObject):
         query,
         result,
     ):
+        if self._music_shutting_down:
+            return
 
         try:
 
@@ -780,6 +796,8 @@ class CommandHandler(QObject):
         query,
         error,
     ):
+        if self._music_shutting_down:
+            return
 
         error = str(
             error or ""
@@ -909,6 +927,15 @@ class CommandHandler(QObject):
     def dj_status(self, arguments, username):
         dj = self._room_dj()
         return "🎧 DJ status: " + dj.label if dj is not None else "DJ unavailable."
+
+    def stop_music_requests(self):
+        """Cancel this room's unstarted and in-progress manual downloads."""
+        self._music_shutting_down = True
+        self.music_prepare_queue.clear()
+        worker = self.active_music_worker
+        if worker is not None:
+            worker.requestInterruption()
+        return worker
 
     # =========================================================
     # YOUTUBE SEARCH
