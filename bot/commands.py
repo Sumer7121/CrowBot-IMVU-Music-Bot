@@ -2239,7 +2239,7 @@ class CommandHandler(QObject):
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.owner:
             return "Set the verified room owner in the CrowBot app first."
-        if username.strip().casefold() != permissions.owner.casefold():
+        if not permissions.is_owner(username):
             return "🔒 Only the registered room owner can appoint admins."
         target = " ".join(arguments).strip()
         if not target:
@@ -2255,7 +2255,7 @@ class CommandHandler(QObject):
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.owner:
             return "Set the verified room owner in the CrowBot app first."
-        if username.strip().casefold() != permissions.owner.casefold():
+        if not permissions.is_owner(username):
             return "🔒 Only the registered room owner can remove admins."
         target = " ".join(arguments).strip()
         if not target:
