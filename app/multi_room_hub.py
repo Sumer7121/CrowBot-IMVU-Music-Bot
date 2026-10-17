@@ -511,6 +511,7 @@ class MultiRoomHub(QObject):
                     "connected": True, "port": session.radio_port,
                     "dj_mode": session.dj.label,
                     "dj_language": session.dj.language,
+                    "dj_match_current": session.dj.match_current_language,
                     "playing": song.get("title", "Unknown") if song else "—",
                     "queue": session.music_controller.get_queue(),
                     "source": "Music" if health["source_set"] else "Idle",
@@ -523,6 +524,7 @@ class MultiRoomHub(QObject):
                 records.append({
                     "room_id": room_id, "status": "Offline", "connected": False,
                     "dj_mode": "DJ OFF", "dj_language": "",
+                    "dj_match_current": False,
                     "port": "—", "playing": "—", "queue": [],
                     "source": "—", "clients": 0, "stream_url": "",
                 })
