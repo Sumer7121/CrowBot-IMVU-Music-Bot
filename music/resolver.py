@@ -56,12 +56,8 @@ class MusicResolver:
             )
 
         except Exception as error:
-            print(
-                "RESOLVER: yt-dlp failed: "
-                f"{error}"
-            )
-
-            track = None
+            print("RESOLVER: yt-dlp or local MP3 preparation failed: " + str(error))
+            raise RuntimeError("Song preparation failed: " + str(error)) from error
 
         if not track:
             print(
