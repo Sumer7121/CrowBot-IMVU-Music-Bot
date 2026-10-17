@@ -215,6 +215,9 @@ class CommandHandler(QObject):
             "rps": self.rock_paper_scissors,
             "top": self.game_scores,
             "catch": self.catch_collectible,
+            "petdrop": self.pet_drop_manual,
+            "drops": self.drop_status,
+            "dropstatus": self.drop_status,
             "collection": self.show_collection,
             "cats": self.show_collection,
             "dogs": self.show_collection,
@@ -334,6 +337,8 @@ class CommandHandler(QObject):
         self.party_games = PartyGames()
         self.social = SocialReactions()
         self.collectibles = CollectibleDrops()
+        self.last_pet_drop_at = None
+        self.next_auto_drop_at = None
         self.adult_jokes = False
 
         # -----------------------------------------------------
@@ -2190,6 +2195,47 @@ class CommandHandler(QObject):
     def meme(self, arguments, username):
         return self.social.meme()
 
+    def pet_drop_manual(self, arguments, username):
+        """Rate-limited manual drop for hosts/players to test the pet game.
+
+        !drop remains Connect Four's column move, so pet drops use !petdrop.
+        """
+        if self.collectibles.expired():
+            pass
+        if self.collectibles.active is not None:
+            return (
+                f"🐾 A pet is already waiting! Type {self.prefix}catch "
+                "before it escapes."
+            )
+        now = time.monotonic()
+        if (self.last_pet_drop_at is not None
+                and now - self.last_pet_drop_at < 180):
+            remaining = int(180 - (now - self.last_pet_drop_at)) + 1
+            return f"🐾 Next manual pet drop available in {remaining}s."
+        self.last_pet_drop_at = now
+        return self.collectibles.spawn() or "🐾 A pet drop is already active."
+
+    def drop_status(self, arguments, username):
+        """Current pet drop and time until this room's next automatic drop."""
+        self.collectibles.expired()
+        active = self.collectibles.active
+        if active:
+            item, deadline = active
+            remaining = max(0, int(deadline - self.collectibles.clock()))
+            return (
+                f"🐾 WILD {item[0].upper()}: {item[2]} {item[1]} "
+                f"[{item[3].upper()}] — {remaining}s left! "
+                f"Type {self.prefix}catch."
+            )
+        if self.next_auto_drop_at is None:
+            return "🐾 Automatic pet drops start when CrowBot joins this room."
+        remaining = max(0, int(self.next_auto_drop_at - time.monotonic()))
+        minutes, seconds = divmod(remaining, 60)
+        return (
+            f"🐾 Auto pet drops are active. Next drop in "
+            f"{minutes}m {seconds}s. Try {self.prefix}petdrop for a manual one."
+        )
+
     def catch_collectible(self, arguments, username):
         return self.collectibles.catch(username)
 
@@ -2303,7 +2349,10 @@ class CommandHandler(QObject):
                 f"{p}duel <name> — friendly dice duel\n"
                 f"{p}guess — number game\n"
                 f"{p}rps rock — RPS\n"
-                f"{p}spin — random player\n"
+                f"{p}spin — random player\n"                f"{p}petdrop — spawn a pet (3m cooldown)\n"
+                f"{p}drops — next automatic cat/dog drop\n"
+                f"{p}catch — catch a wild pet\n"
+                f"{p}pets — view collection\n"
                 f"{p}top — scores\n"
                 f"{p}catch — claim random drop\n"
                 f"{p}pets — your cat and dog collection\n"
