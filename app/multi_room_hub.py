@@ -241,10 +241,13 @@ class MultiRoomHub(QObject):
     @Slot(str, int, object)
     def _chat_finished(self, room_id, epoch, worker):
         self._worker_finished(self.chat_workers, room_id, worker)
-        if self._current(room_id, epoch) and self.states.get(room_id) != "Error":
-            self.states[room_id] = "Chat disconnected"
+        if self._current(room_id, epoch):
+            # Never keep posting auto-drops when this room's chat listener
+            # died, even if radio errors had already changed its status.
             self._stop_room_drops(room_id)
-            self._log(room_id, "Chat listener ended. Disconnect and reconnect this room.")
+            if self.states.get(room_id) != "Error":
+                self.states[room_id] = "Chat disconnected"
+            self._log(room_id, "Chat listener ended. Pet drops paused until reconnect.")
             self.refresh_ui()
 
     @Slot(str, int)
