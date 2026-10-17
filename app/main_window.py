@@ -2443,6 +2443,7 @@ class MainWindow(QMainWindow):
         self.room_panel.language_requested.connect(self.room_hub.set_language)
         self.room_panel.dj_off_requested.connect(self.room_hub.stop_dj)
         self.room_panel.owner_requested.connect(self.room_hub.set_room_owner)
+        self.room_panel.approve_owner_link_requested.connect(self.room_hub.approve_owner_link)
 
         self.connect_button.clicked.connect(
 
