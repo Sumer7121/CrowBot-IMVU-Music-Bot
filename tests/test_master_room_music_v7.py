@@ -17,7 +17,7 @@ def write_dummy_mp3(path):
     """Synthetic MP3-shaped fixture for the *storage* layer, not a decoder test."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"ID3" + b"\\x04\\x00" + b"X" * (MIN_MP3_BYTES + 256))
+    path.write_bytes(b"ID3" + b"\x04\x00" + b"X" * (MIN_MP3_BYTES + 256))
     return path
 
 
@@ -55,8 +55,8 @@ class MasterRoomMusicTests(unittest.TestCase):
             return write_dummy_mp3(workspace / (token + ".mp3"))
 
         master, _ = self.library.get_or_download("sameSong001", download)
-        first = self.library.stage_for_room("111-1", "111-1", "aabb1122")
-        second = self.library.stage_for_room("111-1", "222-2", "ccdd3344")
+        first = self.library.stage_for_room("sameSong001", "111-1", "aabb1122")
+        second = self.library.stage_for_room("sameSong001", "222-2", "ccdd3344")
         self.assertNotEqual(first, second)
         self.assertTrue(is_valid_mp3(first))
         self.assertTrue(is_valid_mp3(second))
