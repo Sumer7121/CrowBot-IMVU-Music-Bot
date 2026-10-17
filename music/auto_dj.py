@@ -124,6 +124,8 @@ def candidate_allowed(candidate, artist="", language="", allow_missing_duration=
         "reaction to", "reaction video", "movie trailer", "full movie",
         "interview with", "behind the scenes", "tutorial", "8d audio",
         "sped up", "slowed reverb", "nightcore", "shorts",
+        "short film", "advertisement", "commercial", "movie scene",
+        "movie clip", "promo video",
     )):
         return False
     if artist:
@@ -133,7 +135,11 @@ def candidate_allowed(candidate, artist="", language="", allow_missing_duration=
     language = normalize_language(language)
     declared = str(candidate.get("language") or "").casefold().split("-")[0]
     if language and declared and declared != LANGUAGES[language]:
-        return False
+        # yt-dlp may label the spoken/metadata language as English even for
+        # a Hindi/Telugu song. An explicit *song title* language tag wins.
+        if not re.search(r"\b" + re.escape(language) + r"\b",
+                         title.casefold()):
+            return False
     return True
 
 
@@ -293,6 +299,8 @@ class AutoDJ(QObject):
         self._seen = []
         self._round = 0
         self._retry_at = 0.0
+        self.last_error = ""
+        self.last_activity = "Waiting for radio connection"
         self._closed = False
         self.radio_ready = False
 
@@ -355,6 +363,8 @@ class AutoDJ(QObject):
         self.artist = text
         self.enabled = True
         self._drop_prefetched()
+        self.last_error = ""
+        self.last_activity = "Artist DJ starting"
         self.status_changed.emit("Artist radio ON: " + self.label)
         self._maybe_fill()
         return self.label
@@ -364,6 +374,8 @@ class AutoDJ(QObject):
         self.enabled = bool(enabled)
         if not self.enabled:
             self._drop_prefetched()
+        self.last_error = ""
+        self.last_activity = "Autoplay starting" if enabled else "Autoplay disabled"
         self.status_changed.emit("Autoplay " + ("ON: " + self.label if enabled else "OFF"))
         self._maybe_fill()
         return self.label
@@ -392,6 +404,14 @@ class AutoDJ(QObject):
         self.status_changed.emit("Artist DJ and autoplay OFF.")
         return self.label
 
+    def _release_unused_track(self, song):
+        """Free only room-scoped copies; master cache remains untouched."""
+        path = (song or {}).get("temporary_file")
+        if path:
+            get_shared_youtube_provider().release_room_track(
+                path, self.room_id, self.session_key
+            )
+
     def _drop_prefetched(self):
         # Preserve user-requested songs; only remove AutoDJ's old selections.
         pending = self.music_controller.get_queue()
@@ -399,7 +419,8 @@ class AutoDJ(QObject):
             return
         for index in reversed(range(len(pending))):
             if pending[index].get("dj_auto"):
-                self.music_controller.remove_song(index)
+                removed = self.music_controller.remove_song(index)
+                self._release_unused_track(removed)
 
     def _change(self):
         self._generation += 1
@@ -443,23 +464,28 @@ class AutoDJ(QObject):
             lambda w=worker: self.finished_event.emit(w)
         )
         worker.start()
+        self.last_activity = "Discovering next track"
         self.status_changed.emit("AutoDJ discovering next track: " + self.label)
 
     @Slot(int, str)
     def _on_progress(self, generation, message):
         if (not self._closed and self.enabled and self.radio_ready
                 and generation == self._generation):
+            self.last_activity = str(message)
             self.status_changed.emit("AutoDJ: " + str(message))
 
     @Slot(int, object)
     def _on_prepared(self, generation, track):
         if (self._closed or not self.enabled or not self.radio_ready
                 or generation != self._generation):
+            self._release_unused_track(track)
             return
         video_id = str(track.get("id") or "")
         if video_id:
             self._seen.append(video_id)
             self._seen = self._seen[-250:]
+        self.last_error = ""
+        self.last_activity = "Prepared: " + str(track.get("title", "Unknown"))
         self.status_changed.emit(
             "AutoDJ selected: " + str(track.get("title", "Unknown"))
         )
@@ -470,6 +496,8 @@ class AutoDJ(QObject):
         if self._closed or generation != self._generation:
             return
         self._retry_at = time.monotonic() + 25
+        self.last_error = str(error)
+        self.last_activity = "Retry scheduled in 25 seconds"
         self.status_changed.emit("AutoDJ search failed; retrying in 25s: " + str(error))
 
     @Slot(object)
