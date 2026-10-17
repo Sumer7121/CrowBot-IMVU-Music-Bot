@@ -273,6 +273,9 @@ class DJFetchWorker(QThread):
 class AutoDJ(QObject):
     status_changed = Signal(str)
     progress_event = Signal(int, str)
+    prepared_event = Signal(int, object)
+    failed_event = Signal(int, str)
+    finished_event = Signal(object)
 
     def __init__(self, music_controller, room_id="legacy", session_key="legacy"):
         super().__init__()
@@ -294,6 +297,9 @@ class AutoDJ(QObject):
         self.radio_ready = False
 
         self.progress_event.connect(self._on_progress, Qt.ConnectionType.AutoConnection)
+        self.prepared_event.connect(self._on_prepared, Qt.ConnectionType.AutoConnection)
+        self.failed_event.connect(self._on_failed, Qt.ConnectionType.AutoConnection)
+        self.finished_event.connect(self._finished, Qt.ConnectionType.AutoConnection)
         self._timer = QTimer(self)
         self._timer.setInterval(4000)
         self._timer.timeout.connect(self._maybe_fill)
@@ -428,12 +434,14 @@ class AutoDJ(QObject):
             lambda message, g=generation: self.progress_event.emit(g, message)
         )
         worker.prepared.connect(
-            lambda track, g=generation: self._on_prepared(g, track)
+            lambda track, g=generation: self.prepared_event.emit(g, track)
         )
         worker.failed.connect(
-            lambda error, g=generation: self._on_failed(g, error)
+            lambda error, g=generation: self.failed_event.emit(g, error)
         )
-        worker.finished.connect(lambda w=worker: self._finished(w))
+        worker.finished.connect(
+            lambda w=worker: self.finished_event.emit(w)
+        )
         worker.start()
         self.status_changed.emit("AutoDJ discovering next track: " + self.label)
 
@@ -443,6 +451,7 @@ class AutoDJ(QObject):
                 and generation == self._generation):
             self.status_changed.emit("AutoDJ: " + str(message))
 
+    @Slot(int, object)
     def _on_prepared(self, generation, track):
         if (self._closed or not self.enabled or not self.radio_ready
                 or generation != self._generation):
@@ -456,12 +465,14 @@ class AutoDJ(QObject):
         )
         self.music_controller.add_song(track)
 
+    @Slot(int, str)
     def _on_failed(self, generation, error):
         if self._closed or generation != self._generation:
             return
         self._retry_at = time.monotonic() + 25
         self.status_changed.emit("AutoDJ search failed; retrying in 25s: " + str(error))
 
+    @Slot(object)
     def _finished(self, worker):
         if self._worker is worker:
             self._worker = None
