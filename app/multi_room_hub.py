@@ -11,6 +11,7 @@ from PySide6.QtCore import QObject, Signal, Slot, Qt, QThread, QTimer
 
 from bot.room_ids import make_room_url, normalize_room_id
 from bot.room_session import RoomSession
+from bot.room_permissions import RoomPermissions
 from config.settings import load_settings, save_settings
 
 
@@ -524,6 +525,14 @@ class MultiRoomHub(QObject):
             return
         session = self.sessions[room_id]
         self._log(room_id, f"{username}: {message}")
+        # A chat-only listener cannot see silent joins reliably, so greet
+        # users at their first observed message per connected room.
+        identity = username.casefold()
+        if identity not in session.welcomed_users:
+            session.welcomed_users.add(identity)
+            welcome = session.permissions.welcome_message(username)
+            if welcome:
+                self._send_room_announcement(room_id, epoch, welcome)
         try:
             result = session.process(username, message)
         except Exception as error:
@@ -558,6 +567,34 @@ class MultiRoomHub(QObject):
             self.window.send_bot_response_to_imvu(
                 result, room_url=make_room_url(room_id)
             )
+        self.refresh_ui()
+
+    def set_room_owner(self, room_id, username):
+        if room_id not in self.room_ids:
+            return
+        try:
+            policy = (self.sessions[room_id].permissions
+                      if room_id in self.sessions else RoomPermissions(room_id))
+            policy.set_owner_from_dashboard(username)
+        except ValueError as error:
+            self._log(room_id, "OWNER ERROR: " + str(error))
+            return
+        self._log(
+            room_id, "Trusted dashboard configured room owner: " + policy.owner
+        )
+        self.refresh_ui()
+
+    def set_welcome_message(self, room_id, message):
+        if room_id not in self.room_ids:
+            return
+        try:
+            policy = (self.sessions[room_id].permissions
+                      if room_id in self.sessions else RoomPermissions(room_id))
+            policy.set_welcome(message)
+        except ValueError as error:
+            self._log(room_id, "WELCOME ERROR: " + str(error))
+            return
+        self._log(room_id, "Automatic welcome template saved.")
         self.refresh_ui()
 
     def artist_dj(self, room_id, artist):
@@ -700,6 +737,7 @@ class MultiRoomHub(QObject):
         records = []
         for room_id in self.room_ids:
             session = self.sessions.get(room_id)
+            policy = session.permissions if session else RoomPermissions(room_id)
             if session:
                 health = session.radio_server.get_health()
                 song = session.music_controller.get_current_song()
@@ -717,6 +755,7 @@ class MultiRoomHub(QObject):
                     status = self.states.get(room_id, "Connecting")
                 records.append({
                     "room_id": room_id, "status": status,
+                    "owner": policy.owner, "welcome": policy.welcome,
                     "connected": True, "port": session.radio_port,
                     "dj_mode": session.dj.label,
                     "dj_activity": session.dj.last_activity,
@@ -733,7 +772,9 @@ class MultiRoomHub(QObject):
                 })
             else:
                 records.append({
-                    "room_id": room_id, "status": "Offline", "connected": False,
+                    "room_id": room_id, "status": "Offline",
+                    "owner": policy.owner, "welcome": policy.welcome,
+                    "connected": False,
                     "dj_mode": "DJ OFF", "dj_activity": "Offline",
                     "dj_error": "", "dj_language": "",
                     "dj_match_current": False,
