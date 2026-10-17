@@ -3,6 +3,8 @@
 The owner is set only through CrowBot's trusted local GUI, never by an IMVU
 chat claim. No unverified username may bootstrap moderator permissions.
 """
+import re
+
 from config.settings import load_settings, save_settings
 
 # Safety: lock management and moderator recovery must always remain available
@@ -37,7 +39,15 @@ RESTRICTED = frozenset({
 
 
 def _username(name):
-    return " ".join(str(name or "").strip().lstrip("@").split())[:60]
+    """IMVU account handle; never authorize decorated/duplicated display names."""
+    value = str(name or "").strip()
+    if value.startswith("@"):
+        value = value[1:]
+    return value if re.fullmatch(r"[A-Za-z0-9_.-]{1,60}", value) else ""
+
+
+def _display_name(name):
+    return " ".join(str(name or "").strip().split())[:100]
 
 
 class RoomPermissions:
@@ -46,7 +56,6 @@ class RoomPermissions:
         settings = load_settings()
         state = settings.get("room_policies", {}).get(self.room_id, {})
         self.owner = _username(state.get("owner"))
-        self.owner_chat_name = _username(state.get("owner_chat_name"))
         self.mods = {_username(v).casefold(): _username(v)
                      for v in state.get("mods", []) if _username(v)}
         self.welcome = str(state.get("welcome", DEFAULT_WELCOME))[:240]
@@ -59,7 +68,6 @@ class RoomPermissions:
         policies = settings.setdefault("room_policies", {})
         policies[self.room_id] = {
             "owner": self.owner,
-            "owner_chat_name": self.owner_chat_name,
             "mods": list(self.mods.values()),
             "welcome": self.welcome,
             "welcome_enabled": self.welcome_enabled,
@@ -68,31 +76,17 @@ class RoomPermissions:
         save_settings(settings)
 
     def is_owner(self, username):
-        key = _username(username).casefold()
-        return bool(self.owner and key and (
-            key == self.owner.casefold()
-            or (self.owner_chat_name and key == self.owner_chat_name.casefold())
-        ))
+        handle = _username(username).casefold()
+        return bool(handle and self.owner and handle == self.owner.casefold())
 
     def is_mod(self, username):
-        key = _username(username).casefold()
-        return self.is_owner(username) or bool(key and key in self.mods)
-
-    def set_owner_chat_name_from_dashboard(self, username):
-        if not self.owner:
-            raise ValueError("First configure the verified room owner.")
-        name = _username(username)
-        if not name:
-            raise ValueError("Enter the owner's exact display name as shown in room chat.")
-        self.owner_chat_name = name
-        self.save()
+        handle = _username(username).casefold()
+        return bool(handle and (self.is_owner(handle) or handle in self.mods))
 
     def set_owner_from_dashboard(self, username):
         name = _username(username)
         if not name:
             raise ValueError("Enter the verified IMVU room owner's username.")
-        if self.owner.casefold() != name.casefold():
-            self.owner_chat_name = ""  # Never carry a nickname to a new owner.
         self.owner = name
         self.mods.pop(name.casefold(), None)
         self.save()
@@ -120,7 +114,6 @@ class RoomPermissions:
         if not text:
             raise ValueError("Welcome text cannot be empty.")
         # Strict format fields: format_map would accept arbitrary fields.
-        import re
         fields = re.findall(r"\{([^{}]+)\}", text)
         if any(value not in ("user", "room") for value in fields):
             raise ValueError("Only {user} and {room} placeholders are allowed.")
@@ -130,7 +123,7 @@ class RoomPermissions:
     def welcome_message(self, username):
         if not self.welcome_enabled:
             return ""
-        return self.welcome.replace("{user}", _username(username)).replace(
+        return self.welcome.replace("{user}", _display_name(username)).replace(
             "{room}", self.room_id
         )
 
