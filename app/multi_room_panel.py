@@ -29,7 +29,8 @@ class MultiRoomPanel(QWidget):
     language_requested = Signal(str, str)
     dj_off_requested = Signal(str)
     owner_requested = Signal(str, str)
-    welcome_requested = Signal(str, str)
+    admin_add_requested = Signal(str, str)
+    admin_remove_requested = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -132,13 +133,15 @@ class MultiRoomPanel(QWidget):
         owner_row.addWidget(self.owner_input, 2)
         owner_row.addWidget(self.owner_button)
         group_layout.addLayout(owner_row)
-        welcome_row = QHBoxLayout()
-        self.welcome_input = QLineEdit()
-        self.welcome_input.setPlaceholderText("Welcome {user} to room {room}!")
-        self.welcome_button = QPushButton("SAVE AUTO WELCOME")
-        welcome_row.addWidget(self.welcome_input, 3)
-        welcome_row.addWidget(self.welcome_button)
-        group_layout.addLayout(welcome_row)
+        admin_row = QHBoxLayout()
+        self.admin_input = QLineEdit()
+        self.admin_input.setPlaceholderText("Admin username (selected room)")
+        self.admin_add_button = QPushButton("ADD ADMIN")
+        self.admin_remove_button = QPushButton("REMOVE ADMIN")
+        admin_row.addWidget(self.admin_input, 2)
+        admin_row.addWidget(self.admin_add_button)
+        admin_row.addWidget(self.admin_remove_button)
+        group_layout.addLayout(admin_row)
 
         details = QSplitter(Qt.Orientation.Horizontal)
         queue_side = QWidget()
@@ -179,10 +182,15 @@ class MultiRoomPanel(QWidget):
                 self.selected_room(), self.owner_input.text().strip()
             ) if self.selected_room() and self.owner_input.text().strip() else None
         )
-        self.welcome_button.clicked.connect(
-            lambda: self.welcome_requested.emit(
-                self.selected_room(), self.welcome_input.text().strip()
-            ) if self.selected_room() and self.welcome_input.text().strip() else None
+        self.admin_add_button.clicked.connect(
+            lambda: self.admin_add_requested.emit(
+                self.selected_room(), self.admin_input.text().strip()
+            ) if self.selected_room() and self.admin_input.text().strip() else None
+        )
+        self.admin_remove_button.clicked.connect(
+            lambda: self.admin_remove_requested.emit(
+                self.selected_room(), self.admin_input.text().strip()
+            ) if self.selected_room() and self.admin_input.text().strip() else None
         )
         self.artist_button.clicked.connect(self._request_artist)
         self.artist_input.returnPressed.connect(self._request_artist)
@@ -304,8 +312,8 @@ class MultiRoomPanel(QWidget):
         self.stream_url_input.setText(record.get("stream_url", ""))
         if not self.owner_input.hasFocus():
             self.owner_input.setText(record.get("owner", ""))
-        if not self.welcome_input.hasFocus():
-            self.welcome_input.setText(record.get("welcome", ""))
+        if not self.admin_input.hasFocus():
+            self.admin_input.clear()
         language = record.get("dj_language", "")
         self.language_select.setCurrentText(
             "Match Current" if record.get("dj_match_current")
@@ -325,6 +333,8 @@ class MultiRoomPanel(QWidget):
             details += "\nAutoDJ: " + dj_message[:180]
         if dj_error:
             details += "\nDJ ERROR: " + dj_error[:220]
+        details += "\nADMIN: " + str(record.get("owner") or "Not configured")
+        details += "\nOTHER ADMINS: " + (", ".join(record.get("admins") or []) or "None")
         self.detail_label.setText(details)
         self.queue_list.clear()
         for index, song in enumerate(record.get("queue", []), start=1):
