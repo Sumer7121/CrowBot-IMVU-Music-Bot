@@ -37,10 +37,8 @@ class MultiRoomHub(QObject):
         stored = settings.get("rooms", [])
         if not isinstance(stored, list):
             stored = []
-        # One-time migration of the old single-room setting. Never
-        # auto-connect to the old room; it is only a saved entry.
-        if not stored and settings.get("room_id"):
-            stored = [settings["room_id"]]
+        # Rooms are explicitly added in the dashboard. Never silently
+        # resurrect or auto-connect the old single-room setting.
         for raw in stored:
             try:
                 room_id = normalize_room_id(raw)
