@@ -65,6 +65,25 @@ class DJPolicyTests(unittest.TestCase):
             "title": "Unidentified Song", "language": ""
         }), "")
 
+    def test_explicit_song_language_overrides_mislabeled_youtube_voice_tag(self):
+        song = {
+            "title": "Arijit Singh - Official Hindi Audio",
+            "channel": "Music Label", "duration": 224, "language": "en",
+        }
+        self.assertTrue(candidate_allowed(song, "Arijit Singh", "Hindi"))
+        self.assertFalse(candidate_allowed(song, "Arijit Singh", "Telugu"))
+
+    def test_skip_short_films_and_advertisements_even_with_artist_name(self):
+        for name in (
+            "Arijit Singh short film",
+            "Arijit Singh commercial advertisement",
+            "Arijit Singh movie trailer",
+        ):
+            self.assertFalse(candidate_allowed({
+                "id": "somevideo123", "title": name,
+                "channel": "Artist", "duration": 210
+            }, "Arijit Singh", ""))
+
     def test_flat_search_with_missing_duration_is_checked_not_discarded(self):
         flat = {
             "id": "youtubevideo1",
