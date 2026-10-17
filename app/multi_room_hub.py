@@ -17,6 +17,8 @@ from config.settings import load_settings, save_settings
 class MultiRoomHub(QObject):
     radio_event = Signal(str, str)
     radio_finished_event = Signal(str, int, str, int)
+    room_joined_event = Signal(str, int)
+    chat_finished_event = Signal(str, int, object)
     # Cloudflare emits from Python validator/reader threads. Its callbacks
     # must be marshalled onto the Qt GUI thread before creating QThreads.
     tunnel_ready_event = Signal(str, int, str)
@@ -47,6 +49,8 @@ class MultiRoomHub(QObject):
         self._epoch = {}
         self.radio_event.connect(self._on_radio_event, Qt.ConnectionType.AutoConnection)
         self.radio_finished_event.connect(self._radio_track_finished, Qt.ConnectionType.AutoConnection)
+        self.room_joined_event.connect(self._room_joined, Qt.ConnectionType.AutoConnection)
+        self.chat_finished_event.connect(self._chat_finished, Qt.ConnectionType.AutoConnection)
         self.tunnel_ready_event.connect(self._tunnel_ready, Qt.ConnectionType.AutoConnection)
         self.tunnel_error_event.connect(self._tunnel_error, Qt.ConnectionType.AutoConnection)
         self.tunnel_status_event.connect(self._tunnel_status, Qt.ConnectionType.AutoConnection)
@@ -218,7 +222,7 @@ class MultiRoomHub(QObject):
         worker = self.monitor_worker_class(session.room_url + "/", self.window)
         self.chat_workers[room_id] = worker
         worker.ready.connect(
-            lambda url, rid=room_id, e=epoch: self._room_joined(rid, e)
+            lambda url, rid=room_id, e=epoch: self.room_joined_event.emit(rid, e)
         )
         worker.failed.connect(
             lambda url, err, rid=room_id, e=epoch: self._fail(rid, e, "JOIN/LISTENER: " + err)
@@ -227,12 +231,14 @@ class MultiRoomHub(QObject):
             lambda url, user, text, rid=room_id, e=epoch: self._chat(rid, e, user, text)
         )
         worker.finished.connect(
-            lambda w=worker, rid=room_id, e=epoch: self._chat_finished(rid, e, w)
+            lambda w=worker, rid=room_id, e=epoch:
+            self.chat_finished_event.emit(rid, e, w)
         )
         worker.start()
         self._log(room_id, "Room tab open. Waiting for IMVU JOIN...")
         self.refresh_ui()
 
+    @Slot(str, int, object)
     def _chat_finished(self, room_id, epoch, worker):
         self._worker_finished(self.chat_workers, room_id, worker)
         if self._current(room_id, epoch) and self.states.get(room_id) != "Error":
@@ -241,6 +247,7 @@ class MultiRoomHub(QObject):
             self._log(room_id, "Chat listener ended. Disconnect and reconnect this room.")
             self.refresh_ui()
 
+    @Slot(str, int)
     def _room_joined(self, room_id, epoch):
         if not self._current(room_id, epoch):
             return
