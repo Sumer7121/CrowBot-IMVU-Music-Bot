@@ -201,5 +201,8 @@ class RoomSession:
         self.command_handler.actor_display_name = username
         self.command_handler.actor_account_username = account
         self.command_handler.actor_user_id = user_id
-        actor = account or account_username or username
+        # The handler must receive an already verified username. Do not
+        # silently substitute an unverified decorated chat display name for
+        # moderation decisions. Public commands can still attribute chat.
+        actor = account or username
         return self.command_handler.handle(message, actor)
