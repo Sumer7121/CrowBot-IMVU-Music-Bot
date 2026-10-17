@@ -189,7 +189,12 @@ class AutoDJ(QObject):
         self.music_controller.queue_changed.connect(self._maybe_fill)
 
     def set_ready(self, ready):
+        was_ready = self.radio_ready
         self.radio_ready = bool(ready)
+        if was_ready and not self.radio_ready:
+            self._generation += 1
+            if self._worker is not None:
+                self._worker.requestInterruption()
         if self.radio_ready:
             if not self._timer.isActive():
                 self._timer.start()
@@ -216,6 +221,7 @@ class AutoDJ(QObject):
         self._change()
         self.artist = text
         self.enabled = True
+        self._drop_prefetched()
         self.status_changed.emit("Artist radio ON: " + self.label)
         self._maybe_fill()
         return self.label
@@ -223,6 +229,8 @@ class AutoDJ(QObject):
     def set_autoplay(self, enabled):
         self._change()
         self.enabled = bool(enabled)
+        if not self.enabled:
+            self._drop_prefetched()
         self.status_changed.emit("Autoplay " + ("ON: " + self.label if enabled else "OFF"))
         self._maybe_fill()
         return self.label
@@ -232,6 +240,7 @@ class AutoDJ(QObject):
         if selected != self.language:
             self._change()
             self.language = selected
+            self._drop_prefetched()
         self.status_changed.emit("Music language: " + (selected.title() if selected else "Any"))
         self._maybe_fill()
         return self.label
@@ -240,8 +249,18 @@ class AutoDJ(QObject):
         self._change()
         self.enabled = False
         self.artist = ""
+        self._drop_prefetched()
         self.status_changed.emit("Artist DJ and autoplay OFF.")
         return self.label
+
+    def _drop_prefetched(self):
+        # Preserve user-requested songs; only remove AutoDJ's old selections.
+        pending = self.music_controller.get_queue()
+        if not pending:
+            return
+        for index in reversed(range(len(pending))):
+            if pending[index].get("dj_auto"):
+                self.music_controller.remove_song(index)
 
     def _change(self):
         self._generation += 1
@@ -279,7 +298,8 @@ class AutoDJ(QObject):
         self.status_changed.emit("AutoDJ discovering next track: " + self.label)
 
     def _on_prepared(self, generation, track):
-        if self._closed or not self.enabled or generation != self._generation:
+        if (self._closed or not self.enabled or not self.radio_ready
+                or generation != self._generation):
             return
         video_id = str(track.get("id") or "")
         if video_id:
