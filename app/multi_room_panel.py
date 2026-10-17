@@ -284,10 +284,17 @@ class MultiRoomPanel(QWidget):
         status = record.get("status", "Offline")
         source = record.get("source", "Idle")
         clients = record.get("clients", "—")
-        self.detail_label.setText(
+        dj_message = str(record.get("dj_activity", ""))
+        dj_error = str(record.get("dj_error", ""))
+        details = (
             f"ROOM {room_id} · {status} · Now: {playing} · Source: {source} · "
             f"Listeners: {clients} · {record.get('dj_mode', 'DJ OFF')}"
         )
+        if dj_message:
+            details += "\nAutoDJ: " + dj_message[:180]
+        if dj_error:
+            details += "\nDJ ERROR: " + dj_error[:220]
+        self.detail_label.setText(details)
         self.queue_list.clear()
         for index, song in enumerate(record.get("queue", []), start=1):
             self.queue_list.addItem(
