@@ -19,7 +19,7 @@ class MultiRoomHub(QObject):
     radio_event = Signal(str, str)
     radio_finished_event = Signal(str, int, str, int)
     room_joined_event = Signal(str, int)
-    room_chat_event = Signal(str, int, str, str)
+    room_chat_event = Signal(str, int, str, str, str)
     chat_finished_event = Signal(str, int, object)
     # Cloudflare emits from Python validator/reader threads. Its callbacks
     # must be marshalled onto the Qt GUI thread before creating QThreads.
@@ -231,8 +231,8 @@ class MultiRoomHub(QObject):
             lambda url, err, rid=room_id, e=epoch: self._fail(rid, e, "JOIN/LISTENER: " + err)
         )
         worker.message_received.connect(
-            lambda url, user, text, rid=room_id, e=epoch:
-            self.room_chat_event.emit(rid, e, user, text)
+            lambda url, user, text, account, rid=room_id, e=epoch:
+            self.room_chat_event.emit(rid, e, user, text, account)
         )
         worker.finished.connect(
             lambda w=worker, rid=room_id, e=epoch:
@@ -523,8 +523,8 @@ class MultiRoomHub(QObject):
                 str(text), room_url=make_room_url(room_id)
             )
 
-    @Slot(str, int, str, str)
-    def _chat(self, room_id, epoch, username, message):
+    @Slot(str, int, str, str, str)
+    def _chat(self, room_id, epoch, username, message, account_username=""):
         if not self._current(room_id, epoch) or not username or not message:
             return
         session = self.sessions[room_id]
@@ -538,7 +538,9 @@ class MultiRoomHub(QObject):
             if welcome:
                 self._send_room_announcement(room_id, epoch, welcome)
         try:
-            result = session.process(username, message)
+            result = session.process(
+                username, message, account_username=account_username
+            )
         except Exception as error:
             self._log(room_id, f"Command error: {error}")
             return
@@ -586,19 +588,6 @@ class MultiRoomHub(QObject):
         self._log(
             room_id, "Trusted dashboard configured room owner: " + policy.owner
         )
-        self.refresh_ui()
-
-    def set_owner_chat_name(self, room_id, username):
-        if room_id not in self.room_ids:
-            return
-        try:
-            policy = (self.sessions[room_id].permissions
-                      if room_id in self.sessions else RoomPermissions(room_id))
-            policy.set_owner_chat_name_from_dashboard(username)
-        except ValueError as error:
-            self._log(room_id, "OWNER CHAT NAME ERROR: " + str(error))
-            return
-        self._log(room_id, "Verified owner chat name approved in app: " + policy.owner_chat_name)
         self.refresh_ui()
 
     def artist_dj(self, room_id, artist):
@@ -759,8 +748,7 @@ class MultiRoomHub(QObject):
                     status = self.states.get(room_id, "Connecting")
                 records.append({
                     "room_id": room_id, "status": status,
-                    "owner": policy.owner, "owner_chat_name": policy.owner_chat_name,
-                    "admins": list(policy.mods.values()),
+                    "owner": policy.owner, "admins": list(policy.mods.values()),
                     "connected": True, "port": session.radio_port,
                     "dj_mode": session.dj.label,
                     "dj_activity": session.dj.last_activity,
@@ -778,8 +766,7 @@ class MultiRoomHub(QObject):
             else:
                 records.append({
                     "room_id": room_id, "status": "Offline",
-                    "owner": policy.owner, "owner_chat_name": policy.owner_chat_name,
-                    "admins": list(policy.mods.values()),
+                    "owner": policy.owner, "admins": list(policy.mods.values()),
                     "connected": False,
                     "dj_mode": "DJ OFF", "dj_activity": "Offline",
                     "dj_error": "", "dj_language": "",
