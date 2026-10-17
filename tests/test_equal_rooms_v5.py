@@ -101,6 +101,8 @@ class FakeCommands(QObject):
         super().__init__()
         self.music = music
         self.prefix = "!"
+        self.collectibles = FakeCollectibles()
+        self.next_auto_drop_at = None
 
     def handle(self, text, username):
         if text.startswith("!p "):
@@ -157,6 +159,22 @@ class FakeDJ(QObject):
 
     def shutdown(self):
         self.enabled = False
+
+
+class FakeCollectibles:
+    def __init__(self):
+        self.active = None
+        self.spawn_count = 0
+
+    def expired(self):
+        return False
+
+    def spawn(self):
+        if self.active is not None:
+            return None
+        self.spawn_count += 1
+        self.active = True
+        return "✨ WILD CAT DROP! 🐱 Mochi [COMMON] Type !catch!"
 
 
 class FakeSession:
@@ -291,6 +309,77 @@ class EqualRoomsTests(unittest.TestCase):
         )
         self.assertEqual(
             self.hub.sessions["222-2"].music_controller.current["title"], "Blue"
+        )
+
+    def test_join_creates_independent_automatic_drop_timers(self):
+        self.hub.add_room("111-1")
+        self.hub.add_room("222-2")
+        self._connect("111-1")
+        self._connect("222-2")
+        self.assertTrue(self.hub.drop_timers["111-1"].isActive())
+        self.assertTrue(self.hub.drop_timers["222-2"].isActive())
+        first = self.hub.sessions["111-1"]
+        second = self.hub.sessions["222-2"]
+        self.assertIsNot(first.command_handler.collectibles,
+                         second.command_handler.collectibles)
+        self.assertGreater(first.command_handler.next_auto_drop_at, 0)
+        self.assertGreater(second.command_handler.next_auto_drop_at, 0)
+
+    def test_automatic_pet_drop_announced_only_in_target_room(self):
+        self.hub.add_room("111-1")
+        self.hub.add_room("222-2")
+        self._connect("111-1")
+        self._connect("222-2")
+        self.window.send_bot_response_to_imvu.reset_mock()
+        self.hub._spawn_room_drop("111-1", self.hub._epoch["111-1"])
+        self.window.send_bot_response_to_imvu.assert_called_once_with(
+            "✨ WILD CAT DROP! 🐱 Mochi [COMMON] Type !catch!",
+            room_url="https://www.imvu.com/next/chat/room-111-1/",
+        )
+        self.assertEqual(
+            self.hub.sessions["222-2"].command_handler.collectibles.spawn_count, 0
+        )
+        # A second attempted tick must not duplicate the still-active pet.
+        self.hub._spawn_room_drop("111-1", self.hub._epoch["111-1"])
+        self.assertEqual(
+            self.hub.sessions["111-1"].command_handler.collectibles.spawn_count, 1
+        )
+
+    def test_disconnect_stops_only_that_rooms_drop_timer(self):
+        self.hub.add_room("111-1")
+        self.hub.add_room("222-2")
+        self._connect("111-1")
+        self._connect("222-2")
+        self.hub.disconnect_room("111-1")
+        self.assertNotIn("111-1", self.hub.drop_timers)
+        self.assertTrue(self.hub.drop_timers["222-2"].isActive())
+        self.assertIsNone(self.hub.sessions["222-2"].command_handler.next_auto_drop_at is None)
+
+    def test_dj_now_playing_is_announced_once_in_correct_imvu_room(self):
+        self.hub.add_room("111-1")
+        self.hub.add_room("222-2")
+        self._connect("111-1")
+        self._connect("222-2")
+        self.window.send_bot_response_to_imvu.reset_mock()
+        song = {
+            "id": "vid-song-101",
+            "url": "http://local/test-song.mp3",
+            "title": "A Test Artist - My Song",
+            "dj_auto": True,
+            "dj_artist": "Test Artist",
+        }
+        self.hub._song_changed("111-1", self.hub._epoch["111-1"], song)
+        self.hub._song_changed("111-1", self.hub._epoch["111-1"], song)
+        self.window.send_bot_response_to_imvu.assert_called_once_with(
+            "🎧 DJ NOW PLAYING: A Test Artist - My Song | Artist: Test Artist",
+            room_url="https://www.imvu.com/next/chat/room-111-1/",
+        )
+        self.hub._song_changed("222-2", self.hub._epoch["222-2"], {
+            "title": "Room B Song", "url": "http://local/b.mp3"
+        })
+        self.window.send_bot_response_to_imvu.assert_any_call(
+            "🎵 NOW PLAYING: Room B Song",
+            room_url="https://www.imvu.com/next/chat/room-222-2/",
         )
 
     def test_artist_and_language_settings_are_isolated_by_room(self):
