@@ -29,8 +29,6 @@ class MultiRoomPanel(QWidget):
     language_requested = Signal(str, str)
     dj_off_requested = Signal(str)
     owner_requested = Signal(str, str)
-    admin_add_requested = Signal(str, str)
-    admin_remove_requested = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -133,16 +131,6 @@ class MultiRoomPanel(QWidget):
         owner_row.addWidget(self.owner_input, 2)
         owner_row.addWidget(self.owner_button)
         group_layout.addLayout(owner_row)
-        admin_row = QHBoxLayout()
-        self.admin_input = QLineEdit()
-        self.admin_input.setPlaceholderText("Admin username (selected room)")
-        self.admin_add_button = QPushButton("ADD ADMIN")
-        self.admin_remove_button = QPushButton("REMOVE ADMIN")
-        admin_row.addWidget(self.admin_input, 2)
-        admin_row.addWidget(self.admin_add_button)
-        admin_row.addWidget(self.admin_remove_button)
-        group_layout.addLayout(admin_row)
-
         details = QSplitter(Qt.Orientation.Horizontal)
         queue_side = QWidget()
         queue_layout = QVBoxLayout(queue_side)
@@ -181,16 +169,6 @@ class MultiRoomPanel(QWidget):
             lambda: self.owner_requested.emit(
                 self.selected_room(), self.owner_input.text().strip()
             ) if self.selected_room() and self.owner_input.text().strip() else None
-        )
-        self.admin_add_button.clicked.connect(
-            lambda: self.admin_add_requested.emit(
-                self.selected_room(), self.admin_input.text().strip()
-            ) if self.selected_room() and self.admin_input.text().strip() else None
-        )
-        self.admin_remove_button.clicked.connect(
-            lambda: self.admin_remove_requested.emit(
-                self.selected_room(), self.admin_input.text().strip()
-            ) if self.selected_room() and self.admin_input.text().strip() else None
         )
         self.artist_button.clicked.connect(self._request_artist)
         self.artist_input.returnPressed.connect(self._request_artist)
@@ -312,8 +290,6 @@ class MultiRoomPanel(QWidget):
         self.stream_url_input.setText(record.get("stream_url", ""))
         if not self.owner_input.hasFocus():
             self.owner_input.setText(record.get("owner", ""))
-        if not self.admin_input.hasFocus():
-            self.admin_input.clear()
         language = record.get("dj_language", "")
         self.language_select.setCurrentText(
             "Match Current" if record.get("dj_match_current")
