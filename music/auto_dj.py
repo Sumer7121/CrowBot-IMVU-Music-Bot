@@ -9,7 +9,7 @@ import random
 import re
 import time
 
-from PySide6.QtCore import QObject, QThread, QTimer, Signal
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot, Qt
 
 from music.youtube_owned import get_shared_youtube_provider
 
@@ -272,6 +272,7 @@ class DJFetchWorker(QThread):
 
 class AutoDJ(QObject):
     status_changed = Signal(str)
+    progress_event = Signal(int, str)
 
     def __init__(self, music_controller, room_id="legacy", session_key="legacy"):
         super().__init__()
@@ -292,6 +293,7 @@ class AutoDJ(QObject):
         self._closed = False
         self.radio_ready = False
 
+        self.progress_event.connect(self._on_progress, Qt.ConnectionType.AutoConnection)
         self._timer = QTimer(self)
         self._timer.setInterval(4000)
         self._timer.timeout.connect(self._maybe_fill)
@@ -422,6 +424,9 @@ class AutoDJ(QObject):
         generation = self._generation
         self._worker = worker
         self._round += 1
+        worker.progress.connect(
+            lambda message, g=generation: self.progress_event.emit(g, message)
+        )
         worker.prepared.connect(
             lambda track, g=generation: self._on_prepared(g, track)
         )
@@ -431,6 +436,12 @@ class AutoDJ(QObject):
         worker.finished.connect(lambda w=worker: self._finished(w))
         worker.start()
         self.status_changed.emit("AutoDJ discovering next track: " + self.label)
+
+    @Slot(int, str)
+    def _on_progress(self, generation, message):
+        if (not self._closed and self.enabled and self.radio_ready
+                and generation == self._generation):
+            self.status_changed.emit("AutoDJ: " + str(message))
 
     def _on_prepared(self, generation, track):
         if (self._closed or not self.enabled or not self.radio_ready
