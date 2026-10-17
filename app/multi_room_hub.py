@@ -460,7 +460,7 @@ class MultiRoomHub(QObject):
             session.dj.off()
             session.music_controller.stop()
             session.stop_radio()
-            worker = session.dj._worker
+            worker = getattr(session.dj, "_worker", None)
             if worker is not None and worker.isRunning():
                 self.retired_djs.append(session.dj)
                 worker.finished.connect(
