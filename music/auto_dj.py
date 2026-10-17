@@ -158,6 +158,14 @@ class DJFetchWorker(QThread):
         self.seen_ids = set(seen_ids)
         self.current_title = current_title
         self.round_index = round_index
+        self._deadline = None
+
+    def _cancelled(self):
+        return (
+            self.isInterruptionRequested()
+            or (self._deadline is not None
+                and time.monotonic() >= self._deadline)
+        )
 
     def run(self):
         """Try search pages incrementally; validate a few full videos per page.
@@ -166,6 +174,7 @@ class DJFetchWorker(QThread):
         several minutes. A successful first artist match should play quickly.
         """
         try:
+            self._deadline = time.monotonic() + 120
             provider = get_shared_youtube_provider()
             checked = set()
             errors = []
@@ -177,10 +186,13 @@ class DJFetchWorker(QThread):
             for phrase in search_phrases:
                 if self.isInterruptionRequested():
                     return
+                if self._cancelled():
+                    self.failed.emit("AutoDJ YouTube search exceeded 120 seconds.")
+                    return
                 self.progress.emit("Searching YouTube: " + phrase)
                 try:
                     found = provider.search_candidates(
-                        phrase, limit=18, cancel_check=self.isInterruptionRequested
+                        phrase, limit=18, cancel_check=self._cancelled
                     )
                 except Exception as error:
                     errors.append("Search failed: " + str(error))
@@ -208,6 +220,9 @@ class DJFetchWorker(QThread):
                 for candidate in eligible:
                     if self.isInterruptionRequested():
                         return
+                    if self._cancelled():
+                        self.failed.emit("AutoDJ YouTube search exceeded 120 seconds.")
+                        return
                     identity = str(candidate.get("id") or "")
                     if not identity or identity in checked:
                         continue
@@ -221,7 +236,7 @@ class DJFetchWorker(QThread):
                     )
                     try:
                         metadata = provider._get_video_metadata(
-                            candidate, cancel_check=self.isInterruptionRequested
+                            candidate, cancel_check=self._cancelled
                         )
                     except Exception as error:
                         errors.append(str(error))
@@ -232,6 +247,9 @@ class DJFetchWorker(QThread):
                         continue
                     if self.isInterruptionRequested():
                         return
+                    if self._cancelled():
+                        self.failed.emit("AutoDJ YouTube search exceeded 120 seconds.")
+                        return
                     if downloads >= 3:
                         break
                     downloads += 1
@@ -241,7 +259,7 @@ class DJFetchWorker(QThread):
                     try:
                         track = provider._prepare_track(
                             metadata, "CrowBot AutoDJ", "CrowBot DJ",
-                            cancel_check=self.isInterruptionRequested,
+                            cancel_check=self._cancelled,
                             room_id=self.room_id,
                             session_key=self.session_key,
                         )
@@ -264,6 +282,9 @@ class DJFetchWorker(QThread):
                     break
 
             if self.isInterruptionRequested():
+                return
+            if self._cancelled():
+                self.failed.emit("AutoDJ YouTube search exceeded 120 seconds.")
                 return
             detail = (errors[-1] if errors else
                       "No matching playable music candidates passed verification.")
