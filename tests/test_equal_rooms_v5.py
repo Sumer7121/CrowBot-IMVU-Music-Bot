@@ -111,6 +111,47 @@ class FakeCommands(QObject):
         return "OK"
 
 
+class FakeDJ(QObject):
+    status_changed = Signal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.enabled = False
+        self.artist = ""
+        self.language = ""
+        self.radio_ready = False
+
+    @property
+    def label(self):
+        return "ARTIST DJ: " + self.artist if self.artist and self.enabled else (
+            "YOUTUBE AUTOPLAY" if self.enabled else "DJ OFF"
+        )
+
+    def set_ready(self, value):
+        self.radio_ready = value
+
+    def set_artist(self, name):
+        self.artist = name
+        self.enabled = True
+        self.status_changed.emit("Artist DJ: " + name)
+        return self.label
+
+    def set_autoplay(self, enabled):
+        self.enabled = bool(enabled)
+        return self.label
+
+    def set_language(self, name):
+        self.language = "" if name.casefold() in ("off", "any") else name.casefold()
+        return self.label
+
+    def off(self):
+        self.enabled = False
+        self.artist = ""
+
+    def shutdown(self):
+        self.enabled = False
+
+
 class FakeSession:
     def __init__(self, room_url, prefix="!", user_manager=None, radio_port=None):
         self.room_url = room_url.rstrip("/")
@@ -118,6 +159,8 @@ class FakeSession:
         self.stream_url = ""
         self.music_controller = FakeMusic()
         self.command_handler = FakeCommands(self.music_controller)
+        self.dj = FakeDJ()
+        self.command_handler.dj_controller = self.dj
         self.radio_server = MagicMock()
         self.radio_server.get_health.return_value = {
             "running": True, "source_set": False,
@@ -242,6 +285,27 @@ class EqualRoomsTests(unittest.TestCase):
         self.assertEqual(
             self.hub.sessions["222-2"].music_controller.current["title"], "Blue"
         )
+
+    def test_artist_and_language_settings_are_isolated_by_room(self):
+        self.hub.add_room("111-1")
+        self.hub.add_room("222-2")
+        self._connect("111-1")
+        self._connect("222-2")
+        self.hub.set_language("111-1", "Hindi")
+        self.hub.artist_dj("111-1", "Arijit Singh")
+        self.hub.set_autoplay("222-2", True)
+        a = self.hub.sessions["111-1"].dj
+        b = self.hub.sessions["222-2"].dj
+        self.assertTrue(a.radio_ready)
+        self.assertTrue(b.radio_ready)
+        self.assertEqual(a.artist, "Arijit Singh")
+        self.assertEqual(a.language, "hindi")
+        self.assertEqual(b.artist, "")
+        self.assertEqual(b.language, "")
+        self.assertTrue(b.enabled)
+        self.hub.stop_dj("111-1")
+        self.assertFalse(a.enabled)
+        self.assertTrue(b.enabled)
 
     def test_no_primary_room_and_rooms_are_explicitly_saved(self):
         self.hub.add_room("111-1")
