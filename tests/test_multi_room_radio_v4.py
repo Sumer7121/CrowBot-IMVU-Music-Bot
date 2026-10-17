@@ -81,7 +81,7 @@ class MusicControllerRadioTests(unittest.TestCase):
         from music.controller import MusicController
         from music.player import MusicPlayer
 
-        with patch("music.controller.MusicPlayer", autospec=True):
+        with patch("music.controller.MusicPlayer"):
             controller = MusicController()
         radio = RadioStreamServer(port=8777)
         radio.is_running = lambda: True
