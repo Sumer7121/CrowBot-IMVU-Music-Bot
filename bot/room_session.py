@@ -7,6 +7,7 @@ import threading
 import uuid
 
 from bot.room_ids import normalize_room_id
+from bot.room_permissions import RoomPermissions
 from music.youtube_owned import get_shared_youtube_provider
 from bot.commands import CommandHandler
 from music.auto_dj import AutoDJ
@@ -44,6 +45,8 @@ class RoomSession:
         )
         self.command_handler.dj_controller = self.dj
         self.welcomed_users = set()
+        self.permissions = RoomPermissions(self.room_id)
+        self.command_handler.room_permissions = self.permissions
         self.radio_port = radio_port
         self.radio_server = None
         self.tunnel = None
@@ -128,6 +131,11 @@ class RoomSession:
             self.command_handler._remember_user(username)
             return None
         command = message[len(prefix):].split(maxsplit=1)[0].casefold()
+        if not self.permissions.may_run(command, username):
+            if not self.permissions.owner:
+                return ("🔒 No room owner configured. Set the verified owner's "
+                        "IMVU username in CrowBot's local Room Settings first.")
+            return "🔒 This command is for the room owner and appointed moderators."
         if command in MUSIC_COMMANDS and not self.stream_url:
             return (
                 "🎵 Music streaming is not enabled in this room yet. "
