@@ -119,6 +119,7 @@ class FakeDJ(QObject):
         self.enabled = False
         self.artist = ""
         self.language = ""
+        self.match_current_language = False
         self.radio_ready = False
 
     @property
@@ -141,7 +142,11 @@ class FakeDJ(QObject):
         return self.label
 
     def set_language(self, name):
-        self.language = "" if name.casefold() in ("off", "any") else name.casefold()
+        self.match_current_language = name.casefold() in ("auto", "match current", "match")
+        self.language = (
+            "" if name.casefold() in ("off", "any") or self.match_current_language
+            else name.casefold()
+        )
         return self.label
 
     def off(self):
