@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QObject, QCoreApplication, Signal
 from music.auto_dj import (
-    LANGUAGES, AutoDJ, candidate_allowed, normalize_language, search_queries,
+    LANGUAGES, AutoDJ, candidate_allowed, detect_song_language,
+    normalize_language, search_queries,
 )
 
 
@@ -47,6 +48,20 @@ class DJPolicyTests(unittest.TestCase):
         self.assertTrue(all("Arijit Singh" in q for q in queries))
         self.assertTrue(all("hindi" in q for q in queries))
         self.assertNotEqual(queries[0], queries[1])
+
+    def test_match_current_song_uses_language_metadata_or_script(self):
+        self.assertEqual(detect_song_language({
+            "title": "Summer Song", "language": "te"
+        }), "telugu")
+        self.assertEqual(detect_song_language({
+            "title": "తెలుగు పాట", "language": ""
+        }), "telugu")
+        self.assertEqual(detect_song_language({
+            "title": "New Hindi Song 2026", "language": ""
+        }), "hindi")
+        self.assertEqual(detect_song_language({
+            "title": "Unidentified Song", "language": ""
+        }), "")
 
     def test_youtube_autoplay_seeds_with_current_music(self):
         queries = search_queries(
@@ -99,6 +114,22 @@ class AutoDJControllerTests(unittest.TestCase):
             self.dj._on_prepared(self.dj._generation, song)
             self.assertEqual(self.music.get_queue(), [song])
             self.assertEqual(self.dj._seen, ["video123"])
+
+    def test_match_current_language_is_per_room(self):
+        with patch("music.auto_dj.DJFetchWorker"):
+            self.music.current = {
+                "title": "తెలుగు పాట", "language": "te",
+                "url": "http://localhost/track.mp3",
+            }
+            self.dj.set_language("Match Current")
+            self.assertTrue(self.dj.match_current_language)
+            self.assertEqual(self.dj._detected_language, "telugu")
+            other = AutoDJ(FakeMusic())
+            try:
+                self.assertFalse(other.match_current_language)
+                self.assertEqual(other._detected_language, "")
+            finally:
+                other.shutdown()
 
     def test_off_invalidates_pending_song(self):
         with patch("music.auto_dj.DJFetchWorker"):
