@@ -1,4 +1,5 @@
 import json
+import uuid
 import shutil
 import subprocess
 import sys
@@ -27,7 +28,9 @@ TEMP_DIR.mkdir(parents=True, exist_ok=True)
 # -------------------------------------------------------------
 
 HTTP_HOST = "127.0.0.1"
-HTTP_PORT = 8766
+# Let Windows select an unused ephemeral port. Fixed 8766 collided with
+# CrowBot's second room radio, leaving secondary rooms silent.
+HTTP_PORT = 0
 
 
 # -------------------------------------------------------------
@@ -65,6 +68,7 @@ class YouTubeOwnedProvider:
     def __init__(self):
         self.http_server = None
         self.http_thread = None
+        self.http_port = None
 
         self.lock = threading.RLock()
 
@@ -460,17 +464,11 @@ class YouTubeOwnedProvider:
         youtube_url,
     ):
 
-        final_mp3 = TEMP_DIR / f"{video_id}.mp3"
-
-        output_template = str(
-            TEMP_DIR / f"{video_id}.%(ext)s"
-        )
-
-        if final_mp3.exists():
-            try:
-                final_mp3.unlink()
-            except OSError:
-                pass
+        # Each request receives its own file. Two rooms requesting the same
+        # video must never delete or overwrite each other's active stream.
+        unique_name = f"{video_id}-{uuid.uuid4().hex[:12]}"
+        final_mp3 = TEMP_DIR / f"{unique_name}.mp3"
+        output_template = str(TEMP_DIR / f"{unique_name}.%(ext)s")
 
         print()
         print("YTDLP: Downloading audio...")
@@ -613,6 +611,7 @@ class YouTubeOwnedProvider:
                     f"{error}"
                 ) from error
 
+            self.http_port = self.http_server.server_address[1]
             self.http_thread = threading.Thread(
                 target=self.http_server.serve_forever,
                 daemon=True,
@@ -629,7 +628,7 @@ class YouTubeOwnedProvider:
 
             print(
                 f"http://{HTTP_HOST}:"
-                f"{HTTP_PORT}/"
+                f"{self.http_port}/"
             )
 
 
@@ -648,7 +647,7 @@ class YouTubeOwnedProvider:
 
         return (
             f"http://{HTTP_HOST}:"
-            f"{HTTP_PORT}/"
+            f"{self.http_port}/"
             f"{filename}"
         )
 
@@ -861,6 +860,7 @@ class YouTubeOwnedProvider:
 
             self.http_server = None
             self.http_thread = None
+            self.http_port = None
 
         if server:
 
@@ -899,3 +899,17 @@ class YouTubeOwnedProvider:
             pass
 
 
+
+
+# All CommandHandlers and AutoDJ workers in one CrowBot process reuse this
+# provider's temporary HTTP station. Radio stations remain per-room.
+_shared_provider = None
+_shared_provider_lock = threading.Lock()
+
+
+def get_shared_youtube_provider():
+    global _shared_provider
+    with _shared_provider_lock:
+        if _shared_provider is None:
+            _shared_provider = YouTubeOwnedProvider()
+        return _shared_provider
