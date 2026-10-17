@@ -306,6 +306,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
+    progress = Signal(str)
     succeeded = Signal(str, str)
 
 
@@ -351,6 +352,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
+            self.progress.emit("Connecting to bot Chrome on port 9222...")
             print("IMVU: Connecting to Chrome on port 9222...")
 
 
@@ -387,6 +389,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
+            self.progress.emit("Selected exact IMVU room tab: " + str(controller.get_room_url()))
             print(f"IMVU: Room found: {controller.get_room_url()}")
 
 
@@ -395,6 +398,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
+            self.progress.emit("Opening Media and enabling Radio Streaming...")
             print(
                 "IMVU: Ensuring Radio Streaming is enabled..."
             )
@@ -403,6 +407,7 @@ class IMVURadioUpdateWorker(QThread):
                 timeout_ms=15000
             )
 
+            self.progress.emit("Radio controls ready; entering unique Cloudflare link...")
             print(
                 "IMVU: Radio Streaming is ON and controls are ready."
             )
@@ -429,6 +434,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
+            self.progress.emit("Clicking IMVU Radio LOAD for this room...")
             result = controller.load_stream(self.stream_url)
 
 
@@ -449,6 +455,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
+            self.progress.emit("IMVU Radio LOAD acknowledged with matching URL.")
             print("IMVU: Stream URL entered and LOAD clicked.")
 
 
@@ -465,6 +472,7 @@ class IMVURadioUpdateWorker(QThread):
 
 
 
+            self.progress.emit(f"IMVU Radio LOAD failed: {type(error).__name__}: {error}")
             print(f"IMVU RADIO UPDATE ERROR: {error}")
 
 
