@@ -150,6 +150,9 @@ class MultiRoomHub(QObject):
         session.tunnel.tunnel_error.connect(
             lambda err, rid=room_id, e=epoch: self._fail(rid, e, "TUNNEL ERROR: " + err)
         )
+        session.tunnel.tunnel_stopped.connect(
+            lambda rid=room_id, e=epoch: self._tunnel_stopped(rid, e)
+        )
         session.tunnel.status_changed.connect(
             lambda text, rid=room_id, e=epoch: self._session_event(rid, e, "Tunnel: " + text)
         )
@@ -213,6 +216,15 @@ class MultiRoomHub(QObject):
             session.start_radio()
         except Exception as error:
             self._fail(room_id, epoch, "RADIO: " + str(error))
+        self.refresh_ui()
+
+    def _tunnel_stopped(self, room_id, epoch):
+        if not self._current(room_id, epoch):
+            return
+        session = self.sessions[room_id]
+        session.stream_url = ""
+        self.states[room_id] = "Tunnel disconnected"
+        self._log(room_id, "Cloudflare tunnel stopped; radio URL is no longer usable.")
         self.refresh_ui()
 
     def _tunnel_ready(self, room_id, epoch, url):
