@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 from database.users import UserManager
 from music.resolver import MusicResolver
-from music.youtube_owned import YouTubeOwnedProvider
+from music.youtube_owned import get_shared_youtube_provider
 from bot.five_in_a_row import FiveInARow
 from bot.party_games import PartyGames
 from bot import party_prompts as prompts
@@ -118,7 +118,7 @@ class CommandHandler(QObject):
         # YOUTUBE SEARCH PROVIDER
         # -----------------------------------------------------
 
-        self.youtube_search = YouTubeOwnedProvider()
+        self.youtube_search = get_shared_youtube_provider()
 
         # -----------------------------------------------------
         # FIFO MUSIC PREPARATION
