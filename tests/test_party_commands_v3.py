@@ -79,6 +79,26 @@ class PartyCommandTests(unittest.TestCase):
         self.handler.handle("!dj off", "Alice")
         dj.off.assert_called_once()
 
+    def test_manual_petdrop_spawns_and_has_room_cooldown(self):
+        self.handler.collectibles.active = None
+        self.handler.collectibles.expired.return_value = False
+        self.handler.collectibles.spawn.return_value = (
+            "✨ WILD CAT DROP! 🐱 Mochi [COMMON] Type !catch!"
+        )
+        first = self.handler.handle("!petdrop", "Alice")
+        self.assertIn("WILD CAT", first)
+        self.assertIn("manual pet drop", self.handler.handle("!petdrop", "Bob"))
+        self.handler.collectibles.spawn.assert_called_once()
+
+    def test_drops_status_shows_next_automatic_spawn(self):
+        self.handler.collectibles.active = None
+        self.handler.collectibles.expired.return_value = False
+        self.handler.next_auto_drop_at = __import__("time").monotonic() + 120
+        message = self.handler.handle("!drops", "Alice")
+        self.assertIn("Auto pet drops are active", message)
+        self.assertIn("Next drop", message)
+        self.assertIn("!petdrop", message)
+
     def test_stop_disables_autoplay(self):
         dj = MagicMock()
         dj.enabled = True
