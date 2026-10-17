@@ -273,27 +273,60 @@ class MultiRoomHub(QObject):
         self._load_radio(room_id, epoch, url)
 
     def _load_radio(self, room_id, epoch, url):
+        """Start the IMVU LOAD worker on the main Qt thread, never in CF's thread."""
         if not self._current(room_id, epoch):
             return
-        current = self.radio_workers.get(room_id)
-        if current is not None and current.isRunning():
-            self._log(room_id, "Radio LOAD already in progress; please wait.")
+        try:
+            if QThread.currentThread() != self.thread():
+                raise RuntimeError("Radio LOAD dispatched outside the Qt GUI thread")
+            current = self.radio_workers.get(room_id)
+            if current is not None and current.isRunning():
+                self._log(room_id, "Radio LOAD already in progress; please wait.")
+                return
+
+            self.states[room_id] = "Loading IMVU radio"
+            session = self.sessions[room_id]
+            self._log(room_id, f"RADIO LOAD: Opening Media controls in IMVU room {room_id}...")
+            worker = self.radio_worker_class(
+                url, self.window, room_url=session.room_url + "/"
+            )
+            self.radio_workers[room_id] = worker
+            worker.succeeded.connect(
+                lambda stream, prev, rid=room_id, e=epoch:
+                self._radio_loaded(rid, e, stream)
+            )
+            worker.failed.connect(
+                lambda err, rid=room_id, e=epoch:
+                self._fail(rid, e, "IMVU RADIO LOAD: " + err)
+            )
+            worker.finished.connect(
+                lambda w=worker, rid=room_id:
+                self._worker_finished(self.radio_workers, rid, w)
+            )
+            worker.start()
+            self._log(room_id, "RADIO LOAD: Worker started, awaiting IMVU confirmation...")
+            QTimer.singleShot(
+                75000,
+                lambda rid=room_id, e=epoch, w=worker:
+                self._check_radio_load_timeout(rid, e, w)
+            )
+            self.refresh_ui()
+        except Exception as error:
+            self._fail(
+                room_id, epoch,
+                f"RADIO LOAD FAILED TO START: {type(error).__name__}: {error}"
+            )
+
+    def _check_radio_load_timeout(self, room_id, epoch, worker):
+        if not self._current(room_id, epoch):
             return
-        self.states[room_id] = "Loading IMVU radio"
-        session = self.sessions[room_id]
-        worker = self.radio_worker_class(url, self.window, room_url=session.room_url + "/")
-        self.radio_workers[room_id] = worker
-        worker.succeeded.connect(
-            lambda stream, prev, rid=room_id, e=epoch: self._radio_loaded(rid, e, stream)
-        )
-        worker.failed.connect(
-            lambda err, rid=room_id, e=epoch: self._fail(rid, e, "IMVU RADIO LOAD: " + err)
-        )
-        worker.finished.connect(
-            lambda w=worker, rid=room_id: self._worker_finished(self.radio_workers, rid, w)
-        )
-        worker.start()
-        self.refresh_ui()
+        if (self.radio_workers.get(room_id) is worker
+                and self.states.get(room_id) == "Loading IMVU radio"):
+            self._fail(
+                room_id, epoch,
+                "IMVU radio LOAD timed out. Use RELOAD RADIO and check the "
+                "selected room's Radio Streaming controls and permissions."
+            )
 
     def _radio_loaded(self, room_id, epoch, url):
         if not self._current(room_id, epoch):
