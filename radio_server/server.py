@@ -30,6 +30,7 @@ class RadioStreamServer:
 
         self._last_client_count = None
         self.event_callback = None
+        self.track_finished_callback = None
         self.source_set_at = time.monotonic()
         self.last_song_audio_at = 0.0
         self.last_song_audio_generation = -1
@@ -774,6 +775,16 @@ class RadioStreamServer:
                         "Switching to continuous "
                         "idle MP3 bridge."
                     )
+                    # Natural EOF is authoritative for the public radio
+                    # even if muted QtMediaPlayer misses EndOfMedia.
+                    callback = self.track_finished_callback
+                    if callback:
+                        try:
+                            callback(source, session_generation)
+                        except Exception as error:
+                            self._emit_event(
+                                "Radio EOF callback failed: " + str(error)
+                            )
 
             if self.running:
                 # Very short process transition only.
