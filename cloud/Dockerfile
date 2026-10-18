@@ -4,6 +4,7 @@ RUN git clone --depth 1 --branch 2.0.2 https://github.com/Brainicism/bgutil-ytdl
     && test "$(git -C /opt/bgutil rev-parse HEAD)" = "26475e9d3665b972c4aeb83b4dbaafcf64b88438"
 WORKDIR /opt/bgutil/server
 RUN npm ci --no-audit --no-fund && npx tsc && npm prune --omit=dev --no-audit --no-fund
+
 FROM python:3.12-slim-bookworm
 COPY --from=javascript /usr/local/bin/node /usr/local/bin/node
 COPY --from=javascript /opt/bgutil/server/build /opt/bgutil/server/build
@@ -14,11 +15,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certi
 WORKDIR /app
 COPY cloud/requirements.txt cloud/requirements.txt
 RUN pip install --no-cache-dir -r cloud/requirements.txt
-# Account-free mobile-web extraction with an on-demand PO token provider.
-# Script mode exposes no extra network port and runs only during resolution.
+
+# ADDED --cookies LINE HERE, and changed player_client
 RUN printf '%s\n' '--js-runtimes node' \
-    '--extractor-args "youtube:player_client=mweb"' \
+    '--cookies /etc/secrets/cookies.txt' \
+    '--extractor-args "youtube:player_client=mweb,tv,web_safari"' \
     '--extractor-args "youtubepot-bgutilscript:server_home=/opt/bgutil/server"' > /etc/yt-dlp.conf
+
 RUN node /opt/bgutil/server/build/generate_once.js --version
 RUN node --version && python -c "import yt_dlp, yt_dlp_ejs; print(yt_dlp.version.__version__)"
 COPY cloud cloud
