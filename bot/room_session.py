@@ -49,7 +49,7 @@ class RoomSession:
         self.permissions = RoomPermissions(self.room_id)
         self.command_handler.room_permissions = self.permissions
         self.pending_owner_link = None
-        self.pending_admin_links = {}
+        self.pending_admin_links = {}  # pending verified username requests only
         self.command_handler.pending_admin_links = self.pending_admin_links
         self.radio_port = radio_port
         self.radio_server = None
@@ -158,25 +158,33 @@ class RoomSession:
                 "this account in the room dashboard (expires in 5 minutes)."
             )
 
-        if command == "linkmod":
-            target = parts[1].strip().lstrip("@") if len(parts) > 1 else ""
-            if not target:
-                return f"Usage: {prefix}linkmod <appointed IMVU username>"
-            key = target.casefold()
-            if key not in self.permissions.mods:
-                return "🔒 @" + target + " is not an appointed room admin."
-            if not user_id:
-                return "🔒 IMVU did not expose a chat account ID for admin verification."
-            if account_username and account_username.casefold() != key:
-                return "🔒 This IMVU profile belongs to a different username."
-            self.pending_admin_links[key] = {
-                "user_id": user_id, "display": username,
+        if command == "requestmod":
+            # Only an account handle from IMVU's profile metadata or direct
+            # public account lookup may request permissions, never nicknames.
+            verified_handle = self.permissions.resolve_account(
+                account_username, user_id
+            )
+            if not verified_handle or not account_username:
+                return (
+                    "🔒 Your IMVU account username is not available from this "
+                    "chat event. CrowBot cannot safely submit a mod request "
+                    "using a display name. Try again after opening your "
+                    "IMVU profile in the room."
+                )
+            if self.permissions.is_owner(verified_handle):
+                return "👑 You are already the room owner."
+            if self.permissions.is_mod(verified_handle):
+                return "🛡️ You are already a room admin."
+            self.pending_admin_links[verified_handle.casefold()] = {
+                "username": verified_handle,
+                "display": username,
                 "created_at": time.monotonic(),
             }
             return (
-                "🔐 Admin @" + target + " requested verification (chat: " +
-                username + "). The room owner must confirm with " +
-                prefix + "approvemod " + target + " within 5 minutes."
+                "🛡️ @" + verified_handle +
+                " requested room admin access. The room owner can approve "
+                "with " + prefix + "approvemod " + verified_handle +
+                " (valid for 15 minutes)."
             )
 
         account = self.permissions.resolve_account(account_username, user_id)
@@ -191,7 +199,7 @@ class RoomSession:
                 return (
                     "🔒 Account username hidden by IMVU. The owner can use "
                     + prefix + "linkowner and get approved in the app. "
-                    "Appointed admins can use " + prefix + "linkmod <username>."
+                    "Members can use " + prefix + "requestmod once IMVU exposes their username."
                 )
             return "🔒 This command is for the registered room owner or admins."
 
