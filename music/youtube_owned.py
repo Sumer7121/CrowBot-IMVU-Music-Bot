@@ -1,7 +1,9 @@
+import os
 import json
 import uuid
 import shutil
 import subprocess
+import signal
 import sys
 import threading
 import time
@@ -74,6 +76,7 @@ def _run_cancellable(command, timeout, capture_output=False, cancel_check=None):
         encoding="utf-8" if capture_output else None,
         errors="replace" if capture_output else None,
         creationflags=flags,
+        start_new_session=(os.name == "posix"),
     )
     end = time.monotonic() + timeout
     try:
@@ -90,15 +93,44 @@ def _run_cancellable(command, timeout, capture_output=False, cancel_check=None):
                 )
             except subprocess.TimeoutExpired:
                 continue
-    except BaseException:
-        if proc.poll() is None:
-            proc.terminate()
+    except BaseException as error:
+        # Browser children inherit the process group. Stop them too when a
+        # room cancels, even if yt-dlp itself exited but left pipes open.
+        def stop_group(force=False):
             try:
-                proc.communicate(timeout=2)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.communicate()
+                if os.name == "posix":
+                    os.killpg(proc.pid, signal.SIGKILL if force else signal.SIGTERM)
+                elif proc.poll() is None:
+                    proc.kill() if force else proc.terminate()
+            except ProcessLookupError:
+                pass
+        stop_group()
+        try:
+            stdout, stderr = proc.communicate(timeout=2)
+        except subprocess.TimeoutExpired:
+            stop_group(force=True)
+            stdout, stderr = proc.communicate()
+        if isinstance(error, subprocess.TimeoutExpired):
+            error.output, error.stderr = stdout, stderr
         raise
+
+
+
+def _cloud_token_diagnostics(stderr):
+    if os.environ.get("CROWBOT_YTDLP_DIAGNOSTICS") != "1":
+        return
+    text = str(stderr or "")
+    markers = {
+        "wpc_available": "wpc-1.",
+        "browser_launch_requested": "Launching youtube.com in browser",
+        "browser_start_failed": "failed to start browser",
+        "token_mint_requested": "using WebPoClient in browser",
+        "token_mint_completed": "Retrieved player PO Token:",
+        "webpo_client_unavailable": "Could not find WebPoClient",
+        "verification_required": "confirm you",
+        "browser_sandbox_error": "No usable sandbox",
+    }
+    print("CLOUD TOKEN DIAGNOSTICS: " + json.dumps({k: v in text for k, v in markers.items()}), flush=True)
 
 
 # =============================================================
@@ -347,14 +379,16 @@ class YouTubeOwnedProvider:
         try:
             process = _run_cancellable(
                 command,
-                timeout=22,
+                timeout=75 if os.environ.get("CROWBOT_YTDLP_DIAGNOSTICS") == "1" else 22,
                 capture_output=True,
                 cancel_check=cancel_check,
             )
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as error:
+            _cloud_token_diagnostics(error.stderr)
             return None
 
+        _cloud_token_diagnostics(process.stderr)
         if process.returncode != 0:
             # A failed metadata lookup used to disappear silently, making a
             # cloud-only provider failure look like endless loading.
@@ -363,7 +397,8 @@ class YouTubeOwnedProvider:
                 raise RuntimeError("YouTube requires verification from this server; this track cannot be loaded.")
             if "429" in reason or "Too Many Requests" in reason:
                 raise RuntimeError("YouTube is rate-limiting this server. Try again later.")
-            print("YTDLP METADATA FAILED: " + reason[-1200:])
+            if os.environ.get("CROWBOT_YTDLP_DIAGNOSTICS") != "1":
+                print("YTDLP METADATA FAILED: " + reason[-1200:])
             return None
 
         try:

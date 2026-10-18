@@ -25,3 +25,11 @@ yt-dlp uses the mweb client and generates PO tokens on demand, with no
 account cookies or additional public service. Tokens/cache are temporary.
 This is a compatibility attempt, not a guarantee of access: upstream can
 still require verification or reject the server. Desktop configuration is unchanged.
+
+### Browser guest-token trial
+The next trial uses yt-dlp-getpot-wpc 1.1.2 with Chromium and a private Xvfb
+display, replacing the script provider. No YouTube credentials are configured.
+Player token requests are enabled explicitly (fetch_pot=always). Fixed boolean
+diagnostics report provider/launch/mint outcomes without writing raw tokens.
+Chromium retains its default sandbox. A failed browser start or upstream
+challenge remains a failed download; no audio readiness is fabricated.
