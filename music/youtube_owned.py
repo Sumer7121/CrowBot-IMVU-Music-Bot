@@ -1,4 +1,5 @@
 import json
+from music.download_proxy import proxy_arguments, private_proxy_error
 import uuid
 import shutil
 import subprocess
@@ -52,6 +53,21 @@ else:
 
 
 def _run_cancellable(command, timeout, capture_output=False, cancel_check=None):
+    with proxy_arguments() as arguments:
+        result = _run_cancellable_process(
+            command + arguments, timeout,
+            capture_output=capture_output or bool(arguments),
+            cancel_check=cancel_check,
+        )
+        if arguments:
+            # Never print raw subprocess diagnostics with proxy credentials.
+            result.stderr = private_proxy_error(result.stderr) if result.returncode else ""
+            if not capture_output:
+                result.stdout = None
+        return result
+
+
+def _run_cancellable_process(command, timeout, capture_output=False, cancel_check=None):
     """Run yt-dlp while allowing room disconnect to interrupt slow downloads."""
     flags = (
         subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0

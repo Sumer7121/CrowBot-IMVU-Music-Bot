@@ -36,3 +36,20 @@ returned YouTube verification. This does not establish whether valid browser
 tokens would work. The experimental browser runtime was removed from the
 active image to avoid overhead; the implementation remains in Git history.
 No account cookies or paid infrastructure were used.
+
+### Optional downloader proxy
+
+Set `CROWBOT_YTDLP_PROXY_URL` privately in the Render service's Environment page,
+then redeploy. Use the full provider URL (HTTP, HTTPS, SOCKS5 or SOCKS5H), including
+an explicit port and percent-encoded credentials where needed. Do not commit the
+value, paste it into chat, or put it in frontend settings. Leave it unset for
+existing direct requests. Invalid settings fail closed.
+
+Search, metadata and download subprocesses all receive the same setting through
+a temporary private configuration file, removed after completion or cancellation.
+Raw downloader errors are suppressed when proxying. Radio and upload traffic do
+not use this setting. Choose a stable/sticky session at the provider so requests
+use the same outgoing IP; this code does not rotate IPs. No provider is included,
+and proxy support does not guarantee YouTube access. Test a real song after
+configuring it. The current website radio route accepts saved MP3 uploads only;
+this backend setting alone does not reconnect its separate YouTube player.
