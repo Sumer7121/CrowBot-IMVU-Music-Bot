@@ -1,4 +1,5 @@
 import json
+import re
 from music.download_proxy import proxy_arguments, private_proxy_error
 import uuid
 import shutil
@@ -11,7 +12,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from config.runtime_paths import get_youtube_temp_dir
 from music.track_library import RoomTrackLibrary, is_valid_mp3
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlsplit, parse_qs
 from music.song_ranking import ranked_candidates, candidate_score, query_parts
 
 
@@ -452,6 +453,28 @@ class YouTubeOwnedProvider:
             if progress_callback:
                 progress_callback("Cached song verified and ready for room playback.")
             return track
+        # Direct video links must not be searched/ranked as song titles.
+        parsed = urlsplit(str(query).strip())
+        if parsed.scheme in ('http', 'https'):
+            host = (parsed.hostname or '').lower()
+            video_id = ''
+            if host == 'youtu.be':
+                video_id = parsed.path.strip('/')
+            elif host in ('youtube.com', 'www.youtube.com', 'music.youtube.com', 'm.youtube.com'):
+                video_id = parse_qs(parsed.query).get('v', [''])[0]
+                if not video_id and parsed.path.startswith(('/shorts/', '/live/', '/embed/')):
+                    video_id = parsed.path.split('/')[2]
+            if not re.fullmatch(r'[A-Za-z0-9_-]{11}', video_id) or parsed.username or parsed.password:
+                raise RuntimeError('Use a YouTube video link or a song name.')
+            candidate = {'id': video_id, 'title': video_id, 'channel': 'YouTube',
+                         'youtube_url': 'https://www.youtube.com/watch?v=' + video_id}
+            metadata = self._get_video_metadata(candidate, cancel_check=cancel_check)
+            if not metadata or not 0 < metadata.get('duration', 0) <= 3600:
+                raise RuntimeError('The video is unavailable or exceeds the one-hour limit.')
+            track = self._prepare_track(metadata, query, requested_by, room_id=room_id,
+                                        session_key=session_key, cancel_check=cancel_check)
+            self.library.index_query(query, metadata)
+            return track
         song, artist = query_parts(query)
         searches = [f"{artist} {song} official audio" if artist else f"{song} official audio"]
         searches.append(query)
@@ -472,6 +495,7 @@ class YouTubeOwnedProvider:
                     ), query
                 )
             except Exception as error:
+                last_error = error
                 print(f"YTDLP SEARCH ERROR: {error}")
                 continue
             for candidate in candidates[:8]:

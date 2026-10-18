@@ -36,6 +36,14 @@ def proxy_arguments():
 def private_proxy_error(stderr):
     """Return categories only: upstream diagnostics can contain proxy passwords."""
     reason = str(stderr or '').lower()
+    if '407' in reason or 'proxy authentication' in reason:
+        return 'Proxy authentication failed (407). Check the configured proxy account.'
+    if '403' in reason or 'forbidden' in reason:
+        return 'Proxy or upstream access was refused (403).'
+    if 'timed out' in reason or 'timeout' in reason:
+        return 'The configured proxy request timed out.'
+    if 'name resolution' in reason or 'getaddrinfo' in reason:
+        return 'The proxy connection failed during DNS resolution.'
     if 'confirm' in reason and 'bot' in reason:
         return 'YouTube asks to confirm you are not a bot even through the configured proxy.'
     if '429' in reason or 'too many requests' in reason:

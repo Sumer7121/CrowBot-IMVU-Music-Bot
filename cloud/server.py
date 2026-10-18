@@ -101,7 +101,7 @@ class Station:
             if not self.cancel.is_set():
                 self.status = 'error'
                 self.error = 'Could not load this track from the cloud music provider. No song audio was played.'
-                if 'requires verification' in str(error) or 'rate-limiting' in str(error):
+                if any(word in str(error).lower() for word in ('requires verification', 'rate-limiting', 'proxy', '429', '403', '407')):
                     self.error = str(error)
                 print('CLOUD RESOLVE FAILED: ' + type(error).__name__ + ': ' + str(error)[:500])
         finally:
@@ -248,3 +248,20 @@ def shutdown():
         for station in stations.values(): station.stop()
 
 atexit.register(shutdown)
+
+
+@app.get('/v1/diagnostics/proxy')
+def proxy_diagnostic():
+    from music.download_proxy import proxy_arguments
+    proxy = os.environ.get('CROWBOT_YTDLP_PROXY_URL', '')
+    if not proxy:
+        return jsonify(configured=False), 200
+    try:
+        with proxy_arguments():
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({'https': proxy}))
+            with opener.open('https://ipv4.webshare.io/', timeout=15) as response:
+                return jsonify(configured=True, connected=response.status == 200, status=response.status)
+    except Exception as error:
+        # Exception text can include credentials: expose only fixed categories.
+        return jsonify(configured=True, connected=False, status=getattr(error, 'code', None),
+                       error_type=type(error).__name__), 502
