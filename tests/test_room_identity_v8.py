@@ -49,22 +49,22 @@ class RoomIdentityTests(unittest.TestCase):
         self.assertEqual(p.resolve_account("", "id-first"), "")
         self.assertEqual(p.owner, "SecondOwner")
 
-    def test_mod_username_only_and_owner_approved_binding(self):
+    def test_admins_are_saved_by_username_without_any_id_linking(self):
         p = RoomPermissions("111-1")
         p.set_owner_from_dashboard("Owner123")
         p.link_owner_from_dashboard("id-owner")
         self.assertTrue(p.add_mod("Alice_42"))
+        self.assertEqual(p.resolve_account("Alice_42"), "Alice_42")
         self.assertEqual(p.resolve_account("", "id-admin"), "")
-        p.link_mod_from_owner_command("Alice_42", "id-admin")
-        self.assertEqual(p.resolve_account("", "id-admin"), "Alice_42")
-        self.assertTrue(p.is_mod(p.resolve_account("", "id-admin")))
-        self.assertFalse(p.is_owner(p.resolve_account("", "id-admin")))
-        self.assertFalse(p.add_mod("Alice_42"))  # preserves existing link
-        self.assertEqual(p.resolve_account("", "id-admin"), "Alice_42")
+        self.assertTrue(p.is_mod(p.resolve_account("Alice_42")))
+        self.assertFalse(p.is_owner("Alice_42"))
+        self.assertFalse(p.add_mod("Alice_42"))
         with self.assertRaises(ValueError):
             p.add_mod("✨ decorative nickname")
+        again = RoomPermissions("111-1")
+        self.assertTrue(again.is_mod("Alice_42"))
         self.assertTrue(p.remove_mod("alice_42"))
-        self.assertEqual(p.resolve_account("", "id-admin"), "")
+        self.assertFalse(p.is_mod("Alice_42"))
 
     def test_admin_lock_is_room_specific_and_aliases_are_enforced(self):
         first = RoomPermissions("111-1")
@@ -84,8 +84,7 @@ class RoomIdentityTests(unittest.TestCase):
         p = RoomPermissions("111-1")
         p.set_owner_from_dashboard("RoomOwner")
         p.add_mod("Alice")
-        p.link_mod_from_owner_command("Alice", "id-alice")
-        actor = p.resolve_account("", "id-alice")
+        actor = p.resolve_account("Alice")
         self.assertTrue(p.is_mod(actor))
         self.assertFalse(p.is_owner(actor))
         p.set_welcome("Hello {user}, enjoy {room}!")
@@ -121,36 +120,66 @@ class RoomIdentityTests(unittest.TestCase):
             )
             handler.handle.assert_called_with("!lock p", "Sleepyhead222")
 
-    def test_owner_only_approves_pending_admin_request(self):
+    def test_member_request_owner_approval_and_admin_commands(self):
         from bot.commands import CommandHandler
+        from bot.room_session import RoomSession
         p = RoomPermissions("111-1")
         p.set_owner_from_dashboard("Owner123")
         p.link_owner_from_dashboard("id-owner")
-        p.add_mod("Alice")
         with patch("bot.commands.MusicResolver"), patch(
             "bot.commands.get_shared_youtube_provider"
         ), patch("bot.commands.CollectibleDrops"):
             handler = CommandHandler(MagicMock(), MagicMock())
             handler.room_permissions = p
-            handler.pending_admin_links = {
-                "alice": {
-                    "user_id": "id-admin", "display": "DisplayAlice",
-                    "created_at": time.monotonic(),
-                }
-            }
+            handler.pending_admin_links = {}
             denied = handler.handle("!approvemod Alice", "SomeoneElse")
-            self.assertIn("Only the verified room owner", denied)
+            self.assertIn("Only the registered room owner", denied)
+            expired = handler.handle("!approvemod Alice", "Owner123")
+            self.assertIn("must send !requestmod", expired)
+            handler.pending_admin_links["alice"] = {
+                "username": "Alice", "display": "Fancy Alice",
+                "created_at": time.monotonic(),
+            }
             accepted = handler.handle("!approvemod Alice", "Owner123")
-            self.assertIn("verified", accepted)
-            self.assertEqual(p.resolve_account("", "id-admin"), "Alice")
+            self.assertIn("now a room admin", accepted)
+            self.assertTrue(p.is_mod("Alice"))
+            self.assertFalse(p.is_owner("Alice"))
+            self.assertEqual(p.resolve_account("", "id-admin"), "")
             handler.handle("!lock p", "Alice")
             self.assertFalse(p.may_run("p", "Random"))
             handler.handle("!unlock play", "Alice")
             self.assertTrue(p.may_run("p", "Random"))
-            self.assertIn(
-                "updated",
-                handler.handle("!welcome Hello {user}!", "Alice"),
+            self.assertIn("updated", handler.handle(
+                "!welcome Hello {user}!", "Alice"
+            ))
+            self.assertIn("Only the registered room owner", handler.handle(
+                "!removemod Alice", "Alice"
+            ))
+            self.assertIn("Removed", handler.handle(
+                "!removemod Alice", "Owner123"
+            ))
+
+    def test_requestmod_requires_verified_username_not_display_name(self):
+        from bot.room_session import RoomSession
+        with patch("bot.room_session.CommandHandler") as handler_cls, patch(
+            "bot.room_session.MusicController"
+        ), patch("bot.room_session.AutoDJ"):
+            handler = handler_cls.return_value
+            handler.prefix = "!"
+            room = RoomSession("https://www.imvu.com/next/chat/room-111-1")
+            room.permissions.set_owner_from_dashboard("Owner123")
+            rejected = room.process("Decorated Nickname", "!requestmod")
+            self.assertIn("username is not available", rejected)
+            accepted = room.process(
+                "Decorated Nickname", "!requestmod",
+                account_username="Alice_42",
             )
+            self.assertIn("@Alice_42 requested", accepted)
+            self.assertEqual(
+                room.pending_admin_links["alice_42"]["username"], "Alice_42"
+            )
+            self.assertNotIn("alice_42", room.permissions.mods)
+
 
 
 if __name__ == "__main__":
