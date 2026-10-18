@@ -25,71 +25,33 @@ Your saved room IDs appear when CrowBot is restarted, **offline until you click
 CONNECT**. Remove one using **REMOVE SELECTED**. All rooms use one application,
 one dedicated Chrome profile, and their own room tabs.
 
-## IMVU chat identity verification for room owners and admins
-
-CrowBot stores and assigns **real IMVU usernames only** (e.g.
-`Sleepyhead222`), never arbitrary decorated display names (e.g.
-`Sleepy`). IMVU sometimes hides a user's account handle in the room's
-chat HTML. A matching display name is not enough to authorize `!lock`,
-`!welcome` or `!addmod`.
-
-When `!whoami` says that the account username is hidden but a chat
-account ID was detected:
-
-1. In the desktop app, select the room and set the verified room owner
-   username (`Sleepyhead222`, for example).
-2. The actual owner types `!linkowner` inside that IMVU room.
-3. The CrowBot app displays **Owner link pending** with the chat display
-   name. The trusted app operator confirms the person's real identity in
-   IMVU and clicks **APPROVE OWNER LINK**; the confirmation dialog also
-   displays the IMVU chat account ID. Requests expire after five minutes.
-4. The owner can use `!lock p`, `!welcome ...`, `!addmod username`,
-   `!removemod username` etc. All these commands now share the same
-   verified account authorization path.
-
-When an appointed admin's IMVU username is also hidden, the room owner
-first appoints their username using `!addmod Username`. Then the admin
-types `!linkmod Username`, and the owner approves from chat with
-`!approvemod Username` within five minutes. The bot internally pairs
-the chat account ID with that **app-approved username**; it never adds a
-display nickname to the admin roster.
-
-These ID pairings survive reconnects. Reassigning the room owner revokes
-the old owner ID, and removing an admin revokes its linked ID. If both
-the IMVU account username **and** a stable chat account ID are absent,
-CrowBot cannot securely grant privileged access based on chat markup alone.
-In that case `!whoami` explains the blocker; new IMVU identity data or
-an authenticated provider integration would be required.
-
 ## Room owner and moderation
 
-The **room owner** is registered in the CrowBot desktop app using their
-verified IMVU account username. If the IMVU chat hides the owner's username,
-they can request `!linkowner` and the trusted operator can approve the
-owner's chat account ID in the app. **Only owners have this linking flow.**
+The room owner is registered in the CrowBot app by verified IMVU account
+username. If the account username is hidden, the owner sends
+`!linkowner` and the trusted app operator approves the chat account ID.
+Owner linking requests expire after five minutes.
 
-All other moderators use their **regular IMVU account username**:
+Moderators use their **current IMVU display names**, including spaces,
+emoji and decorative characters. Account usernames and account IDs do
+not grant moderator access.
 
-```text
-!requestmod             Member requests admin privileges
-!approvemod username    Verified room owner approves that member's request
-!removemod username     Verified room owner removes an admin
-!mods                   Show room owner and all admins
-```
+1. The member sends `!requestmod` in the room.
+2. Within 15 minutes the verified owner sends
+   `!approvemod 🌸 Fancy Alice 🌸`, using the full requested display name.
+3. The owner can remove that moderator with
+   `!removemod 🌸 Fancy Alice 🌸`.
 
-The owner must approve a request within **15 minutes**. Admins cannot
-approve requests or appoint other admins. Once approved, admins can run
-`!lock`, `!unlock`, `!welcome`, music and drop administration without
-any moderator-specific account-ID linking. Room settings persist separately.
-`!h sys` contains only the main moderation commands, while advanced
-owner linking and optional welcome previews remain available separately.
+Only the owner can approve or remove moderators. Moderators can manage
+locks, welcomes, music and drops. `!mods` lists the roster and `!whoami`
+shows the current role. Settings are saved separately for each room.
 
-**Identity security:** IMVU display nicknames are *not* account usernames.
-Requests use only a username from IMVU profile metadata or a direct public
-IMVU account lookup from a profile CID. If neither source is available, the
-request fails safely rather than granting permissions to a nickname.
-The direct IMVU profile API is not a guaranteed public contract, so some
-room layouts may not provide enough identity evidence.
+Matching ignores letter case and normalizes whitespace; symbols are
+preserved. A changed display name requires a new request and approval;
+the owner should remove the old name. Existing saved mod entries are
+treated as display names. Anyone using the same display name matches
+that saved moderator entry. Owner verification remains account based,
+and a display name matching the owner's handle cannot become a mod.
 
 Automatic drops continue independently of room activity. A new person's
 welcome message appears when CrowBot first observes their chat message,

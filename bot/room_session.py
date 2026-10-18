@@ -8,7 +8,7 @@ import uuid
 import time
 
 from bot.room_ids import normalize_room_id
-from bot.room_permissions import RoomPermissions
+from bot.room_permissions import RoomPermissions, _display_name
 from music.youtube_owned import get_shared_youtube_provider
 from bot.commands import CommandHandler
 from music.auto_dj import AutoDJ
@@ -49,7 +49,7 @@ class RoomSession:
         self.permissions = RoomPermissions(self.room_id)
         self.command_handler.room_permissions = self.permissions
         self.pending_owner_link = None
-        self.pending_admin_links = {}  # pending verified username requests only
+        self.pending_admin_links = {}  # pending chat display-name requests
         self.command_handler.pending_admin_links = self.pending_admin_links
         self.radio_port = radio_port
         self.radio_server = None
@@ -159,36 +159,29 @@ class RoomSession:
             )
 
         if command == "requestmod":
-            # Only an account handle from IMVU's profile metadata or direct
-            # public account lookup may request permissions, never nicknames.
-            verified_handle = self.permissions.resolve_account(
-                account_username, user_id
-            )
-            if not verified_handle or not account_username:
-                return (
-                    "🔒 Your IMVU account username is not available from this "
-                    "chat event. CrowBot cannot safely submit a mod request "
-                    "using a display name. Try again after opening your "
-                    "IMVU profile in the room."
-                )
-            if self.permissions.is_owner(verified_handle):
+            account = self.permissions.resolve_account(account_username, user_id)
+            display = _display_name(username)
+            if self.permissions.is_owner(account):
                 return "👑 You are already the room owner."
-            if self.permissions.is_mod(verified_handle):
+            if self.permissions.is_owner(display):
+                return "🔒 This display name conflicts with the registered owner username."
+            if self.permissions.is_mod(display):
                 return "🛡️ You are already a room admin."
-            self.pending_admin_links[verified_handle.casefold()] = {
-                "username": verified_handle,
-                "display": username,
+            self.pending_admin_links[display.casefold()] = {
+                "username": display,
+                "display": display,
                 "created_at": time.monotonic(),
             }
             return (
-                "🛡️ @" + verified_handle +
+                "🛡️ " + display +
                 " requested room admin access. The room owner can approve "
-                "with " + prefix + "approvemod " + verified_handle +
+                "with " + prefix + "approvemod " + display +
                 " (valid for 15 minutes)."
             )
 
         account = self.permissions.resolve_account(account_username, user_id)
-        if not self.permissions.may_run(command, account):
+        actor = self.permissions.resolve_actor(username, account_username, user_id)
+        if not self.permissions.may_run(command, actor):
             if self.permissions.is_locked(command):
                 return (
                     "🔒 !" + command + " is locked for regular users in this room."
@@ -199,7 +192,7 @@ class RoomSession:
                 return (
                     "🔒 Account username hidden by IMVU. The owner can use "
                     + prefix + "linkowner and get approved in the app. "
-                    "Members can use " + prefix + "requestmod once IMVU exposes their username."
+                    "Members can use " + prefix + "requestmod with their display name."
                 )
             return "🔒 This command is for the registered room owner or admins."
 
@@ -211,8 +204,5 @@ class RoomSession:
         self.command_handler.actor_display_name = username
         self.command_handler.actor_account_username = account
         self.command_handler.actor_user_id = user_id
-        # The handler must receive an already verified username. Do not
-        # silently substitute an unverified decorated chat display name for
-        # moderation decisions. Public commands can still attribute chat.
-        actor = account or username
-        return self.command_handler.handle(message, actor)
+        # Owner is verified by account; appointed mods use their display name.
+        return self.command_handler.handle(message, actor or username)

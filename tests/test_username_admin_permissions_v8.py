@@ -1,4 +1,4 @@
-"""Regressions for IMVU username-only owner/mod authorization."""
+"""Regressions for IMVU account owner and display-name mod authorization."""
 import copy
 import unittest
 from unittest.mock import patch
@@ -51,14 +51,13 @@ class UsernameAdminPermissionsTests(unittest.TestCase):
         self.assertEqual(policy.unlock_command("play", {"play", "p", "lock"}), "play")
         self.assertTrue(policy.may_run("p", "Visitor"))
 
-    def test_only_account_usernames_can_be_added_as_admins(self):
+    def test_display_names_can_be_added_as_admins(self):
         policy = RoomPermissions("389249882-6")
         policy.set_owner_from_dashboard("Darione2")
-        with self.assertRaises(ValueError):
-            policy.add_mod("🌸 Pretty Nick 🌸")
+        self.assertTrue(policy.add_mod("🌸 Pretty Nick 🌸"))
         with self.assertRaises(ValueError):
             policy.set_owner_from_dashboard("😀 Nickname")
-        self.assertFalse(policy.is_mod("🌸 Pretty Nick 🌸"))
+        self.assertTrue(policy.is_mod("🌸 Pretty Nick 🌸"))
         self.assertTrue(policy.add_mod("@Valid_Name9"))
 
     def test_migration_ignores_legacy_display_name_override(self):
@@ -70,7 +69,7 @@ class UsernameAdminPermissionsTests(unittest.TestCase):
         policy = RoomPermissions("389249882-6")
         self.assertTrue(policy.is_owner("Darione2"))
         self.assertFalse(policy.is_owner("FakeOtherPerson"))
-        self.assertFalse(policy.is_mod("🌸 Decorated 🌸"))
+        self.assertTrue(policy.is_mod("🌸 Decorated 🌸"))
         self.assertTrue(policy.is_mod("AnotherUser"))
 
     def test_room_policies_persist_independently(self):

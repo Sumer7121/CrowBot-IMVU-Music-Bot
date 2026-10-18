@@ -56,12 +56,13 @@ class RoomPermissions:
         settings = load_settings()
         state = settings.get("room_policies", {}).get(self.room_id, {})
         self.owner = _username(state.get("owner"))
-        # Account usernames are the only roles stored/displayed to admins.
+        # Owner uses an account username; moderators use chat display names.
         # If IMVU chat hides an account username, the trusted GUI can bind
         # its stable chat account ID to the already-registered room owner.
         self.owner_user_id = str(state.get("owner_user_id") or "").strip()
-        self.mods = {_username(v).casefold(): _username(v)
-                     for v in state.get("mods", []) if _username(v)}
+        self.mods = {_display_name(v).casefold(): _display_name(v)
+                     for v in state.get("mods", [])
+                     if _display_name(v) and not self.is_owner(v)}
         self.welcome = str(state.get("welcome", DEFAULT_WELCOME))[:240]
         self.welcome_enabled = bool(state.get("welcome_enabled", True))
         self.locked_commands = {canonical_command(x) for x in state.get("locked_commands", [])}
@@ -85,8 +86,18 @@ class RoomPermissions:
         return bool(handle and self.owner and handle == self.owner.casefold())
 
     def is_mod(self, username):
-        handle = _username(username).casefold()
+        handle = _display_name(username).casefold()
         return bool(handle and (self.is_owner(handle) or handle in self.mods))
+
+    def resolve_actor(self, display_name="", account_username="", user_id=""):
+        """Keep owner account verification separate from display-name mods."""
+        account = self.resolve_account(account_username, user_id)
+        if self.is_owner(account):
+            return self.owner
+        name = _display_name(display_name)
+        if not self.is_owner(name) and name.casefold() in self.mods:
+            return self.mods[name.casefold()]
+        return ""
 
     def set_owner_from_dashboard(self, username):
         name = _username(username)
@@ -99,8 +110,9 @@ class RoomPermissions:
         self.save()
 
     def resolve_account(self, account_username="", user_id=""):
-        """Authorize admins by IMVU account username, owner by username or
-        an explicitly approved owner CID. Never use displayed nicknames.
+        """Resolve account metadata for the owner and account reporting.
+
+        Moderator authorization uses resolve_actor's display-name matching.
         """
         name = _username(account_username)
         identity = str(user_id or "").strip()
@@ -112,8 +124,6 @@ class RoomPermissions:
                 return self.owner
             if self.owner_user_id and identity == self.owner_user_id:
                 return ""  # Conflicting account name cannot claim owner CID.
-            if key in self.mods:
-                return self.mods[key]
             return name
         if identity and self.owner_user_id and identity == self.owner_user_id:
             return self.owner
@@ -130,10 +140,10 @@ class RoomPermissions:
         self.save()
 
     def add_mod(self, username):
-        name = _username(username)
+        name = _display_name(username)
         if not name:
-            raise ValueError("Enter a username to promote.")
-        if name.casefold() == self.owner.casefold():
+            raise ValueError("Enter a display name to promote.")
+        if self.is_owner(name):
             return False
         if name.casefold() in self.mods:
             return False
@@ -142,7 +152,7 @@ class RoomPermissions:
         return True
 
     def remove_mod(self, username):
-        key = _username(username).casefold()
+        key = _display_name(username).casefold()
         if key not in self.mods:
             return False
         self.mods.pop(key)
@@ -185,8 +195,8 @@ class RoomPermissions:
         self.save()
         return name
 
-    def room_role(self, account_username="", user_id=""):
-        account = self.resolve_account(account_username, user_id)
+    def room_role(self, account_username="", user_id="", display_name=""):
+        account = self.resolve_actor(display_name, account_username, user_id)
         if self.is_owner(account):
             return "owner"
         if self.is_mod(account):

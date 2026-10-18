@@ -1,4 +1,4 @@
-"""Regression tests for IMVU username-only moderator settings and account linking."""
+"""Regression tests for IMVU display-name moderator settings and account linking."""
 import copy
 import os
 import time
@@ -59,8 +59,7 @@ class RoomIdentityTests(unittest.TestCase):
         self.assertTrue(p.is_mod(p.resolve_account("Alice_42")))
         self.assertFalse(p.is_owner("Alice_42"))
         self.assertFalse(p.add_mod("Alice_42"))
-        with self.assertRaises(ValueError):
-            p.add_mod("✨ decorative nickname")
+        self.assertTrue(p.add_mod("✨ decorative nickname"))
         again = RoomPermissions("111-1")
         self.assertTrue(again.is_mod("Alice_42"))
         self.assertTrue(p.remove_mod("alice_42"))
@@ -159,7 +158,7 @@ class RoomIdentityTests(unittest.TestCase):
                 "!removemod Alice", "Owner123"
             ))
 
-    def test_requestmod_requires_verified_username_not_display_name(self):
+    def test_requestmod_uses_display_name_without_account_metadata(self):
         from bot.room_session import RoomSession
         with patch("bot.room_session.CommandHandler") as handler_cls, patch(
             "bot.room_session.MusicController"
@@ -168,18 +167,52 @@ class RoomIdentityTests(unittest.TestCase):
             handler.prefix = "!"
             room = RoomSession("https://www.imvu.com/next/chat/room-111-1")
             room.permissions.set_owner_from_dashboard("Owner123")
-            rejected = room.process("Decorated Nickname", "!requestmod")
-            self.assertIn("username is not available", rejected)
-            accepted = room.process(
-                "Decorated Nickname", "!requestmod",
-                account_username="Alice_42",
-            )
-            self.assertIn("@Alice_42 requested", accepted)
-            self.assertEqual(
-                room.pending_admin_links["alice_42"]["username"], "Alice_42"
-            )
-            self.assertNotIn("alice_42", room.permissions.mods)
+            response = room.process("🌸 Fancy Alice 🌸", "!requestmod",
+                                    account_username="Alice_42")
+            self.assertIn("approvemod 🌸 Fancy Alice 🌸", response)
+            self.assertIn("🌸 fancy alice 🌸", room.pending_admin_links)
+            self.assertNotIn("alice_42", room.pending_admin_links)
+            room.permissions.add_mod("🌸 Fancy Alice 🌸")
+            self.assertEqual(room.process("🌸 Fancy Alice 🌸", "!lock p"), handler.handle.return_value)
+            handler.handle.assert_called_with("!lock p", "🌸 Fancy Alice 🌸")
+            self.assertIn("registered room owner or admins", room.process(
+                "New Name", "!lock p", account_username="Alice_42"))
+            self.assertIn("owner", room.process("Owner123", "!lock p"))
+            self.assertIn("conflicts", room.process("Owner123", "!requestmod"))
 
+    def test_display_mod_does_not_resolve_by_account_handle(self):
+        p = RoomPermissions("111-1")
+        p.set_owner_from_dashboard("Owner123")
+        p.add_mod("🌸 Fancy Alice 🌸")
+        self.assertFalse(p.add_mod("@Owner123"))
+        self.assertEqual(p.resolve_actor("🌸 Fancy Alice 🌸", "Alice_42"), "🌸 Fancy Alice 🌸")
+        self.assertEqual(p.resolve_actor("New Name", "🌸 Fancy Alice 🌸"), "")
+        self.assertEqual(p.resolve_actor("New Name", "Owner123"), "Owner123")
+        self.assertEqual(p.resolve_actor("Owner123"), "")
+
+    def test_full_display_name_approval_and_removal(self):
+        from bot.commands import CommandHandler
+        p = RoomPermissions("111-1")
+        p.set_owner_from_dashboard("Owner123")
+        with patch("bot.commands.MusicResolver"), patch(
+            "bot.commands.get_shared_youtube_provider"
+        ), patch("bot.commands.CollectibleDrops"):
+            handler = CommandHandler(MagicMock(), MagicMock())
+            handler.room_permissions = p
+            handler.pending_admin_links = {"🌸 fancy alice 🌸": {
+                "username": "🌸 Fancy Alice 🌸", "display": "🌸 Fancy Alice 🌸",
+                "created_at": time.monotonic()}}
+            self.assertIn("now a room admin", handler.handle(
+                "!approvemod 🌸 Fancy Alice 🌸", "Owner123"))
+            self.assertTrue(p.is_mod("🌸 Fancy Alice 🌸"))
+            self.assertIn("Only the registered room owner", handler.handle(
+                "!approvemod Someone", "🌸 Fancy Alice 🌸"))
+            handler.actor_display_name = "🌸 Fancy Alice 🌸"
+            handler.actor_account_username = "Alice_42"
+            self.assertIn("admin", handler.handle("!whoami", "🌸 Fancy Alice 🌸"))
+            self.assertIn("Removed", handler.handle(
+                "!removemod 🌸 Fancy Alice 🌸", "Owner123"))
+            self.assertFalse(p.is_mod("🌸 Fancy Alice 🌸"))
 
 
 if __name__ == "__main__":

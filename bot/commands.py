@@ -2246,10 +2246,10 @@ class CommandHandler(QObject):
             return "🔒 Only the registered room owner can remove admins."
         target = " ".join(arguments).strip()
         if not target:
-            return f"Usage: {self.prefix}removemod <IMVU username>"
+            return f"Usage: {self.prefix}removemod <display name>"
         if target.lstrip("@").casefold() == permissions.owner.casefold():
             return "The room owner cannot be removed."
-        return (f"✅ Removed @{target.lstrip('@')} from room admins."
+        return (f"✅ Removed {target} from room admins."
                 if permissions.remove_mod(target)
                 else "That user is not an appointed admin.")
 
@@ -2263,27 +2263,27 @@ class CommandHandler(QObject):
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.is_owner(username):
             return "🔒 Only the registered room owner can approve admin requests."
-        target = arguments[0].strip().lstrip("@") if arguments else ""
+        target = " ".join(arguments).strip()
         if not target:
-            return f"Usage: {self.prefix}approvemod <IMVU username>"
+            return f"Usage: {self.prefix}approvemod <display name>"
         key = target.casefold()
         pending = getattr(self, "pending_admin_links", {}).get(key)
         if not pending or time.monotonic() - pending["created_at"] > 900:
             self.pending_admin_links.pop(key, None)
             return (
-                "No recent request for @" + target +
+                "No recent request for " + target +
                 ". That user must send " + self.prefix + "requestmod first."
             )
         if pending["username"].casefold() != key:
-            return "🔒 The requested account username does not match."
+            return "🔒 The requested display name does not match."
         try:
             added = permissions.add_mod(pending["username"])
         except ValueError as error:
             return "🔒 " + str(error)
         self.pending_admin_links.pop(key, None)
         return (
-            ("✅ @" + pending["username"] + " is now a room admin."
-             if added else "This username is already a room admin.")
+            ("✅ " + pending["username"] + " is now a room admin."
+             if added else "This display name is already a room admin.")
         )
 
     def whoami(self, arguments, username):
@@ -2292,12 +2292,13 @@ class CommandHandler(QObject):
         permissions = getattr(self, "room_permissions", None)
         if account:
             role = ("owner" if permissions and permissions.is_owner(account)
-                    else "admin" if permissions and permissions.is_mod(account)
+                    else "admin" if permissions and permissions.is_mod(display)
                     else "member")
             return "👤 Chat name: " + display + "\nUsername: @" + account + " | " + role
         if permissions and permissions.is_owner(username):
             return "👑 Room owner verified via approved IMVU account link."
-        return "👤 IMVU did not expose your account username. Display names cannot authorize moderation."
+        role = "admin" if permissions and permissions.is_mod(display) else "member"
+        return "👤 Chat name: " + display + " | " + role
 
     def list_mods(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
@@ -2305,7 +2306,7 @@ class CommandHandler(QObject):
             return "🔒 Set the verified room owner from the local CrowBot dashboard."
         return ("👑 Room owner: " + permissions.owner +
                 "\n🛡️ Room admins: " + (", ".join(permissions.mods.values()) or "None") +
-                "\nMembers use !requestmod; the owner uses !approvemod <username>.")
+                "\nMembers use !requestmod; the owner uses !approvemod <display name>.")
 
     def configure_welcome(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
@@ -2513,8 +2514,8 @@ class CommandHandler(QObject):
             "system": (
                 "⚙️ ROOM MODERATION\n"
                 f"{p}requestmod — ask to become a room admin\n"
-                f"{p}approvemod <user> — owner approves request\n"
-                f"{p}removemod <user> — owner removes admin\n"
+                f"{p}approvemod <display name> — owner approves request\n"
+                f"{p}removemod <display name> — owner removes admin\n"
                 f"{p}mods — show owner and admins\n"
                 f"{p}lock <command> / {p}unlock <command>\n"
                 f"{p}locks — show locked commands\n"
