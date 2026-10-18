@@ -19,6 +19,8 @@ ALIASES = {
     "tt": "ttt", "m": "move", "g": "guess", "a": "quizanswer",
     "c4": "five", "fiveaccept": "join", "fiveboard": "board",
     "fivemove": "drop", "fiveend": "end4",
+    "truthordare": "tod", "questions": "question", "qotd": "question",
+    "wouldyourather": "wyr", "neverhaveiever": "nhie", "memes": "meme",
 }
 
 def canonical_command(command):

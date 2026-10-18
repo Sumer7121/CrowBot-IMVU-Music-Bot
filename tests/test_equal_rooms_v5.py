@@ -115,6 +115,9 @@ class FakeCommands(QObject):
             self.music.queue_changed.emit()
         return "OK"
 
+    def cancel_music_requests(self):
+        pass
+
 
 class FakeDJ(QObject):
     status_changed = Signal(str)

@@ -32,6 +32,7 @@ class MusicResolveWorker(QThread):
         parent=None,
         room_id="legacy",
         session_key="legacy",
+        search_only=False,
     ):
         super().__init__(parent)
 
@@ -40,6 +41,7 @@ class MusicResolveWorker(QThread):
         self.resolver = resolver
         self.query = str(query or "").strip()
         self.username = str(username or "").strip()
+        self.search_only = search_only
 
     def run(self):
 
@@ -51,6 +53,14 @@ class MusicResolveWorker(QThread):
                 f"for {self.username}..."
             )
 
+            if self.search_only:
+                results = get_shared_youtube_provider().search_candidates(
+                    self.query, limit=5, cancel_check=self.isInterruptionRequested
+                )
+                if not self.isInterruptionRequested():
+                    self.resolved.emit(self.username, self.query, {"search_results": results})
+                return
+
             result = self.resolver.resolve(
                 self.query, requested_by=self.username,
                 room_id=self.room_id, session_key=self.session_key,
@@ -58,6 +68,11 @@ class MusicResolveWorker(QThread):
                 progress_callback=self.progress.emit,
             )
             if self.isInterruptionRequested():
+                path = (result or {}).get("temporary_file")
+                if path:
+                    get_shared_youtube_provider().release_room_track(
+                        path, self.room_id, self.session_key
+                    )
                 return
 
             if not result:
@@ -160,6 +175,7 @@ class CommandHandler(QObject):
         self.room_id = "legacy"
         self.room_session = "legacy"
         self._music_shutting_down = False
+        self._active_music_cancelled = False
 
         # -----------------------------------------------------
         # COMMANDS
@@ -498,9 +514,15 @@ class CommandHandler(QObject):
         # so they remain immediate.
         # -----------------------------------------------------
 
-        if self.is_valid_url(
-            first_argument
-        ):
+        try:
+            host = (urlparse(first_argument).hostname or "").casefold()
+        except ValueError:
+            host = ""
+        youtube_link = any(
+            host == domain or host.endswith("." + domain)
+            for domain in ("youtube.com", "youtu.be", "youtube-nocookie.com")
+        )
+        if self.is_valid_url(first_argument) and not youtube_link:
 
             url = first_argument
 
@@ -587,6 +609,7 @@ class CommandHandler(QObject):
         self,
         query,
         username,
+        search_only=False,
     ):
         """
         Add a music request to the FIFO preparation queue.
@@ -599,6 +622,7 @@ class CommandHandler(QObject):
         request = {
             "query": str(query or "").strip(),
             "username": str(username or "").strip(),
+            "search_only": search_only,
         }
 
         self.music_prepare_queue.append(
@@ -672,9 +696,11 @@ class CommandHandler(QObject):
             self,
             room_id=self.room_id,
             session_key=self.room_session,
+            search_only=request.get("search_only", False),
         )
 
         self.active_music_worker = worker
+        self._active_music_cancelled = False
 
         worker.progress.connect(self.music_preparation_progress)
         worker.resolved.connect(
@@ -705,7 +731,7 @@ class CommandHandler(QObject):
 
     @Slot(str)
     def music_preparation_progress(self, message):
-        if not self._music_shutting_down:
+        if not self._music_shutting_down and not self._active_music_cancelled:
             self.music_controller.status_changed.emit(
                 "MUSIC PREPARATION: " + str(message)
             )
@@ -721,10 +747,27 @@ class CommandHandler(QObject):
         query,
         result,
     ):
-        if self._music_shutting_down:
+        if self._music_shutting_down or self._active_music_cancelled:
+            path = (result or {}).get("temporary_file")
+            if path:
+                self.youtube_search.release_room_track(
+                    path, self.room_id, self.room_session
+                )
             return
 
         try:
+            if "search_results" in result:
+                results = result["search_results"]
+                lines = [f"YouTube results for {query}:"]
+                for number, item in enumerate(results[:3], 1):
+                    lines.append(
+                        f"{number}. {item.get('title', 'Unknown')} - "
+                        f"{item.get('channel', 'Unknown')} [{item.get('id', '')}]"
+                    )
+                response = ("\n".join(lines) if results else
+                            f"No YouTube results found for: {query}")
+                self.async_response.emit(username, response)
+                return
 
             track = dict(
                 result
@@ -822,7 +865,7 @@ class CommandHandler(QObject):
         query,
         error,
     ):
-        if self._music_shutting_down:
+        if self._music_shutting_down or self._active_music_cancelled:
             return
 
         error = str(
@@ -978,6 +1021,11 @@ class CommandHandler(QObject):
     def stop_music_requests(self):
         """Cancel this room's unstarted and in-progress manual downloads."""
         self._music_shutting_down = True
+        return self.cancel_music_requests()
+
+    def cancel_music_requests(self):
+        """Cancel pending songs while allowing new requests after stop/clear."""
+        self._active_music_cancelled = True
         self.music_prepare_queue.clear()
         worker = self.active_music_worker
         if worker is not None:
@@ -988,93 +1036,12 @@ class CommandHandler(QObject):
     # YOUTUBE SEARCH
     # =========================================================
 
-    def ytsearch(
-        self,
-        arguments,
-        username,
-    ):
-
-        query = " ".join(
-            arguments
-        ).strip()
-
+    def ytsearch(self, arguments, username):
+        query = " ".join(arguments).strip()
         if not query:
-
-            return (
-                f"Usage: "
-                f"{self.prefix}ytsearch "
-                "<song or artist>"
-            )
-
-        print()
-        print(
-            "IMVU YTSEARCH: "
-            f"{username}: {query}"
-        )
-
-        try:
-
-            results = (
-                self.youtube_search
-                .search_candidates(
-                    query,
-                    limit=5,
-                )
-            )
-
-        except Exception as error:
-
-            print(
-                "IMVU YTSEARCH ERROR: "
-                f"{error}"
-            )
-
-            return (
-                "YouTube search failed: "
-                f"{error}"
-            )
-
-        if not results:
-
-            return (
-                "No YouTube results "
-                f"found for: {query}"
-            )
-
-        lines = [
-            f"YouTube results for "
-            f"{query}:"
-        ]
-
-        for number, result in enumerate(
-            results[:3],
-            start=1,
-        ):
-
-            title = result.get(
-                "title",
-                "Unknown",
-            )
-
-            channel = result.get(
-                "channel",
-                "Unknown",
-            )
-
-            video_id = result.get(
-                "id",
-                "",
-            )
-
-            lines.append(
-                f"{number}. {title} "
-                f"- {channel} "
-                f"[{video_id}]"
-            )
-
-        return "\n".join(
-            lines
-        )
+            return f"Usage: {self.prefix}ytsearch <song or artist>"
+        self.start_music_resolve(query, username, search_only=True)
+        return f"Searching YouTube: {query}"
 
     # =========================================================
     # QUEUE
@@ -1261,6 +1228,7 @@ class CommandHandler(QObject):
         dj = self._room_dj()
         if dj is not None and dj.enabled:
             dj.set_autoplay(False)
+        self.cancel_music_requests()
         self.music_controller.stop()
 
         return "Music stopped. Autoplay is off."
@@ -1275,6 +1243,7 @@ class CommandHandler(QObject):
         username,
     ):
 
+        self.cancel_music_requests()
         self.music_controller.clear_queue()
 
         return "Queue cleared."
@@ -2292,12 +2261,12 @@ class CommandHandler(QObject):
         permissions = getattr(self, "room_permissions", None)
         if account:
             role = ("owner" if permissions and permissions.is_owner(account)
-                    else "admin" if permissions and permissions.is_mod(display)
+                    else "admin" if permissions and
+                    " ".join(display.split()).casefold() in permissions.mods
                     else "member")
             return "👤 Chat name: " + display + "\nUsername: @" + account + " | " + role
-        if permissions and permissions.is_owner(username):
-            return "👑 Room owner verified via approved IMVU account link."
-        role = "admin" if permissions and permissions.is_mod(display) else "member"
+        role = ("admin" if permissions and
+                " ".join(display.split()).casefold() in permissions.mods else "member")
         return "👤 Chat name: " + display + " | " + role
 
     def list_mods(self, arguments, username):

@@ -687,6 +687,7 @@ class MultiRoomHub(QObject):
             session.music_controller.skip()
         elif action == "stop":
             session.dj.set_autoplay(False)
+            session.command_handler.cancel_music_requests()
             session.music_controller.stop()
         self._log(room_id, "Selected-room action: " + action)
         self.refresh_ui()
@@ -703,6 +704,9 @@ class MultiRoomHub(QObject):
         source = session.radio_server.get_source()
         if source:
             session.radio_server.set_source(source, force_restart=True)
+            session.music_controller._radio_generation = (
+                session.radio_server.get_source_state()[1]
+            )
         self._log(room_id, "Reloading this room's own Cloudflare radio URL...")
         self._load_radio(room_id, self._epoch[room_id], url)
 

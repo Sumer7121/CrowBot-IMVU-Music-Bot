@@ -1,4 +1,5 @@
 import sys
+import shutil
 from pathlib import Path
 
 
@@ -53,7 +54,7 @@ def get_ffmpeg_path():
     if development_path.exists():
         return str(development_path)
 
-    return None
+    return shutil.which("ffmpeg")
 
 
 def ffmpeg_available():

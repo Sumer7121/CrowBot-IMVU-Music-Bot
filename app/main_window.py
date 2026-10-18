@@ -4166,6 +4166,10 @@ class MainWindow(QMainWindow):
 
 
 
+            if hasattr(self, "room_hub"):
+                for session in self.room_hub.sessions.values():
+                    session.command_handler.set_prefix(prefix)
+
             self.load_settings_into_ui()
 
 

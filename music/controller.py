@@ -454,7 +454,12 @@ class MusicController(QObject):
     # =========================================================
 
     def on_song_finished(self):
-
+        # Public FFmpeg completion owns the queue when streaming. A delayed
+        # local Qt EOF must not skip a second track or cut radio audio short.
+        if self.radio_server and self.radio_server.is_running():
+            return
+        if self.queue.is_paused or not self.queue.get_current_song():
+            return
         self.status_changed.emit(
             "Song finished."
         )
