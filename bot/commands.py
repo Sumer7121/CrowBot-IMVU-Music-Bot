@@ -222,9 +222,8 @@ class CommandHandler(QObject):
             "mods": self.list_mods,
             "whoami": self.whoami,
             "linkowner": self.owner_link_help,
-            "linkmod": self.mod_link_help,
+            "requestmod": self.request_mod_help,
             "approvemod": self.approve_mod,
-            "addmod": self.add_mod,
             "removemod": self.remove_mod,
             "welcome": self.configure_welcome,
             "welcometest": self.preview_welcome,
@@ -2239,22 +2238,6 @@ class CommandHandler(QObject):
         return ("🔒 Locked commands: " + ", ".join("!" + v for v in locked)
                 if locked else "🔓 No additional commands are locked.")
 
-    def add_mod(self, arguments, username):
-        permissions = getattr(self, "room_permissions", None)
-        if permissions is None or not permissions.owner:
-            return "Set the verified room owner in the CrowBot app first."
-        if not permissions.is_owner(username):
-            return "🔒 Only the registered room owner can appoint admins."
-        target = " ".join(arguments).strip()
-        if not target:
-            return f"Usage: {self.prefix}addmod <IMVU username>"
-        try:
-            added = permissions.add_mod(target)
-        except ValueError as error:
-            return str(error)
-        return ("✅ @" + target.lstrip("@") + " is now a room admin."
-                if added else "The room owner already has admin access.")
-
     def remove_mod(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.owner:
@@ -2273,61 +2256,48 @@ class CommandHandler(QObject):
     def owner_link_help(self, arguments, username):
         return "Owner verification is handled by your room's chat listener."
 
-    def mod_link_help(self, arguments, username):
-        return "Admin account linking is handled by your room's chat listener."
+    def request_mod_help(self, arguments, username):
+        return "Use !requestmod in the room to ask the owner for admin access."
 
     def approve_mod(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.is_owner(username):
-            return "🔒 Only the verified room owner can approve admin accounts."
+            return "🔒 Only the registered room owner can approve admin requests."
         target = arguments[0].strip().lstrip("@") if arguments else ""
         if not target:
-            return f"Usage: {self.prefix}approvemod <appointed username>"
+            return f"Usage: {self.prefix}approvemod <IMVU username>"
         key = target.casefold()
         pending = getattr(self, "pending_admin_links", {}).get(key)
-        if not pending or time.monotonic() - pending["created_at"] > 300:
+        if not pending or time.monotonic() - pending["created_at"] > 900:
+            self.pending_admin_links.pop(key, None)
             return (
-                "No current admin link request for @" + target +
-                ". Ask them to send " + self.prefix + "linkmod " + target + "."
+                "No recent request for @" + target +
+                ". That user must send " + self.prefix + "requestmod first."
             )
+        if pending["username"].casefold() != key:
+            return "🔒 The requested account username does not match."
         try:
-            permissions.link_mod_from_owner_command(target, pending["user_id"])
+            added = permissions.add_mod(pending["username"])
         except ValueError as error:
             return "🔒 " + str(error)
         self.pending_admin_links.pop(key, None)
         return (
-            "✅ Admin @" + target + " verified and linked to IMVU chat account " +
-            pending["display"] + ". Moderation commands are now available."
+            ("✅ @" + pending["username"] + " is now a room admin."
+             if added else "This username is already a room admin.")
         )
 
     def whoami(self, arguments, username):
         display = str(getattr(self, "actor_display_name", username) or username)
         account = str(getattr(self, "actor_account_username", "") or "")
-        user_id = str(getattr(self, "actor_user_id", "") or "")
         permissions = getattr(self, "room_permissions", None)
-        resolved = (permissions.resolve_account(account, user_id)
-                    if permissions else "")
-        role = ("owner" if permissions and permissions.is_owner(resolved)
-                else "admin" if permissions and permissions.is_mod(resolved)
-                else "member")
         if account:
-            return ("👤 Chat name: " + display +
-                    "\nIMVU username: @" + account + " | Role: " + role)
-        if user_id:
-            note = ("Owner verification is complete."
-                    if role == "owner" else
-                    "Owner: use !linkowner and app approval; "
-                    "appointed admin: use !linkmod <username>.")
-            return (
-                "👤 Chat name: " + display +
-                "\nAccount username hidden by IMVU; chat account ID detected. " +
-                "Role: " + role + "\n" + note
-            )
-        return (
-            "👤 Chat name: " + display +
-            "\nIMVU account username and ID were not exposed by the chat. " +
-            "Cannot securely grant admin permissions from a nickname."
-        )
+            role = ("owner" if permissions and permissions.is_owner(account)
+                    else "admin" if permissions and permissions.is_mod(account)
+                    else "member")
+            return "👤 Chat name: " + display + "\nUsername: @" + account + " | " + role
+        if permissions and permissions.is_owner(username):
+            return "👑 Room owner verified via approved IMVU account link."
+        return "👤 IMVU did not expose your account username. Display names cannot authorize moderation."
 
     def list_mods(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
@@ -2335,7 +2305,7 @@ class CommandHandler(QObject):
             return "🔒 Set the verified room owner from the local CrowBot dashboard."
         return ("👑 Room owner: " + permissions.owner +
                 "\n🛡️ Room admins: " + (", ".join(permissions.mods.values()) or "None") +
-                "\nOnly the registered owner can appoint or remove admins via bot chat.")
+                "\nMembers use !requestmod; the owner uses !approvemod <username>.")
 
     def configure_welcome(self, arguments, username):
         permissions = getattr(self, "room_permissions", None)
@@ -2541,27 +2511,17 @@ class CommandHandler(QObject):
                 f"{p}spin — random player"
             ),
             "system": (
-                "⚙️ SYSTEM • ACCOUNT & ROLES\n"
-                f"{p}h — all command categories\n"
-                f"{p}mods — room owner and admins\n"
-                f"{p}whoami — show your verified chat role\n"
-                f"{p}linkowner — owner requests app verification\n"
-                f"{p}linkmod <user> — admin requests ID linking\n"
-                f"{p}approvemod <user> — owner approves admin link\n"
-                f"{p}addmod <user> — owner adds admin\n"
+                "⚙️ ROOM MODERATION\n"
+                f"{p}requestmod — ask to become a room admin\n"
+                f"{p}approvemod <user> — owner approves request\n"
                 f"{p}removemod <user> — owner removes admin\n"
-                "🛡️ SYSTEM • COMMAND CONTROLS\n"
-                f"{p}lock <command> — admin locks public command\n"
-                f"{p}unlock <command> — admin unlocks command\n"
-                f"{p}locks — list locked commands\n"
-                "👋 SYSTEM • WELCOMES\n"
-                f"{p}welcome <text> — admin sets auto greeting\n"
-                f"{p}welcome on|off — toggle auto greeting\n"
-                f"{p}welcometest — preview greeting\n"
-                "🐾 SYSTEM • DROPS\n"
-                f"{p}drops — next automatic pet drop\n"
-                f"{p}petdrop — admin manual pet drop\n"
-                "Room owner is registered in CrowBot app."
+                f"{p}mods — show owner and admins\n"
+                f"{p}lock <command> / {p}unlock <command>\n"
+                f"{p}locks — show locked commands\n"
+                f"{p}welcome <text> — change room greeting\n"
+                f"{p}welcome on|off — toggle greeting\n"
+                f"{p}whoami — see your account role\n"
+                "Owner is registered and linked in the CrowBot app."
             ),
         }
         if topic in menus:
