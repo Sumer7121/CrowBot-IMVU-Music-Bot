@@ -465,21 +465,25 @@ class IMVUWebController:
                     (row.getAttribute("data-chat-entry") || "")
                     .trim();
 
-                // Prefer account-scoped identifiers from the chat profile.
-                // Older IMVU rooms expose only row[data-id].
+                // data-id on the chat row is normally a MESSAGE ID, not
+                // the sender's IMVU customer ID. Never use it for permissions.
+                // Accept explicit profile CID markers only.
+                const profile = row.querySelector(".chat-row-profile");
                 const identityNodes = [
-                    row.querySelector(".chat-row-profile"),
-                    row.querySelector(".chat-row-profile img"),
-                    row,
+                    profile, profile?.querySelector("img"),
+                    profile?.querySelector("a[href]"),
                 ].filter(Boolean);
                 let userId = "";
                 for (const node of identityNodes) {
                     for (const attribute of [
                         "data-user-id", "data-avatar-id", "data-account-id",
-                        "data-imvu-id", "data-id",
+                        "data-imvu-id", "data-cid",
                     ]) {
-                        const found = (node.getAttribute(attribute) || "").trim();
-                        if (found) { userId = found; break; }
+                        const candidate = (node.getAttribute(attribute) || "").trim();
+                        if (/^[1-9][0-9]{0,14}$/.test(candidate)) {
+                            userId = candidate;
+                            break;
+                        }
                     }
                     if (userId) break;
                 }
@@ -579,7 +583,12 @@ class IMVUWebController:
                                 !new RegExp("^/(?:next/av/|profile/)", "i").test(
                                     profile.pathname
                                 )) continue;
-                            accountUsername = validHandle(decodeURIComponent(match[1]));
+                            const profileValue = decodeURIComponent(match[1]);
+                            if (/^[1-9][0-9]{0,14}$/.test(profileValue)) {
+                                if (!userId) userId = profileValue;
+                                continue;
+                            }
+                            accountUsername = validHandle(profileValue);
                             if (accountUsername) break;
                         } catch (_) {
                             // Ignore malformed/non-profile URLs.
