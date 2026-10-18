@@ -20,6 +20,7 @@ from flask import Flask, Response, abort, jsonify, request
 from config.ffmpeg import get_ffmpeg_path
 from music.youtube_owned import get_shared_youtube_provider
 from radio_server.server import RadioStreamServer
+from cloud import music_cache
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
@@ -44,6 +45,7 @@ class Station:
         self.status, self.title, self.error = 'starting', '', ''
         self.progress = 'Starting cloud radio…'
         self.listeners = 0
+        self.cache_status = 'not_requested'
         self.radio = RadioStreamServer(port=0)
         self.radio.track_finished_callback = lambda *_: self.advance.set()
         self.radio.start()
@@ -75,7 +77,16 @@ class Station:
                     deadline = time.monotonic() + 100
                     def cancelled():
                         return self.cancel.is_set() or time.monotonic() > deadline
-                    song = provider.search(query, requested_by='Cloud host', room_id=self.key, session_key=self.session_key, cancel_check=cancelled, progress_callback=lambda message: setattr(self, 'progress', message))
+                    self.progress = 'Checking saved cloud songs…'
+                    cache_path = provider.library.room_path(self.key, self.session_key) / 'cloud-cache.mp3'
+                    song = music_cache.restore(self.tenant, query, cache_path)
+                    if song:
+                        self.cache_status = 'hit'
+                    else:
+                        song = provider.search(query, requested_by='Cloud host', room_id=self.key, session_key=self.session_key, cancel_check=cancelled, progress_callback=lambda message: setattr(self, 'progress', message))
+                        if song and not self.cancel.is_set():
+                            self.progress = 'Saving downloaded song to cloud storage…'
+                            self.cache_status = music_cache.save(self.tenant, query, song)
                 if self.cancel.is_set(): break
                 if not song or not song.get('url'):
                     raise RuntimeError('No playable audio was returned.')
@@ -116,7 +127,7 @@ class Station:
 
     def snapshot(self):
         return {'status': self.status, 'title': self.title, 'error': self.error,
-                'listeners': self.listeners, 'stream_path': '/listen/' + self.token + '.mp3',
+                'cache_status': self.cache_status, 'listeners': self.listeners, 'stream_path': '/listen/' + self.token + '.mp3',
                 'storage': 'temporary', 'imvu_connected': False,
                 'progress': self.progress, 'audio_ready': self.status == 'playing' and self.radio.get_health()['has_song_bytes']}
 
@@ -252,7 +263,7 @@ atexit.register(shutdown)
 
 @app.get('/v1/diagnostics/proxy')
 def proxy_diagnostic():
-    from music.download_proxy import proxy_arguments
+    from music.download_proxy import proxy_arguments, private_proxy_error
     proxy = os.environ.get('CROWBOT_YTDLP_PROXY_URL', '')
     if not proxy:
         return jsonify(configured=False), 200
@@ -264,4 +275,4 @@ def proxy_diagnostic():
     except Exception as error:
         # Exception text can include credentials: expose only fixed categories.
         return jsonify(configured=True, connected=False, status=getattr(error, 'code', None),
-                       error_type=type(error).__name__), 502
+                       error_type=type(error).__name__, error=private_proxy_error(str(error))), 502
