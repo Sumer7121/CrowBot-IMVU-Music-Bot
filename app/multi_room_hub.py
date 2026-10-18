@@ -616,7 +616,7 @@ class MultiRoomHub(QObject):
             f"Approve this IMVU chat account as @{session.permissions.owner}?\n\n"
             f"Room: {room_id}\n"
             f"Chat display: {pending['display']}\n"
-            f"Account ID: {pending['user_id']}\n\n"
+            f"Chat/account identifier: {pending['user_id']}\n\n"
             "Verify the actual room owner's identity in IMVU before approving. "
             "A display name alone is not proof of identity."
         )

@@ -597,6 +597,11 @@ class IMVUWebController:
                 return {
                     entry_id: entryId,
                     user_id: userId,
+                    // Legacy data-id is opaque chat identity, not a profile CID.
+                    // Only a reviewed owner-link request may authorize it.
+                    chat_actor_id: !userId && row.getAttribute("data-id")
+                        ? "legacy-chat:" + row.getAttribute("data-id").trim()
+                        : "",
                     timestamp: timestamp,
                     username: username,
                     account_username: accountUsername,

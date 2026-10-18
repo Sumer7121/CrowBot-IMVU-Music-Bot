@@ -49,6 +49,27 @@ class RoomIdentityTests(unittest.TestCase):
         self.assertEqual(p.resolve_account("", "id-first"), "")
         self.assertEqual(p.owner, "SecondOwner")
 
+    def test_legacy_chat_id_owner_link_still_requires_dashboard_approval(self):
+        from bot.room_session import RoomSession
+        with patch("bot.room_session.CommandHandler") as handler_cls, patch(
+            "bot.room_session.MusicController"
+        ), patch("bot.room_session.AutoDJ"):
+            handler = handler_cls.return_value
+            handler.prefix = "!"
+            room = RoomSession("https://www.imvu.com/next/chat/room-111-1")
+            room.permissions.set_owner_from_dashboard("Owner123")
+            identity = "legacy-chat:old-chat-id"
+            self.assertEqual(room.permissions.resolve_actor("Sleepy", "", identity), "")
+            response = room.process("Sleepy", "!linkowner", user_id=identity)
+            self.assertIn("verification requested", response)
+            room.permissions.link_owner_from_dashboard(
+                room.pending_owner_link["user_id"]
+            )
+            self.assertEqual(room.permissions.resolve_actor("Sleepy", "", identity), "Owner123")
+            self.assertEqual(room.permissions.resolve_actor("Sleepy", "", "legacy-chat:other"), "")
+            room.process("Sleepy", "!lock p", user_id=identity)
+            handler.handle.assert_called_with("!lock p", "Owner123")
+
     def test_admins_are_saved_by_username_without_any_id_linking(self):
         p = RoomPermissions("111-1")
         p.set_owner_from_dashboard("Owner123")

@@ -32,6 +32,12 @@ username. If the account username is hidden, the owner sends
 `!linkowner` and the trusted app operator approves the chat account ID.
 Owner linking requests expire after five minutes.
 
+Older chat layouts expose an opaque row `data-id` instead of a profile CID.
+CrowBot carries this as `legacy-chat:<value>` for the app-approved owner-link
+flow only. It is never submitted to the IMVU profile API as a customer ID.
+If the layout changes this identifier between messages, re-linking will not
+provide a durable owner identity; a stable profile identifier is still needed.
+
 Moderators use their **current IMVU display names**, including spaces,
 emoji and decorative characters. Account usernames and account IDs do
 not grant moderator access.

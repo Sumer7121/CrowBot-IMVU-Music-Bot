@@ -60,9 +60,11 @@ class ChatProfileIdentityTests(unittest.TestCase):
         event = self.read({"data-id": "123456", "data-chat-entry": "654321"})
         self.assertEqual(event["user_id"], "")
         self.assertEqual(event["account_username"], "")
+        self.assertEqual(event["chat_actor_id"], "legacy-chat:123456")
 
     def test_missing_metadata_does_not_invent_owner_identity(self):
         event = self.read()
         self.assertEqual(event["username"], "Fancy Name")
         self.assertEqual(event["user_id"], "")
         self.assertEqual(event["account_username"], "")
+        self.assertEqual(event["chat_actor_id"], "")
