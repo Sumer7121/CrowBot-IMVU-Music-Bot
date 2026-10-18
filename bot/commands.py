@@ -2483,8 +2483,9 @@ class CommandHandler(QObject):
         topic = {"m": "music", "g": "games", "f": "fun", "sys": "system"}.get(topic, topic)
         menus = {
             "music": (
-                "🎵 MUSIC\n"
+                "🎵 MUSIC • REQUESTS & QUEUE\n"
                 f"{p}p <song> — request song\n"
+                "🎧 MUSIC • ARTIST DJ\n"
                 f"{p}dj <artist> — artist-only continuous DJ\n"
                 f"{p}dj off — turn off artist DJ\n"
                 f"{p}autoplay on|off — continuous YouTube music\n"
@@ -2499,7 +2500,7 @@ class CommandHandler(QObject):
                 f"{p}clear — clear queue"
             ),
             "games": (
-                "🎮 GAMES\n"
+                "🎮 GAMES • BOARD & TRIVIA\n"
                 f"{p}c4 — Connect 4\n"
                 f"{p}join — join C4\n"
                 f"{p}drop <1-7> — drop coin\n"
@@ -2516,6 +2517,7 @@ class CommandHandler(QObject):
                 f"{p}guess — number game\n"
                 f"{p}rps rock — RPS\n"
                 f"{p}spin — random player\n"
+                "🐾 GAMES • PET DROPS\n"
                 f"{p}petdrop — spawn a pet (3m cooldown)\n"
                 f"{p}drops — next automatic cat/dog drop\n"
                 f"{p}catch — catch a wild pet\n"
@@ -2524,7 +2526,7 @@ class CommandHandler(QObject):
                 f"{p}rarities — pet drop odds"
             ),
             "fun": (
-                "🎭 PARTY\n"
+                "🎭 PARTY • SOCIAL & FUN\n"
                 f"{p}tod <name> — truth or dare for player\n"
                 f"{p}truth <name> — truth for player\n"
                 f"{p}dare <name> — dare for player\n"
@@ -2539,7 +2541,7 @@ class CommandHandler(QObject):
                 f"{p}spin — random player"
             ),
             "system": (
-                "⚙️ SYSTEM / ROOM ADMINISTRATION\n"
+                "⚙️ SYSTEM • ACCOUNT & ROLES\n"
                 f"{p}h — all command categories\n"
                 f"{p}mods — room owner and admins\n"
                 f"{p}whoami — show your verified chat role\n"
@@ -2548,12 +2550,15 @@ class CommandHandler(QObject):
                 f"{p}approvemod <user> — owner approves admin link\n"
                 f"{p}addmod <user> — owner adds admin\n"
                 f"{p}removemod <user> — owner removes admin\n"
+                "🛡️ SYSTEM • COMMAND CONTROLS\n"
                 f"{p}lock <command> — admin locks public command\n"
                 f"{p}unlock <command> — admin unlocks command\n"
                 f"{p}locks — list locked commands\n"
+                "👋 SYSTEM • WELCOMES\n"
                 f"{p}welcome <text> — admin sets auto greeting\n"
                 f"{p}welcome on|off — toggle auto greeting\n"
                 f"{p}welcometest — preview greeting\n"
+                "🐾 SYSTEM • DROPS\n"
                 f"{p}drops — next automatic pet drop\n"
                 f"{p}petdrop — admin manual pet drop\n"
                 "Room owner is registered in CrowBot app."
@@ -2562,7 +2567,7 @@ class CommandHandler(QObject):
         if topic in menus:
             return menus[topic]
         return (
-            "🐦 CROWBOT\n"
+            "🐦 CROWBOT • COMMAND CENTER\n"
             f"{p}h m — music\n"
             f"{p}h g — games\n"
             f"{p}h f — party\n"
