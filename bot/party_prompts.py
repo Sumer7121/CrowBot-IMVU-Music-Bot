@@ -1,0 +1,331 @@
+"""Curated CrowBot party prompt pools. Mild adult humor is opt-in."""
+
+TRUTHS = [
+  "What's your most embarrassing karaoke song?",
+  "Who was your first online crush?",
+  "What's your worst fashion phase?",
+  "What compliment do you secretly love?",
+  "What's your most irrational fear?",
+  "What's the strangest DM you've received?",
+  "Have you ever pretended to be offline?",
+  "What's your most awkward date story?",
+  "Which song describes your love life?",
+  "Who has the best outfit in this room?",
+  "What's a silly dealbreaker for you?",
+  "What's the worst pickup line you've heard?",
+  "Have you ever sent a message to the wrong person?",
+  "What's your funniest guilty pleasure?",
+  "What fictional character is your type?",
+  "What's your most dramatic exit from a chat?",
+  "What small thing makes you jealous?",
+  "What's your most chaotic friendship story?",
+  "Which room member would survive a zombie apocalypse?",
+  "What's a harmless secret you can reveal?",
+  "What's your weirdest talent?",
+  "What's your biggest social media fail?",
+  "What makes someone instantly charming?",
+  "When did you last blush?",
+  "What's the funniest rumor you've heard about yourself?"
+]
+
+DARES = [
+  "Give someone a creative compliment.",
+  "Describe your crush using three emojis.",
+  "Invent a ridiculous pickup line.",
+  "Speak like a pirate for two messages.",
+  "Type your next message entirely in rhyme.",
+  "Let the room pick your nickname.",
+  "Make a dramatic award acceptance speech.",
+  "Invent a movie title for your love life.",
+  "Confess your silliest habit.",
+  "Make up a fake celebrity scandal about your avatar.",
+  "Compliment the last chatter.",
+  "Tell your worst joke with confidence.",
+  "Describe your outfit as a runway host.",
+  "Write a two-line poem about the room.",
+  "Speak only in questions for two turns.",
+  "Give yourself an outrageous superhero name.",
+  "Pretend you're a radio DJ for one message.",
+  "Write a cheesy love song chorus.",
+  "Announce your arrival like royalty.",
+  "Name three things you love about this room.",
+  "Describe your ideal date in five words.",
+  "Pretend to audition for a reality show.",
+  "Make a harmless, theatrical villain speech.",
+  "Create a dramatic breakup line for a fictional character.",
+  "Let another player choose a funny emoji signature."
+]
+
+ROASTS = [
+  "Your comeback is still buffering",
+  "Your Wi-Fi has better timing",
+  "Even autocorrect gave up",
+  "Your swagger came with a free trial",
+  "Your jokes need a software update",
+  "Your confidence runs on airplane mode",
+  "You walk like your avatar has high ping",
+  "Your fashion sense needs patch notes",
+  "Your flirting has a loading screen",
+  "Your playlist is a cry for tech support",
+  "Your drama has too many episodes",
+  "Your plans are always in beta",
+  "Your selfies look like bug reports",
+  "Your attitude needs a restart",
+  "Your logic got lost in matchmaking",
+  "Your charisma is on battery saver",
+  "Your flex belongs in the recycle bin",
+  "Your jokes left the chat",
+  "Your ego needs cloud storage",
+  "Even the mute button needs a vacation"
+]
+
+CLEAN = [
+  "Why did the bot carry a ladder? To reach the top charts.",
+  "My playlist broke up with me. It needed space.",
+  "The DJ lost his keys. Now everything is off-key.",
+  "My computer joined a band. It had great processing power.",
+  "Why are keyboards great musicians? They know every key.",
+  "I tried to teach my router to dance. It kept dropping beats.",
+  "The bass player loved gardening. He had good roots.",
+  "Why was the calendar invited? It had great dates.",
+  "My code loves jazz. It improvises bugs.",
+  "The cloud went to therapy. Too much emotional storage.",
+  "Why did the microphone blush? It caught feelings.",
+  "A drum told a secret. Everyone heard the beat.",
+  "My alarm clock started a band. It was ahead of its time.",
+  "The speaker was shy. It kept its volume down.",
+  "I asked the song for directions. It said follow the chorus.",
+  "The DJ bought new shoes. They had great soles.",
+  "Why did the laptop sing? It had a good cache flow.",
+  "A playlist went jogging. It wanted more tracks.",
+  "My headset got promoted. It listened well.",
+  "The avatar started acting. It was born for the role.",
+  "Why do DJs love maps? They know the routes.",
+  "The disco ball took a day off. It needed reflection.",
+  "My playlist got a degree. Major in composition.",
+  "The beat was late. Traffic had a bad rhythm.",
+  "Why was the song confident? It knew its key."
+]
+
+CHEEKY = [
+  "My dating life has more plot twists than a soap opera.",
+  "My pickup line has a 404 error: romance not found.",
+  "They said 'come over' and I brought snacks and emotional baggage.",
+  "My flirting is like public Wi-Fi: risky and mostly disconnected.",
+  "I asked for chemistry and got a lab safety warning.",
+  "My crush said I'm hot. Turns out my laptop was overheating.",
+  "My dating profile says adventurous; I once replied first.",
+  "My romantic playlist is just hold music.",
+  "I'm not ghosting; I'm testing invisibility mode.",
+  "My idea of playing hard to get is forgetting my password.",
+  "I tried to set the mood, then the smoke detector joined.",
+  "My love language is sending memes at inconvenient hours.",
+  "Our date had sparks. It was the faulty charger.",
+  "I brought flowers to a date; my allergies ended the romance.",
+  "I said I was flexible; I meant my schedule, not yoga.",
+  "They wanted mystery; I forgot to introduce myself.",
+  "My ex called me a snack. Expired, apparently.",
+  "My heart races when they text, mostly from notification anxiety.",
+  "My crush is a ten, my conversation starter is a loading icon.",
+  "I planned a hot date and burned the garlic bread.",
+  "Our chemistry was electric until the power bill arrived.",
+  "I love candlelit dinners. Mostly because the light hides my cooking.",
+  "My romance has seasons; every finale is a cliffhanger.",
+  "I flirt like an AI beta release: ambitious, unpredictable.",
+  "The only thing spicier than my DMs is my instant noodles."
+]
+
+QUESTIONS = [
+  "If you could teleport anywhere tonight, where?",
+  "What's the best song you've discovered this year?",
+  "What outfit makes you feel unstoppable?",
+  "Which movie character would you befriend?",
+  "What snack deserves its own holiday?",
+  "What is your dream travel destination?",
+  "What's your favorite late-night activity?",
+  "What's a skill you'd instantly download?",
+  "Which decade has the best fashion?",
+  "What's your perfect weekend?",
+  "What's a song everyone should hear?",
+  "What's a childhood game you still love?",
+  "What makes a great first impression?",
+  "What fictional world would you visit?",
+  "What's your most-used emoji?",
+  "What's a harmless hot take you have?",
+  "What superpower would be most annoying?",
+  "Who's your dream concert lineup?",
+  "What food could you eat every day?",
+  "What makes a party memorable?",
+  "What's the funniest thing your avatar has done?",
+  "If you owned a club, what would you name it?",
+  "What's your favorite rainy-day plan?",
+  "What trend should make a comeback?",
+  "What's an underrated hobby?",
+  "What smell reminds you of home?",
+  "What's the best compliment you've received?",
+  "What's something you're learning?",
+  "If pets could talk, which would gossip most?",
+  "What movie always makes you laugh?",
+  "What's your go-to confidence song?",
+  "Would you rather time travel or teleport?",
+  "What's your dream room theme?",
+  "What would your autobiography be called?",
+  "What small thing makes your day?",
+  "Which celebrity would be a terrible roommate?",
+  "What's your signature dance move?",
+  "If you had a radio show, what would you play?",
+  "What's your favorite fictional villain?",
+  "What weird food combo works surprisingly well?",
+  "What's your favorite way to meet new friends?",
+  "What room rule would you invent?",
+  "What's a question you wish people asked you?",
+  "What's your favorite weekend memory?",
+  "What is the best concert you've attended?",
+  "What fictional gadget should exist?",
+  "Which game are you unbeatable at?",
+  "What animal matches your personality?",
+  "What makes a good playlist?",
+  "What would your dream party look like?"
+]
+
+# Build 500 distinct conversational prompts per category. Each has a
+# different situation and angle; SocialReactions draws without replacement.
+TOPICS = (
+    "a road trip", "a rainy weekend", "a first date", "a birthday surprise",
+    "a pet adoption", "a beach day", "a karaoke night", "a game night",
+    "a mountain getaway", "a cooking contest", "a costume party", "a concert",
+    "a coffee shop", "a dance competition", "a reunion", "a camping trip",
+    "a mystery gift", "a festival", "a photography walk", "a movie marathon",
+    "a talent show", "a museum visit", "a surprise visitor", "a holiday dinner",
+    "a late-night adventure",
+)
+ANGLES = (
+    "What's the funniest thing that could happen during {topic}?",
+    "Who would you invite to {topic}, and why?",
+    "What would make {topic} unforgettable?",
+    "What's one thing you'd absolutely avoid during {topic}?",
+    "Which song would be your soundtrack for {topic}?",
+    "What would your ideal outfit be for {topic}?",
+    "What secret talent would help you during {topic}?",
+    "How would you turn {topic} into a friendly competition?",
+    "What would be your most unexpected choice during {topic}?",
+    "What would you tell your future self about {topic}?",
+    "If you could change one rule of {topic}, what would it be?",
+    "What food would you bring to {topic}?",
+    "What harmless prank would work during {topic}?",
+    "What would make you laugh hardest during {topic}?",
+    "If {topic} went completely wrong, how would you save it?",
+    "Which three emojis describe your version of {topic}?",
+    "What would be the best surprise during {topic}?",
+    "What would you photograph first during {topic}?",
+    "How would you make new friends during {topic}?",
+    "What would your personal highlight of {topic} be?",
+)
+QUESTION_BANK = tuple(angle.format(topic=topic) for topic in TOPICS for angle in ANGLES)
+TRUTH_BANK = tuple(
+    ("Be honest: " + q[0].lower() + q[1:]) for q in QUESTION_BANK
+)
+DARE_ACTIONS = (
+    "Write a two-line fictional story about {topic}.",
+    "Invent a catchy slogan for {topic}.",
+    "Describe {topic} using exactly five words.",
+    "Create a silly nickname inspired by {topic}.",
+    "Make up a dramatic announcement about {topic}.",
+    "Give the room a playful challenge involving {topic}.",
+    "Pretend to be a news reporter covering {topic}.",
+    "Create a short rhyme about {topic}.",
+    "Pitch {topic} as a blockbuster movie.",
+    "Describe {topic} like a sports commentator.",
+    "Give a harmless compliment inspired by {topic}.",
+    "Invent a ridiculous award for {topic}.",
+    "Make a two-line invitation to {topic}.",
+    "Come up with a funny hashtag for {topic}.",
+    "Write a fictional review of {topic}.",
+    "Describe a cartoon pet attending {topic}.",
+    "Choose three emojis to advertise {topic}.",
+    "Invent an imaginary snack for {topic}.",
+    "Pretend you're a DJ introducing {topic}.",
+    "Write a dramatic one-sentence toast about {topic}.",
+)
+DARE_BANK = tuple(action.format(topic=topic) for topic in TOPICS for action in DARE_ACTIONS)
+QUESTIONS = list(QUESTION_BANK)
+TOD_TRUTHS = list(TRUTH_BANK)
+TOD_DARES = list(DARE_BANK)
+ROASTS = [f"{{name}}, {p.lower()} — {v}" for p in ROASTS for v in
+          ("respectfully", "that's wild", "please reboot", "crowbot noticed", "no hard feelings")]
+JOKES_SFW = CLEAN + [f"Encore: {p}" for p in CLEAN]
+JOKES_ADULT = CHEEKY + [f"Late-night edition: {p}" for p in CHEEKY]
+assert len(QUESTIONS) == len(TOD_TRUTHS) == len(TOD_DARES) == 500
+
+# Independent 500-entry decks for the new party commands. Each draw is a
+# unique formatted prompt; game handlers select with SocialReactions.pick().
+WOULD_YOU_RATHER_OPTIONS = (
+    ("plan everything in advance", "leave it to chance"),
+    ("bring your best friend", "meet somebody new"),
+    ("arrive an hour early", "arrive fashionably late"),
+    ("take lots of photos", "keep your phone away"),
+    ("wear an unforgettable outfit", "dress for maximum comfort"),
+    ("pick the music", "let the room choose"),
+    ("be the host", "be the surprise guest"),
+    ("try something completely new", "stick with an old favorite"),
+    ("spend all day outside", "stay cozy indoors"),
+    ("make everyone laugh", "win the big prize"),
+    ("travel with a big group", "go with one close friend"),
+    ("have unlimited snacks", "have unlimited songs"),
+    ("be famous for one night", "stay anonymous and have fun"),
+    ("tell the funniest story", "give the best advice"),
+    ("have perfect weather", "have the perfect playlist"),
+    ("win a friendly contest", "help a friend win"),
+    ("have a luxury experience", "have an unexpected adventure"),
+    ("be the first to volunteer", "be the last to arrive"),
+    ("spend the day dancing", "spend the day talking"),
+    ("turn it into a tradition", "make it a once-in-a-lifetime event"),
+)
+WOULD_YOU_RATHER = [
+    f"During {topic}, would you rather {first} or {second}?"
+    for topic in TOPICS
+    for first, second in WOULD_YOU_RATHER_OPTIONS
+]
+
+NEVER_HAVE_I_EVER_ACTIONS = (
+    "forgotten an important detail",
+    "laughed at the worst possible moment",
+    "made a new friend unexpectedly",
+    "worn an outfit I regretted",
+    "taken a photo I still love",
+    "lost track of the time",
+    "changed my plans at the last minute",
+    "told a joke that nobody understood",
+    "felt like a complete beginner",
+    "been surprisingly competitive",
+    "pretended I knew what was going on",
+    "found a new favorite song",
+    "misunderstood the instructions",
+    "brought too many snacks",
+    "given somebody a silly nickname",
+    "made a friend laugh uncontrollably",
+    "been nervous for no good reason",
+    "forgotten somebody's name",
+    "tried to impress the wrong person",
+    "decided the best part was unplanned",
+)
+NEVER_HAVE_I_EVER = [
+    f"Never have I ever {action} during {topic}."
+    for topic in TOPICS
+    for action in NEVER_HAVE_I_EVER_ACTIONS
+]
+
+MAGIC_EIGHT_BALL = (
+    "Absolutely!", "Signs point to yes.", "Very likely.", "Count on it.",
+    "Looking promising.", "You might be surprised.", "Yes, but be patient.",
+    "Only if you make the first move.", "Ask again after a song.",
+    "The answer isn't clear yet.", "Better not tell you now.",
+    "Follow your instincts.", "Maybe, with a twist.", "Not this time.",
+    "My sources say no.", "Don't count on it.", "Very doubtful.",
+    "The odds are against it.", "Not unless something changes.",
+    "Definitely not tonight.", "Try again tomorrow.",
+    "The room needs more information.", "It could go either way.",
+    "Make a bold choice and find out.",
+)
+assert len(WOULD_YOU_RATHER) == len(NEVER_HAVE_I_EVER) == 500
+assert len(set(WOULD_YOU_RATHER)) == len(set(NEVER_HAVE_I_EVER)) == 500

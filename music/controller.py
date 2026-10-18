@@ -20,6 +20,7 @@ class MusicController(QObject):
         self.player = MusicPlayer()
 
         self.radio_server = None
+        self._radio_generation = None
 
         self.player.song_started.connect(
             self.on_song_started
@@ -80,7 +81,7 @@ class MusicController(QObject):
             is None
         ):
 
-            self.play_next()
+            return self.play_next()
 
         else:
 
@@ -154,9 +155,7 @@ class MusicController(QObject):
 
                 try:
 
-                    self.radio_server.set_source(
-                        url
-                    )
+                    self.radio_server.set_source(url, force_restart=True)
 
                     self.radio_server.start()
 
@@ -170,9 +169,10 @@ class MusicController(QObject):
 
             else:
 
-                self.radio_server.set_source(
-                    url
-                )
+                self.radio_server.set_source(url, force_restart=True)
+
+            # Save the specific FFmpeg generation for stale EOF protection.
+            self._radio_generation = self.radio_server.get_source_state()[1]
 
         # -----------------------------------------------------
         # Local playback
@@ -224,47 +224,47 @@ class MusicController(QObject):
     # =========================================================
 
     def pause(self):
-
-        if not self.queue.get_current_song():
-
-            self.status_changed.emit(
-                "Nothing is currently playing."
-            )
-
+        current = self.queue.get_current_song()
+        if not current:
+            self.status_changed.emit("Nothing is currently playing.")
             return False
 
-        self.player.pause()
-
+        # The public station is separate from muted local QMediaPlayer audio.
+        # Switch listeners to idle MP3 while paused; do not let music keep
+        # broadcasting to IMVU after users request !pause.
+        if self.radio_server and self.radio_server.is_running():
+            self.radio_server.clear_sources()
+            self.player.stop()
+            self.status_changed.emit(
+                "Music paused in this room (resume restarts the track)."
+            )
+        else:
+            self.player.pause()
+            self.status_changed.emit("Music paused.")
         self.queue.pause()
-
-        self.status_changed.emit(
-            "Music paused."
-        )
-
         return True
 
-    # =========================================================
-    # RESUME
-    # =========================================================
-
     def resume(self):
-
-        if not self.queue.get_current_song():
-
-            self.status_changed.emit(
-                "Nothing is currently playing."
-            )
-
+        current = self.queue.get_current_song()
+        if not current:
+            self.status_changed.emit("Nothing is currently playing.")
             return False
 
-        self.player.resume()
-
+        if self.radio_server and self.radio_server.is_running():
+            url = current.get("url")
+            if not url:
+                self.error_occurred.emit("Cannot resume: track URL missing.")
+                return False
+            self.radio_server.set_source(url, force_restart=True)
+            self._radio_generation = self.radio_server.get_source_state()[1]
+            self.player.play(url, current.get("title", "Unknown"))
+            self.status_changed.emit(
+                "Music resumed in this room (track restarted)."
+            )
+        else:
+            self.player.resume()
+            self.status_changed.emit("Music resumed.")
         self.queue.resume()
-
-        self.status_changed.emit(
-            "Music resumed."
-        )
-
         return True
 
     # =========================================================
@@ -302,6 +302,7 @@ class MusicController(QObject):
         self.player.stop()
 
         self.queue.stop()
+        self._radio_generation = None
 
         if self.radio_server:
 
@@ -425,12 +426,40 @@ class MusicController(QObject):
             f"Started: {song_name}"
         )
 
+    def on_radio_track_finished(self, source_url, source_generation):
+        """Advance when public FFmpeg ends, even if local Qt player misses EOF.
+
+        Only the currently playing source *and* its generation can advance.
+        Late completion signals from a skipped/paused song are ignored.
+        """
+        current = self.queue.get_current_song()
+        if not current or self.queue.is_paused:
+            return False
+        if not self.radio_server:
+            return False
+        if current.get("url") != source_url:
+            return False
+        if self._radio_generation != source_generation:
+            return False
+        self.status_changed.emit(
+            "Public radio track finished; advancing this room's queue."
+        )
+        self.player.stop()
+        self._radio_generation = None
+        self.play_next()
+        return True
+
     # =========================================================
     # SONG FINISHED
     # =========================================================
 
     def on_song_finished(self):
-
+        # Public FFmpeg completion owns the queue when streaming. A delayed
+        # local Qt EOF must not skip a second track or cut radio audio short.
+        if self.radio_server and self.radio_server.is_running():
+            return
+        if self.queue.is_paused or not self.queue.get_current_song():
+            return
         self.status_changed.emit(
             "Song finished."
         )
