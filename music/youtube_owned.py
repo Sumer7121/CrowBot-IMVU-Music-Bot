@@ -356,6 +356,14 @@ class YouTubeOwnedProvider:
             return None
 
         if process.returncode != 0:
+            # A failed metadata lookup used to disappear silently, making a
+            # cloud-only provider failure look like endless loading.
+            reason = str(process.stderr or "")
+            if "confirm" in reason.lower() and "bot" in reason.lower():
+                raise RuntimeError("YouTube requires verification from this server; this track cannot be loaded.")
+            if "429" in reason or "Too Many Requests" in reason:
+                raise RuntimeError("YouTube is rate-limiting this server. Try again later.")
+            print("YTDLP METADATA FAILED: " + reason[-1200:])
             return None
 
         try:

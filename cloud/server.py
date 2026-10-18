@@ -37,6 +37,7 @@ class Station:
         self.advance = threading.Event()
         self.lock = threading.RLock()
         self.status, self.title, self.error = 'starting', '', ''
+        self.progress = 'Starting cloud radio…'
         self.listeners = 0
         self.radio = RadioStreamServer(port=0)
         self.radio.track_finished_callback = lambda *_: self.advance.set()
@@ -58,15 +59,24 @@ class Station:
                     subprocess.run([get_ffmpeg_path(), '-nostdin', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=15', str(path)], check=True, timeout=30)
                     song = {'url': str(path), 'title': 'Audio connection test'}
                 else:
-                    song = provider.search(query, requested_by='Cloud host', room_id=self.key, session_key=self.session_key, cancel_check=self.cancel.is_set)
+                    deadline = time.monotonic() + 100
+                    def cancelled():
+                        return self.cancel.is_set() or time.monotonic() > deadline
+                    song = provider.search(query, requested_by='Cloud host', room_id=self.key, session_key=self.session_key, cancel_check=cancelled, progress_callback=lambda message: setattr(self, 'progress', message))
                 if self.cancel.is_set(): break
                 if not song or not song.get('url'):
                     raise RuntimeError('No playable audio was returned.')
                 self.title = song.get('title', query)
                 self.radio.set_source(song['url'], force_restart=True)
-                self.status = 'playing'
+                self.status = 'buffering'
+                self.progress = 'Waiting for decoded song audio…'
                 began = time.monotonic()
                 while not self.cancel.is_set() and not self.advance.wait(.5):
+                    health = self.radio.get_health()
+                    if health['has_song_bytes']:
+                        self.status, self.progress = 'playing', 'Song audio is ready. Press play below to listen.'
+                    elif time.monotonic() - began > 20:
+                        raise RuntimeError('The audio encoder did not produce song audio.')
                     if self.radio.last_song_error:
                         raise RuntimeError('The audio encoder could not play this track.')
                     # Bound malformed/missing EOF and overlong tracks.
@@ -74,10 +84,13 @@ class Station:
                         raise RuntimeError('Track exceeded the one-hour test limit.')
             if not self.cancel.is_set():
                 self.status = 'finished'
-        except Exception:
+        except Exception as error:
             if not self.cancel.is_set():
                 self.status = 'error'
-                self.error = 'Could not load this track. The music provider may be unavailable from the cloud server. Try another track.'
+                self.error = 'Could not load this track from the cloud music provider. No song audio was played.'
+                if 'requires verification' in str(error) or 'rate-limiting' in str(error):
+                    self.error = str(error)
+                print('CLOUD RESOLVE FAILED: ' + type(error).__name__ + ': ' + str(error)[:500])
         finally:
             self.radio.stop()
             provider.cleanup_room_files(self.key, self.session_key)
@@ -91,7 +104,8 @@ class Station:
     def snapshot(self):
         return {'status': self.status, 'title': self.title, 'error': self.error,
                 'listeners': self.listeners, 'stream_path': '/listen/' + self.token + '.mp3',
-                'storage': 'temporary', 'imvu_connected': False}
+                'storage': 'temporary', 'imvu_connected': False,
+                'progress': self.progress, 'audio_ready': self.status == 'playing' and self.radio.get_health()['has_song_bytes']}
 
 
 @app.before_request
@@ -148,6 +162,8 @@ def listen(token):
     with guard:
         station = next((s for s in stations.values() if hmac.compare_digest(s.token, token)), None)
         if not station or station.cancel.is_set() or not station.radio.is_running(): abort(404)
+        if station.status != 'playing' or not station.radio.get_health()['has_song_bytes']:
+            return jsonify(error='The song is still loading. No music audio is ready yet.'), 425
         if sum(s.listeners for s in stations.values()) >= MAX_LISTENERS: abort(429)
         station.listeners += 1
     def audio():
@@ -157,6 +173,8 @@ def listen(token):
                     data = source.read(4096)
                     if not data: break
                     yield data
+        except (TimeoutError, ConnectionError, OSError):
+            return
         finally:
             with guard:
                 station.listeners -= 1
