@@ -2513,6 +2513,7 @@ class CommandHandler(QObject):
             ),
             "system": (
                 "⚙️ ROOM MODERATION\n"
+                f"{p}linkowner — request owner verification in the app\n"
                 f"{p}requestmod — ask to become a room admin\n"
                 f"{p}approvemod <display name> — owner approves request\n"
                 f"{p}removemod <display name> — owner removes admin\n"

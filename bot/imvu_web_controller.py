@@ -470,14 +470,14 @@ class IMVUWebController:
                 // Accept explicit profile CID markers only.
                 const profile = row.querySelector(".chat-row-profile");
                 const identityNodes = [
-                    profile, profile?.querySelector("img"),
-                    profile?.querySelector("a[href]"),
+                    row, profile, row.querySelector(".display-name-text"),
+                    ...Array.from(profile?.querySelectorAll("*") || []),
                 ].filter(Boolean);
                 let userId = "";
                 for (const node of identityNodes) {
                     for (const attribute of [
                         "data-user-id", "data-avatar-id", "data-account-id",
-                        "data-imvu-id", "data-cid",
+                        "data-imvu-id", "data-cid", "data-customer-id",
                     ]) {
                         const candidate = (node.getAttribute(attribute) || "").trim();
                         if (/^[1-9][0-9]{0,14}$/.test(candidate)) {
@@ -543,16 +543,15 @@ class IMVUWebController:
                 // spaces and duplicate nicknames. They are NOT identities.
                 // Resolve the actual account handle from profile links
                 // or explicit machine-readable account-username attributes.
-                // Never grant role access based on the display name.
+                // Owner verification must use account metadata. Appointed
+                // moderators are matched separately by their display names.
                 const validHandle = (value) => {
                     const name = String(value || "").trim().replace(/^@/, "");
                     return /^[a-zA-Z0-9_.-]{1,60}$/.test(name) ? name : "";
                 };
                 let accountUsername = "";
                 const nodes = [
-                    row, displayName,
-                    row.querySelector(".chat-row-profile"),
-                    row.querySelector(".chat-row-profile img"),
+                    ...identityNodes,
                 ].filter(Boolean);
                 for (const node of nodes) {
                     for (const key of ["data-username", "data-user-name",
