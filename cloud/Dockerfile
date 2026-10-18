@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim AS javascript
 FROM python:3.12-slim-bookworm
 COPY --from=javascript /usr/local/bin/node /usr/local/bin/node
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates chromium xvfb && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates chromium chromium-sandbox xvfb && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY cloud/requirements.txt cloud/requirements.txt
 RUN pip install --no-cache-dir -r cloud/requirements.txt
