@@ -858,7 +858,9 @@ class SecondaryRoomWorker(QThread):
                         self.room_url,
                         (event.get("username") or "").strip(),
                         (event.get("message") or "").strip(),
-                        (event.get("account_username") or "").strip(),
+                        ((event.get("account_username") or "").strip()
+                         or __import__("bot.imvu_account_lookup", fromlist=["lookup_username"])
+                            .lookup_username(event.get("user_id"))),
                         (event.get("user_id") or "").strip(),
                     )
         except Exception as error:
