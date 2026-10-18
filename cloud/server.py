@@ -5,6 +5,7 @@ with a server-only bearer credential. Never expose that credential in a browser.
 """
 import atexit
 import hashlib
+import json
 import hmac
 import os
 import re
@@ -13,6 +14,7 @@ import subprocess
 import threading
 import time
 import urllib.request
+from urllib.parse import unquote
 from pathlib import Path
 from flask import Flask, Response, abort, jsonify, request
 from config.ffmpeg import get_ffmpeg_path
@@ -20,11 +22,14 @@ from music.youtube_owned import get_shared_youtube_provider
 from radio_server.server import RadioStreamServer
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 65536
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 stations = {}
 guard = threading.RLock()
 MAX_STATIONS = 2
 MAX_LISTENERS = 10
+UPLOAD_ROOT = Path(os.environ.get('CROWBOT_UPLOAD_DIR', '/tmp/crowbot-uploads'))
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+UPLOAD_LOCK = threading.Lock()
 
 
 class Station:
@@ -53,7 +58,15 @@ class Station:
                 if self.cancel.is_set(): break
                 self.advance.clear()
                 self.status, self.title = 'resolving', query
-                if query == '__crowbot_audio_check__':
+                if query.startswith('upload:'):
+                    file_id = query.removeprefix('upload:')
+                    path = upload_path(self.tenant, file_id)
+                    if not path.exists():
+                        raise RuntimeError('Uploaded music copy is missing. Restart the queue to restore it from storage.')
+                    title = json.loads(path.with_suffix('.json').read_text())['title']
+                    song = {'url': str(path), 'title': title}
+                    path.touch()
+                elif query == '__crowbot_audio_check__':
                     path = provider.library.room_path(self.key, self.session_key) / 'tone.mp3'
                     path.parent.mkdir(parents=True, exist_ok=True)
                     subprocess.run([get_ffmpeg_path(), '-nostdin', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=15', str(path)], check=True, timeout=30)
@@ -155,6 +168,55 @@ def control(room):
         station = Station(tenant, room, tracks)
         stations[key] = station
         return jsonify(station.snapshot()), 202
+
+
+def upload_path(tenant, file_id):
+    if not re.fullmatch(r'[a-f0-9-]{36}', file_id): abort(400)
+    tenant_dir = UPLOAD_ROOT / hashlib.sha256(tenant.encode()).hexdigest()
+    tenant_dir.mkdir(exist_ok=True)
+    return tenant_dir / (file_id + '.mp3')
+
+
+@app.route('/v1/uploads/<file_id>', methods=['GET', 'PUT'])
+def upload(file_id):
+    tenant = request.headers['X-Crowbot-Tenant']
+    path = upload_path(tenant, file_id)
+    if request.method == 'GET':
+        return (jsonify(ready=True), 200) if path.exists() else (jsonify(error='Not cached'), 404)
+    with UPLOAD_LOCK:
+        if path.exists(): return jsonify(ready=True)
+        # Evict only inactive playback copies. The durable original stays in R2.
+        with guard:
+            protected = {upload_path(s.tenant, q[7:]) for s in stations.values() if s.thread.is_alive() for q in s.tracks if q.startswith('upload:')}
+        cached = sorted(UPLOAD_ROOT.glob('*/*.mp3'), key=lambda f: f.stat().st_mtime)
+        total = sum(f.stat().st_size for f in cached)
+        for old in cached:
+            if total <= 230 * 1024 * 1024: break
+            if old in protected: continue
+            total -= old.stat().st_size
+            old.unlink(missing_ok=True)
+            old.with_suffix('.json').unlink(missing_ok=True)
+        if total > 230 * 1024 * 1024: return jsonify(error='Playback cache is full. Stop an active room and retry.'), 507
+        temp = path.with_suffix('.part')
+        try:
+            with temp.open('wb') as output:
+                while chunk := request.stream.read(65536): output.write(chunk)
+            if temp.stat().st_size < 2048: return jsonify(error='The audio file is empty or invalid.'), 400
+            probe = subprocess.run(['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe', '-show_entries', 'format=duration,format_name:stream=codec_type,codec_name', '-of', 'json', str(temp)], capture_output=True, text=True, timeout=15)
+            if probe.returncode != 0: return jsonify(error='This MP3 could not be decoded.'), 400
+            info = json.loads(probe.stdout)
+            if info.get('format', {}).get('format_name') != 'mp3' or not any(s.get('codec_type')=='audio' and s.get('codec_name')=='mp3' for s in info.get('streams', [])):
+                return jsonify(error='Only valid MP3 audio is supported.'), 400
+            if not 0 < float(info['format'].get('duration', 0)) <= 3600:
+                return jsonify(error='Tracks must be shorter than one hour.'), 400
+            title = unquote(request.headers.get('X-Track-Title', 'Uploaded track'))[:180]
+            path.with_suffix('.json').write_text(json.dumps({'title': title}))
+            temp.replace(path)
+            return jsonify(ready=True), 201
+        except (subprocess.TimeoutExpired, ValueError, KeyError):
+            return jsonify(error='The MP3 could not be verified.'), 400
+        finally:
+            temp.unlink(missing_ok=True)
 
 
 @app.get('/listen/<token>.mp3')
