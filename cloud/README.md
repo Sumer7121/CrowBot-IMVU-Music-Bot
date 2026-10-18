@@ -12,7 +12,7 @@ This server reuses CrowBot's actual YouTube resolver, master-song cache and FFmp
 
 A reserved `__crowbot_audio_check__` query generates a short tone for verifying the encoder and HTTP stream without relying on an external music provider. Production source availability must be tested separately.
 
-Deploy using `cloud/Dockerfile`, repo-root context, free Render web service for testing. Configure the secret through Render and the website's runtime secret store. No paid plan or disk is required for this test. Free Render instances sleep and lose local files; this is not always-on hosting. The cache reuses music during an instance's lifetime, while uploaded originals are retained by the website’s R2 storage. No cloud browser, IMVU login, automatic room joining, chat commands or moderation are enabled in this service yet. The existing desktop app remains the full bot.
+Deploy using `cloud/Dockerfile`, repo-root context, free Render web service for testing. Configure the secret through Render and the website's runtime secret store. No paid plan or disk is required for this test. Free Render instances sleep and lose local files; this is not always-on hosting. Downloaded songs are persisted through the private website's R2 cache when configured; local playback copies remain temporary. Uploaded originals also remain in R2. No cloud browser, IMVU login, automatic room joining, chat commands or moderation are enabled in this service yet. The existing desktop app remains the full bot.
 
 ## Uploaded MP3 playback
 
@@ -51,5 +51,37 @@ Raw downloader errors are suppressed when proxying. Radio and upload traffic do
 not use this setting. Choose a stable/sticky session at the provider so requests
 use the same outgoing IP; this code does not rotate IPs. No provider is included,
 and proxy support does not guarantee YouTube access. Test a real song after
-configuring it. The current website radio route accepts saved MP3 uploads only;
-this backend setting alone does not reconnect its separate YouTube player.
+configuring it. The website now sends song names, direct YouTube links, and
+saved MP3 entries through one cloud radio.
+
+
+## Durable resolved-song cache
+
+Configure `CROWBOT_CACHE_URL` to the private website's `/api/music-cache` endpoint
+and `CROWBOT_SITES_BEARER` to its Sites service-access credential. Both services
+must have the same `CROWBOT_SERVICE_TOKEN`. Keep both credentials server-side.
+The endpoint checks the service key as well as the platform access boundary.
+
+Before resolving each song, Render checks tenant + normalized-query storage.
+On a miss it downloads and verifies the MP3, then saves it to R2 before playback.
+Successful replay uses R2 without contacting YouTube or the download proxy.
+The website shows whether a song was saved, restored, or played without a durable
+copy. Storage outages fail cache reads explicitly; save failures are reported.
+Limits: 20 MiB per song, 100 MiB resolved-song cache per tenant, 500 MiB across
+uploads and resolved songs. Uploaded files have their own 100 MiB per-user limit.
+Cache keys are exact normalized requests, not semantic song deduplication.
+
+## Verification, 2026-10-18
+
+17 focused Python tests passed: cloud auth/audio/tenant isolation, proxy secret
+handling, direct-video resolution and durable-cache behavior. Website TypeScript
+check and production build passed. Live R2 tests saved and read identical MP3
+bytes, rejected another tenant, and replayed a test tone twice through Render
+with cache-hit state and non-silent decoded audio. This is not evidence of a
+successful YouTube download. The supplied quick-start proxy endpoint returned
+407; an allocated direct proxy returned HTTP 200 on the connectivity probe.
+IMVU login, automatic room joining and chat moderation remain desktop-only.
+
+A subsequent live Coldplay Yellow request through that direct proxy reached
+YouTube but failed with a verification-required response. No song audio played.
+Do not describe cloud YouTube playback or the full IMVU bot as complete.
