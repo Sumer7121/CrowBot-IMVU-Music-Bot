@@ -17,3 +17,11 @@ Deploy using `cloud/Dockerfile`, repo-root context, free Render web service for 
 ## Uploaded MP3 playback
 
 `PUT /v1/uploads/{uuid}` accepts authenticated MP3 bytes, verifies them with ffprobe and stores a tenant-isolated, evictable playback copy. `GET` on the same route reports cache presence. `X-Track-Title` is URI-encoded display text. Queue `upload:{uuid}` to play that local copy without calling YouTube. Durable originals live in the website's R2 storage; the website authorizes ownership and restores missing playback copies before starting. Maximum upload 20 MiB, maximum duration one hour, playback cache approximately 250 MiB. These limits do not establish a provider billing guarantee.
+
+### Account-free YouTube compatibility trial
+The cloud image includes bgutil-ytdlp-pot-provider 2.0.2 and its matching
+Node script (upstream commit 26475e9d3665b972c4aeb83b4dbaafcf64b88438).
+yt-dlp uses the mweb client and generates PO tokens on demand, with no
+account cookies or additional public service. Tokens/cache are temporary.
+This is a compatibility attempt, not a guarantee of access: upstream can
+still require verification or reject the server. Desktop configuration is unchanged.
