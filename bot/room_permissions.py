@@ -9,7 +9,7 @@ from config.settings import load_settings, save_settings
 
 # Safety: lock management and moderator recovery must always remain available
 # to authenticated room moderators. Regular users cannot invoke these.
-UNLOCKABLE = frozenset({"lock", "unlock", "locks", "mods", "addmod", "removemod", "linkowner", "linkmod", "approvemod", "whoami"})
+UNLOCKABLE = frozenset({"lock", "unlock", "locks", "mods", "requestmod", "removemod", "linkowner", "approvemod", "whoami"})
 ALIASES = {
     "p": "play", "q": "queue", "np": "nowplaying",
     "s": "skip", "pa": "pause", "r": "resume", "rm": "remove",
@@ -33,7 +33,7 @@ DEFAULT_WELCOME = "👋 Welcome to {room}, {user}! Enjoy the music and games!"
 RESTRICTED = frozenset({
     "skip", "s", "stop", "clear", "remove", "rm", "pause", "pa",
     "resume", "r", "dj", "autoplay", "language", "lang",
-    "petdrop", "addmod", "removemod", "approvemod", "lock", "unlock",
+    "petdrop", "removemod", "approvemod", "lock", "unlock",
     "welcome", "welcometest",
 })
 
@@ -60,11 +60,6 @@ class RoomPermissions:
         # If IMVU chat hides an account username, the trusted GUI can bind
         # its stable chat account ID to the already-registered room owner.
         self.owner_user_id = str(state.get("owner_user_id") or "").strip()
-        self.mod_user_ids = {
-            _username(k).casefold(): str(v).strip()
-            for k, v in (state.get("mod_user_ids") or {}).items()
-            if _username(k) and str(v).strip()
-        }
         self.mods = {_username(v).casefold(): _username(v)
                      for v in state.get("mods", []) if _username(v)}
         self.welcome = str(state.get("welcome", DEFAULT_WELCOME))[:240]
@@ -78,7 +73,6 @@ class RoomPermissions:
         policies[self.room_id] = {
             "owner": self.owner,
             "owner_user_id": self.owner_user_id,
-            "mod_user_ids": dict(self.mod_user_ids),
             "mods": list(self.mods.values()),
             "welcome": self.welcome,
             "welcome_enabled": self.welcome_enabled,
@@ -102,43 +96,27 @@ class RoomPermissions:
             self.owner_user_id = ""
         self.owner = name
         self.mods.pop(name.casefold(), None)
-        self.mod_user_ids.pop(name.casefold(), None)
         self.save()
 
     def resolve_account(self, account_username="", user_id=""):
-        """Only platform usernames or deliberately approved stable IDs authorize.
-
-        Never interpret a visible IMVU display name as an account username.
-        If a known username has an approved numeric ID, reject contradictory IDs.
+        """Authorize admins by IMVU account username, owner by username or
+        an explicitly approved owner CID. Never use displayed nicknames.
         """
         name = _username(account_username)
-        key = name.casefold()
         identity = str(user_id or "").strip()
-        # A room chat event can expose an authenticated account handle but no
-        # numeric CID. Absence of the CID must NOT invalidate a real username.
-        # A *present, contradictory* CID remains a hard failure.
+        key = name.casefold()
         if key:
             if self.owner and key == self.owner.casefold():
                 if self.owner_user_id and identity and identity != self.owner_user_id:
                     return ""
                 return self.owner
-            if key in self.mods:
-                known = self.mod_user_ids.get(key, "")
-                if known and identity and identity != known:
-                    return ""
-                return self.mods[key]
-            # Do not override a known CID binding with a different username.
-            if identity and self.owner_user_id and identity == self.owner_user_id:
-                return ""
-            if identity and any(bound == identity for bound in self.mod_user_ids.values()):
-                return ""
-            return name
-        if identity:
             if self.owner_user_id and identity == self.owner_user_id:
-                return self.owner
-            for mod_key, bound_id in self.mod_user_ids.items():
-                if bound_id == identity and mod_key in self.mods:
-                    return self.mods[mod_key]
+                return ""  # Conflicting account name cannot claim owner CID.
+            if key in self.mods:
+                return self.mods[key]
+            return name
+        if identity and self.owner_user_id and identity == self.owner_user_id:
+            return self.owner
         return ""
 
     def link_owner_from_dashboard(self, user_id):
@@ -148,23 +126,7 @@ class RoomPermissions:
         if not identity:
             raise ValueError("IMVU did not expose a stable account ID.")
         # One IMVU account must not be tied to conflicting roles.
-        if identity in self.mod_user_ids.values():
-            raise ValueError("This IMVU account is already linked to a room admin.")
         self.owner_user_id = identity
-        self.save()
-
-    def link_mod_from_owner_command(self, username, user_id):
-        name = _username(username)
-        identity = str(user_id or "").strip()
-        if not name or name.casefold() not in self.mods:
-            raise ValueError("That username is not an appointed admin. Use !addmod first.")
-        if not identity:
-            raise ValueError("IMVU did not expose a stable chat account ID.")
-        if identity == self.owner_user_id:
-            raise ValueError("That IMVU account is already linked to the room owner.")
-        if any(k != name.casefold() and v == identity for k, v in self.mod_user_ids.items()):
-            raise ValueError("That IMVU account is already linked to another admin.")
-        self.mod_user_ids[name.casefold()] = identity
         self.save()
 
     def add_mod(self, username):
@@ -175,8 +137,6 @@ class RoomPermissions:
             return False
         if name.casefold() in self.mods:
             return False
-        # Do not silently carry an old account binding to a newly granted role.
-        self.mod_user_ids.pop(name.casefold(), None)
         self.mods[name.casefold()] = name
         self.save()
         return True
@@ -186,7 +146,6 @@ class RoomPermissions:
         if key not in self.mods:
             return False
         self.mods.pop(key)
-        self.mod_user_ids.pop(key, None)
         self.save()
         return True
 
