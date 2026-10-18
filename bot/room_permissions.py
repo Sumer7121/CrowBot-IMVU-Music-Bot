@@ -114,23 +114,31 @@ class RoomPermissions:
         name = _username(account_username)
         key = name.casefold()
         identity = str(user_id or "").strip()
+        # A room chat event can expose an authenticated account handle but no
+        # numeric CID. Absence of the CID must NOT invalidate a real username.
+        # A *present, contradictory* CID remains a hard failure.
         if key:
             if self.owner and key == self.owner.casefold():
-                if self.owner_user_id and identity != self.owner_user_id:
+                if self.owner_user_id and identity and identity != self.owner_user_id:
                     return ""
                 return self.owner
             if key in self.mods:
                 known = self.mod_user_ids.get(key, "")
-                if known and identity != known:
+                if known and identity and identity != known:
                     return ""
                 return self.mods[key]
+            # Do not override a known CID binding with a different username.
+            if identity and self.owner_user_id and identity == self.owner_user_id:
+                return ""
+            if identity and any(bound == identity for bound in self.mod_user_ids.values()):
+                return ""
             return name
         if identity:
             if self.owner_user_id and identity == self.owner_user_id:
                 return self.owner
-            for key, bound_id in self.mod_user_ids.items():
-                if bound_id == identity and key in self.mods:
-                    return self.mods[key]
+            for mod_key, bound_id in self.mod_user_ids.items():
+                if bound_id == identity and mod_key in self.mods:
+                    return self.mods[mod_key]
         return ""
 
     def link_owner_from_dashboard(self, user_id):
