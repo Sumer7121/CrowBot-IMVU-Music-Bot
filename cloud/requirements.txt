@@ -1,4 +1,4 @@
 Flask>=3.1,<4
 gunicorn>=23,<24
 yt-dlp[default]
-yt-dlp-getpot-wpc==1.1.2
+bgutil-ytdlp-pot-provider==2.0.2

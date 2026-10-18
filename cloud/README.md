@@ -26,10 +26,13 @@ account cookies or additional public service. Tokens/cache are temporary.
 This is a compatibility attempt, not a guarantee of access: upstream can
 still require verification or reject the server. Desktop configuration is unchanged.
 
-### Browser guest-token trial
-The next trial uses yt-dlp-getpot-wpc 1.1.2 with Chromium and a private Xvfb
-display, replacing the script provider. No YouTube credentials are configured.
-Player token requests are enabled explicitly (fetch_pot=always). Fixed boolean
-diagnostics report provider/launch/mint outcomes without writing raw tokens.
-Chromium retains its default sandbox. A failed browser start or upstream
-challenge remains a failed download; no audio readiness is fabricated.
+### Browser guest-token trial outcome (2026-10-18)
+Commit 8eb8212 tested yt-dlp-getpot-wpc 1.1.2 with Chromium, Xvfb,
+the sandbox helper, explicit player-token requests, and redacted diagnostics.
+On the existing free Render instance the provider loaded and requested a
+browser launch, but Chromium startup failed before any token was minted.
+A separate blank-page startup check timed out. The real song request still
+returned YouTube verification. This does not establish whether valid browser
+tokens would work. The experimental browser runtime was removed from the
+active image to avoid overhead; the implementation remains in Git history.
+No account cookies or paid infrastructure were used.
