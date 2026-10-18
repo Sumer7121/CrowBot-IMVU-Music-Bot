@@ -61,41 +61,39 @@ CrowBot cannot securely grant privileged access based on chat markup alone.
 In that case `!whoami` explains the blocker; new IMVU identity data or
 an authenticated provider integration would be required.
 
-## Room owner and admin assignment
+## Room owner and moderation
 
-In CrowBot's desktop app, select the room and configure its **verified
-room-owner IMVU username**. This is the only identity setup done through
-the app. Confirm the username belongs to the actual owner before saving.
+The **room owner** is registered in the CrowBot desktop app using their
+verified IMVU account username. If the IMVU chat hides the owner's username,
+they can request `!linkowner` and the trusted operator can approve the
+owner's chat account ID in the app. **Only owners have this linking flow.**
 
-Only that registered room owner can appoint or revoke room admins by
-sending these commands **in the same room's IMVU chat**:
-
-```text
-!addmod username      Register a new room admin (owner only)
-!removemod username   Revoke a room admin (owner only)
-!mods                 Display configured room owner and admins
-```
-
-Appointed admins have the **same permissions as the owner for other bot
-features**: `!welcome`, `!lock`, `!unlock`, `!dj`, music controls and
-manual drops. Admins cannot grant or revoke admin access. Admin and owner
-lists persist per room across restarts. No chat command can claim or
-replace the room owner.
-
-Other room management through IMVU chat:
+All other moderators use their **regular IMVU account username**:
 
 ```text
-!welcome Welcome {user} to {room}!   Save the automatic room greeting
-!welcome on / !welcome off         Enable or disable greetings
-!welcometest                       Preview welcome
-!lock play                         Disable public song requests (!p too)
-!unlock play                       Reopen song requests
-!locks                             Show locked commands
+!requestmod             Member requests admin privileges
+!approvemod username    Verified room owner approves that member's request
+!removemod username     Verified room owner removes an admin
+!mods                   Show room owner and all admins
 ```
 
-Automatic drops are independent of chat activity. Welcome messages are
-currently sent when CrowBot first observes a user's chat message after
-connecting, not on an undetected silent entry.
+The owner must approve a request within **15 minutes**. Admins cannot
+approve requests or appoint other admins. Once approved, admins can run
+`!lock`, `!unlock`, `!welcome`, music and drop administration without
+any moderator-specific account-ID linking. Room settings persist separately.
+`!h sys` contains only the main moderation commands, while advanced
+owner linking and optional welcome previews remain available separately.
+
+**Identity security:** IMVU display nicknames are *not* account usernames.
+Requests use only a username from IMVU profile metadata or a direct public
+IMVU account lookup from a profile CID. If neither source is available, the
+request fails safely rather than granting permissions to a nickname.
+The direct IMVU profile API is not a guaranteed public contract, so some
+room layouts may not provide enough identity evidence.
+
+Automatic drops continue independently of room activity. A new person's
+welcome message appears when CrowBot first observes their chat message,
+not necessarily immediately on a silent entry.
 
 ## Automatic cat/dog drops and Now Playing announcements
 
