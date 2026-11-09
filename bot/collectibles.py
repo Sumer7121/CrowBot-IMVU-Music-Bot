@@ -1,11 +1,11 @@
-"""Persistent cat, dog, and bird collectible drops (legacy anime items are not dropped)."""
+"""Persistent, text-card bestiary and tiered-ticket inventory."""
 import random
 import sqlite3
-from contextlib import closing
 import time
+from contextlib import closing
 from pathlib import Path
 
-PET_NAMES = {
+LEGACY_PET_NAMES = {
     "cat": {
         "common": ["Mochi","Shadow","Biscuit","Luna","Oliver","Mittens","Whiskers","Pumpkin","Smokey","Pebbles","Patches","Marmalade","Clover","Peaches","Dusty","Mango","Cookie","Hazel","Poppy","Sprout","Chai","Waffles","Button","Toffee"],
         "rare": ["Snowball","Nori","Silver Tabby","Velvet Paws","Midnight Maine Coon","Arctic Siamese","Golden Bengal","Sapphire Ragdoll","Jade Sphynx","Twilight Calico","Marble Persian","Frosty Lynx","Ruby Tuxedo","Dusk Abyssinian","Moonlit Munchkin","Amber Scottish Fold"],
@@ -25,18 +25,158 @@ PET_NAMES = {
         "legendary": ["Celestial Phoenix","Prismatic Peacock","Nebula Raven","Sunflare Eagle","Eclipse Owl","Shiny Thunderwing","Starfire Roc","Moonfeather Phoenix"],
     },
 }
-PET_EMOJI = {"cat": "🐱", "dog": "🐶", "bird": "🐦"}
-RARITY_WEIGHT = {"common": 60, "rare": 27, "epic": 10, "legendary": 3}
-CATALOG = tuple(
-    (kind, name, PET_EMOJI[kind], rarity)
-    for kind, groups in PET_NAMES.items()
-    for rarity, names in groups.items()
-    for name in names
+
+RARITY_WEIGHT = {"common": 50, "uncommon": 25, "rare": 15, "epic": 8, "legendary": 2}
+RARITY_RANK = {name: i for i, name in enumerate(RARITY_WEIGHT)}
+RARITY_MARK = {"common": "·", "uncommon": "+", "rare": "*", "epic": "◆", "legendary": "★"}
+TICKET_TYPES = ("steal", "defend")
+TICKET_DROP_CHANCE = 0.10
+
+# Curated name stems and animal forms produce a stable, exactly 1,000-card
+# original bestiary. The creature silhouettes are ASCII/Unicode chat art.
+PREFIXES = (
+    ("Water", "water", "Riptide", 0),
+    ("Fire", "fire", "Cinder", 0),
+    ("Storm", "storm", "Cyclone", 1),
+    ("Shadow", "shadow", "Night Pounce", 2),
+    ("Wind", "wind", "Crosswind", 0),
+    ("Lightning", "lightning", "Thunder Dive", 1),
+    ("Forest", "nature", "Root Snare", 0),
+    ("Electric", "electric", "Static Howl", 1),
+    ("Abyss", "abyss", "Pressure Crush", 2),
+    ("Stone", "earth", "Bastion", 0),
+    ("Moon", "moon", "Lunar Gleam", 1),
+    ("Frost", "ice", "Glacier Rush", 0),
+    ("Solar", "light", "Solar Flash", 1),
+    ("Iron", "metal", "Iron Guard", 0),
+    ("Tide", "water", "Tidal Coil", 0),
+    ("Crystal", "crystal", "Shard Burst", 2),
+    ("Ember", "fire", "Spark Sprint", 0),
+    ("Venom", "poison", "Venom Mist", 1),
+    ("Star", "cosmic", "Starfall", 2),
+    ("Cloud", "sky", "Updraft", 0),
+    ("Magma", "lava", "Eruption", 1),
+    ("Mist", "mist", "Mirage", 0),
+    ("Prism", "prism", "Prism Dash", 2),
+    ("Dusk", "dusk", "Dusk Ambush", 1),
+    ("Dawn", "dawn", "Radiant Roar", 1),
 )
-CATALOG_BY_NAME = {item[1]: item for item in CATALOG}
-assert len(CATALOG) >= 100 and len(CATALOG_BY_NAME) == len(CATALOG)
+SPECIES = (
+    ("cat", "Cat", "🐈", "feline", "Whisker Pounce", "common", "small"),
+    ("lion", "Lion", "🦁", "feline", "Royal Pounce", "rare", "large"),
+    ("tiger", "Tiger", "🐅", "feline", "Stripe Rush", "rare", "large"),
+    ("panther", "Panther", "🐈‍⬛", "feline", "Shadow Leap", "rare", "large"),
+    ("leopard", "Leopard", "🐆", "feline", "Spotted Dash", "uncommon", "medium"),
+    ("dog", "Dog", "🐕", "canine", "Loyal Guard", "common", "small"),
+    ("wolf", "Wolf", "🐺", "canine", "Pack Howl", "uncommon", "large"),
+    ("fox", "Fox", "🦊", "canine", "Clever Feint", "uncommon", "small"),
+    ("bear", "Bear", "🐻", "bear", "Crushing Hug", "rare", "large"),
+    ("rabbit", "Rabbit", "🐇", "rabbit", "Lucky Hop", "common", "small"),
+    ("stag", "Stag", "🦌", "forest", "Antler Guard", "uncommon", "large"),
+    ("eagle", "Eagle", "🦅", "bird", "Talon Dive", "uncommon", "medium"),
+    ("heron", "Heron", "🐦", "bird", "Reedstep", "common", "medium"),
+    ("raven", "Raven", "🐦‍⬛", "bird", "Clever Caw", "uncommon", "small"),
+    ("owl", "Owl", "🦉", "bird", "Silent Sweep", "uncommon", "small"),
+    ("dragon", "Dragon", "🐉", "dragon", "Element Breath", "legendary", "mythic"),
+    ("tide drake", "Tide Drake", "🐉", "dragon", "Tidal Coil", "epic", "large"),
+    ("ember wyrm", "Ember Wyrm", "🐉", "dragon", "Cinder Spiral", "epic", "large"),
+    ("hydra", "Hydra", "🐍", "dragon", "Threefold Surge", "legendary", "mythic"),
+    ("phoenix", "Phoenix", "🐦‍🔥", "phoenix", "Rebirth Flare", "legendary", "mythic"),
+    ("tyrannosaurus", "Tyrannosaurus Rex", "🦖", "dinosaur", "Apex Bite", "legendary", "giant"),
+    ("triceratops", "Triceratops", "🦕", "dinosaur", "Horn Rush", "epic", "large"),
+    ("stegosaurus", "Stegosaurus", "🦕", "dinosaur", "Plate Wall", "rare", "large"),
+    ("velociraptor", "Velociraptor", "🦖", "dinosaur", "Quick Claw", "rare", "small"),
+    ("spinosaurus", "Spinosaurus", "🦖", "dinosaur", "Sail Surge", "legendary", "giant"),
+    ("ankylosaurus", "Ankylosaurus", "🦕", "dinosaur", "Tail Mace", "epic", "large"),
+    ("brachiosaurus", "Brachiosaurus", "🦕", "dinosaur", "Canopy Reach", "epic", "giant"),
+    ("diplodocus", "Diplodocus", "🦕", "dinosaur", "Longtail Sweep", "rare", "giant"),
+    ("allosaurus", "Allosaurus", "🦖", "dinosaur", "Razor Lunge", "epic", "large"),
+    ("carnotaurus", "Carnotaurus", "🦖", "dinosaur", "Horned Sprint", "rare", "large"),
+    ("parasaurolophus", "Parasaurolophus", "🦕", "dinosaur", "Echo Crest", "uncommon", "large"),
+    ("pachycephalosaurus", "Pachycephalosaurus", "🦕", "dinosaur", "Dome Bash", "uncommon", "medium"),
+    ("iguanodon", "Iguanodon", "🦕", "dinosaur", "Thumb Spike", "uncommon", "large"),
+    ("therizinosaurus", "Therizinosaurus", "🦕", "dinosaur", "Longclaw Sweep", "epic", "large"),
+    ("deinonychus", "Deinonychus", "🦖", "dinosaur", "Sickle Claw", "uncommon", "small"),
+    ("utahraptor", "Utahraptor", "🦖", "dinosaur", "Pack Pounce", "epic", "large"),
+    ("giganotosaurus", "Giganotosaurus", "🦖", "dinosaur", "Titan Bite", "legendary", "giant"),
+    ("styracosaurus", "Styracosaurus", "🦕", "dinosaur", "Frill Charge", "rare", "large"),
+    ("compsognathus", "Compsognathus", "🦖", "dinosaur", "Swift Scurry", "common", "small"),
+    ("microraptor", "Microraptor", "🦖", "dinosaur", "Feather Glide", "uncommon", "small"),
+)
+
+assert len(PREFIXES) == 25 and len(SPECIES) == 40
+
+_FORTUNES = (
+    "{holder}, your brave heart makes this beast proud to stand with you.",
+    "{holder}, your kindness is the magic this creature trusts most.",
+    "{holder}, you bring a bright spark wherever you go.",
+    "{holder}, your patience is quietly becoming strength.",
+    "{holder}, your curious spirit is ready for a new adventure.",
+    "{holder}, your loyalty makes a powerful kind of magic.",
+    "{holder}, your smile could outshine a legendary aura.",
+    "{holder}, your courage is bigger than your worries today.",
+    "{holder}, even small steps can lead to a mighty win.",
+    "{holder}, this card is proof that your heart is one of a kind.",
+    "{holder}, the world is better with your particular kind of brave.",
+    "{holder}, may good luck follow every footprint you leave.",
+)
+_ART = {
+    "feline": (r" /\_/\\", r"( o.o )-<", r" / >*\\"),
+    "canine": (r" / \__/", r"( •ᴥ• )=>", r" /|  |\ "),
+    "bear": (r"  .--.", r" (o.o )", r" /|___|\ "),
+    "rabbit": (r" (\_/)", r" (o.o )", r" / >♡ "),
+    "forest": (r"  /\/\ ", r" ( •.• )", r"  /|\\ "),
+    "bird": (r"  .-.", r" (o )>", r" /|\\ "),
+    "dragon": (r"  /\_/\\", r"<( o.o )~~~~", r"  / >==<\\"),
+    "griffin": (r" \ \__/ /", r" ( ^.^ )>", r" /|  |\ "),
+    "phoenix": (r" \ .*/ ", r" ( >o< )", r" /~\_/~\ "),
+    "reptile": (r" __/\____", r"( o  .  )>", r" /_/ \_\ "),
+    "sea": (r"  .~~~~.", r" ( o.o )>", r"  ~~~~~ "),
+    "dinosaur": (r"   .---.", r" __/o.o \__", r"/_/\___/\\"),
+}
+def _card_rarity(base_tier, element_bonus):
+    tiers = tuple(RARITY_WEIGHT)
+    return tiers[min(len(tiers) - 1, RARITY_RANK[base_tier] + element_bonus)]
+
+def _build_catalog():
+    cards = []
+    index = 0
+    size_power = {"small": 0, "medium": 4, "large": 8, "giant": 12, "mythic": 10}
+    rarity_power = {"common": 20, "uncommon": 35, "rare": 50,
+                    "epic": 70, "legendary": 90}
+    for prefix, element, prefix_trait, rarity_bonus in PREFIXES:
+        for key, animal, emoji, family, animal_trait, base_tier, size in SPECIES:
+            index += 1
+            name = f"{prefix} {animal}"
+            rarity = _card_rarity(base_tier, rarity_bonus)
+            power = min(99, rarity_power[rarity] + size_power[size] + ((index * 13) % 7))
+            cards.append((key, name, emoji, rarity, f"B{index:04d}",
+                          element, f"{prefix_trait} {animal_trait}", power, family, size))
+    return tuple(cards)
+
+CATALOG = _build_catalog()
+CATALOG_BY_NAME = {card[1].casefold(): card for card in CATALOG}
+CATALOG_BY_ID = {card[4].casefold(): card for card in CATALOG}
+assert len(CATALOG) == len(CATALOG_BY_NAME) == len(CATALOG_BY_ID) == 1000
+
+LEGACY_FAMILY = {"cat": "feline", "dog": "canine", "bird": "bird"}
+def _legacy_name_map():
+    mapping = {}
+    for kind, groups in LEGACY_PET_NAMES.items():
+        family = LEGACY_FAMILY[kind]
+        for rarity, old_names in groups.items():
+            candidates = [card for card in CATALOG
+                          if card[8] == family and card[3] == rarity]
+            if not candidates:
+                candidates = [card for card in CATALOG if card[8] == family]
+            for i, old_name in enumerate(old_names):
+                mapping[old_name.casefold()] = candidates[i % len(candidates)][1]
+    return mapping
+
+LEGACY_NAME_MAP = _legacy_name_map()
 
 class CollectibleDrops:
+    PAGE_SIZE = 4
     def __init__(self, database_path=None, rng=None, clock=None):
         self.rng = rng or random.Random()
         self.clock = clock or time.monotonic
@@ -48,67 +188,337 @@ class CollectibleDrops:
             db.execute("""CREATE TABLE IF NOT EXISTS collections (
                 player TEXT NOT NULL, item TEXT NOT NULL, quantity INTEGER NOT NULL,
                 PRIMARY KEY (player, item))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS ticket_inventory (
+                player TEXT NOT NULL, ticket_type TEXT NOT NULL, tier TEXT NOT NULL,
+                quantity INTEGER NOT NULL, PRIMARY KEY (player, ticket_type, tier))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS protected_cards (
+                player TEXT NOT NULL, item TEXT NOT NULL, quantity INTEGER NOT NULL,
+                PRIMARY KEY (player, item))""")
+            self._migrate_legacy_collections(db)
             db.commit()
 
-    def spawn(self, species=None):
+    @staticmethod
+    def _migrate_legacy_collections(db):
+        for player, old_name, quantity in db.execute(
+                "SELECT player,item,quantity FROM collections").fetchall():
+            new_name = LEGACY_NAME_MAP.get(old_name.casefold())
+            if not new_name:
+                continue
+            db.execute("""INSERT INTO collections (player,item,quantity) VALUES (?,?,?)
+                          ON CONFLICT(player,item) DO UPDATE SET quantity=quantity+excluded.quantity""",
+                       (player, new_name, quantity))
+            db.execute("DELETE FROM collections WHERE player=? AND item=?",
+                       (player, old_name))
+
+    @staticmethod
+    def _player(username):
+        return str(username or "").strip().casefold()
+
+    @staticmethod
+    def _rank(tier):
+        return RARITY_RANK.get(str(tier or "").casefold(), -1)
+
+    def spawn(self, species=None, ticket_type=None, tier=None):
         if self.active is not None:
             return None
-        # Roll rarity first, then choose a pet within that rarity. This
-        # prevents category sizes from distorting the advertised odds.
+        if ticket_type:
+            if ticket_type == "random":
+                ticket_type = self.rng.choice(TICKET_TYPES)
+            if ticket_type not in TICKET_TYPES:
+                return None
+            tier = tier or self.rng.choices(
+                list(RARITY_WEIGHT), weights=list(RARITY_WEIGHT.values()), k=1
+            )[0]
+            self.active = {"kind": "ticket", "ticket_type": ticket_type,
+                           "tier": tier, "deadline": self.clock() + 90}
+            return self.render_ticket(ticket_type, tier) + "\nType !catch to claim it! (90s)"
+        if species == "ticket":
+            return self.spawn(ticket_type="random", tier=tier)
+        if species and species not in {"cat", "dog", "bird", "dinosaur", "dragon"}:
+            return None
+        if species is None and self.rng.random() < TICKET_DROP_CHANCE:
+            return self.spawn(ticket_type="random")
         rarity = self.rng.choices(
             list(RARITY_WEIGHT), weights=list(RARITY_WEIGHT.values()), k=1
         )[0]
-        choices = [pet for pet in CATALOG if pet[3] == rarity and (species is None or pet[0] == species)]
-        item = self.rng.choice(choices)
-        self.active = (item, self.clock() + 90)
-        kind, name, emoji, rarity = item
-        return (f"✨ WILD {kind.upper()} DROP! ✨\n"
-                f"{emoji} {name} [{rarity.upper()}]\n"
-                "First to type !catch wins! (90s)")
+        choices = [card for card in CATALOG
+                   if card[3] == rarity and
+                   (species is None or card[8] == species or card[0] == species)]
+        if not choices:
+            return None
+        card = self.rng.choice(choices)
+        self.active = {"kind": "animal", "card": card, "deadline": self.clock() + 90}
+        return self.render_card(card) + "\nType !catch to claim it! (90s)"
+
+    @staticmethod
+    def _sigil(card):
+        number = int(card[4][1:])
+        glyphs = ".:*+-=~^"
+        out = []
+        for _ in range(7):
+            number, digit = divmod(number, len(glyphs))
+            out.append(glyphs[digit])
+        return "".join(out[:4]) + " / " + "".join(out[4:])
+
+    @classmethod
+    def _fortune(cls, card, holder=None):
+        if not holder:
+            return "Fortune waits for its card holder."
+        name = str(holder).strip().lstrip("@") or "Traveler"
+        seed = int(card[4][1:]) + sum(ord(ch) for ch in name.casefold())
+        return _FORTUNES[seed % len(_FORTUNES)].format(holder="@" + name)
+
+    @classmethod
+    def render_card(cls, card, quantity=1, holder=None):
+        rarity, mark = card[3], RARITY_MARK[card[3]]
+        art = _ART.get(card[8], _ART["dragon"])
+        fortune = cls._fortune(card, holder)
+        return (f"╭─ {mark} {rarity.upper()} · {card[5].upper()} · {card[4]} ─╮\n"
+                f"{card[2]} {card[1]}\n"
+                f"{art[0]}  {cls._sigil(card)}\n{art[1]}\n{art[2]}\n"
+                f"Trait: {card[6]} · Power {card[7]} · x{quantity}\n"
+                f"Fortune: {fortune}\n╰────────────────────────╯")
+
+    @classmethod
+    def render_compact(cls, card, quantity, holder=None):
+        art = _ART.get(card[8], _ART["dragon"])
+        return (f"{RARITY_MARK[card[3]]}{card[3][0].upper()} {card[4]} "
+                f"{card[2]} {card[1]} x{quantity}\n"
+                f"{art[0]} {cls._sigil(card)} {art[1]}\n"
+                f"{card[5].title()} · {card[6]} · POW {card[7]}\n"
+                f"Fortune: {cls._fortune(card, holder)}")
+
+    @staticmethod
+    def render_ticket(ticket_type, tier, holder=None):
+        icon = "⚔" if ticket_type == "steal" else "🛡"
+        title = "STEAL" if ticket_type == "steal" else "DEFENSE"
+        if ticket_type == "steal":
+            effect = f"Accepted duel can take one unshielded card up to {tier.upper()}."
+        else:
+            effect = f"Protect one {tier.upper()} creature with !defend <card-id>."
+        return (f"╭──── 🎟 {title} TICKET ────╮\n"
+                f"│ {icon} TIER: {tier.upper()} │\n"
+                f"│ .-========-.           │\n"
+                f"│ |  .  *  .  |           │\n"
+                f"│ '-========-'           │\n"
+                f"│ {effect}\n"
+                f"│ To: @{str(holder).lstrip('@') if holder else 'next catcher'}\n"
+                f"│ Fortune: May this ticket open a fair path.\n"
+                f"╰────────────────────────╯")
 
     def catch(self, username):
+        player = self._player(username)
+        if not player:
+            return "A username is required."
         if not self.active:
             return "No drop right now! Watch the room for a surprise."
-        item, deadline = self.active
-        if self.clock() > deadline:
+        drop = self.active
+        if self.clock() > drop["deadline"]:
             self.active = None
             return "💨 That drop escaped! Next time!"
         self.active = None
-        player = str(username or "").strip()
-        if not player:
-            return "A username is required."
         with closing(sqlite3.connect(self.database_path)) as db:
-            db.execute("""INSERT INTO collections (player, item, quantity)
-                          VALUES (?, ?, 1) ON CONFLICT(player, item)
-                          DO UPDATE SET quantity=quantity+1""",
-                       (player.casefold(), item[1]))
+            if drop["kind"] == "ticket":
+                db.execute("""INSERT INTO ticket_inventory (player,ticket_type,tier,quantity)
+                              VALUES (?,?,?,1) ON CONFLICT(player,ticket_type,tier)
+                              DO UPDATE SET quantity=quantity+1""",
+                           (player, drop["ticket_type"], drop["tier"]))
+                db.commit()
+                return (self.render_ticket(drop["ticket_type"], drop["tier"], username)
+                        + f"\n🎉 {username} caught it! See !collection for your tickets.")
+            card = drop["card"]
+            db.execute("""INSERT INTO collections (player,item,quantity) VALUES (?,?,1)
+                          ON CONFLICT(player,item) DO UPDATE SET quantity=quantity+1""",
+                       (player, card[1]))
             db.commit()
-        return f"🎉 {player} caught {item[2]} {item[1]} [{item[3]}]! Type !collection"
+        return f"🎉 {username} caught a creature card!\n{self.render_card(card, holder=username)}"
 
-    def collection(self, username):
-        player = str(username or "").strip().casefold()
+    def ticket_counts(self, username):
+        player = self._player(username)
         with closing(sqlite3.connect(self.database_path)) as db:
-            rows = db.execute(
-                "SELECT item, quantity FROM collections WHERE player=? ORDER BY item",
-                (player,)).fetchall()
-        # Keep old records intact, but only display active cat, dog, and bird pets.
-        pets = [(CATALOG_BY_NAME[item], qty) for item, qty in rows
-                if item in CATALOG_BY_NAME]
-        if not pets:
-            return f"🎒 {username}'s pet collection is empty. Try !catch!"
-        # Rarest pets first, with their collectible tier clearly visible.
-        rank = {"legendary": 0, "epic": 1, "rare": 2, "common": 3}
-        pets.sort(key=lambda pair: (rank[pair[0][3]], pair[0][1].casefold()))
-        lines = [f"🎒 {username}'s pets ({sum(q for _, q in pets)} caught)"]
-        for item, quantity in pets[:20]:
-            kind, name, emoji, rarity = item
-            lines.append(f"• {emoji} {name} [{rarity.upper()}] x{quantity}")
-        if len(pets) > 20:
-            lines.append(f"+{len(pets) - 20} more types")
+            rows = db.execute("""SELECT ticket_type,tier,quantity FROM ticket_inventory
+                                 WHERE player=? ORDER BY ticket_type,tier""",
+                              (player,)).fetchall()
+        return {(kind, tier): qty for kind, tier, qty in rows}
+
+    def spend_ticket(self, username, ticket_type, tier):
+        player = self._player(username)
+        with closing(sqlite3.connect(self.database_path)) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("""SELECT quantity FROM ticket_inventory
+                                WHERE player=? AND ticket_type=? AND tier=?""",
+                             (player, ticket_type, tier)).fetchone()
+            if not row or row[0] < 1:
+                db.rollback()
+                return False
+            if row[0] == 1:
+                db.execute("""DELETE FROM ticket_inventory
+                              WHERE player=? AND ticket_type=? AND tier=?""",
+                           (player, ticket_type, tier))
+            else:
+                db.execute("""UPDATE ticket_inventory SET quantity=quantity-1
+                              WHERE player=? AND ticket_type=? AND tier=?""",
+                           (player, ticket_type, tier))
+            db.commit()
+        return True
+
+    def has_eligible_pet(self, username, max_tier, unshielded=False):
+        player = self._player(username)
+        max_rank = self._rank(max_tier)
+        with closing(sqlite3.connect(self.database_path)) as db:
+            rows = db.execute("SELECT item,quantity FROM collections WHERE player=?",
+                              (player,)).fetchall()
+            protected = dict(db.execute(
+                "SELECT item,quantity FROM protected_cards WHERE player=?", (player,)
+            ).fetchall()) if unshielded else {}
+        return any(item.casefold() in CATALOG_BY_NAME and
+                   self._rank(CATALOG_BY_NAME[item.casefold()][3]) <= max_rank and
+                   qty - protected.get(item, 0) > 0 for item, qty in rows)
+
+    def choose_owned_card(self, username):
+        player = self._player(username)
+        with closing(sqlite3.connect(self.database_path)) as db:
+            rows = db.execute("SELECT item,quantity FROM collections WHERE player=?",
+                              (player,)).fetchall()
+        owned = [(CATALOG_BY_NAME[item.casefold()], qty) for item, qty in rows
+                 if item.casefold() in CATALOG_BY_NAME and qty > 0]
+        if not owned:
+            return None
+        return self.rng.choices([card for card, _ in owned],
+                                weights=[qty for _, qty in owned], k=1)[0]
+
+    def steal_random_pet(self, loser, winner, max_tier):
+        loser_key, winner_key = self._player(loser), self._player(winner)
+        max_rank = self._rank(max_tier)
+        with closing(sqlite3.connect(self.database_path)) as db:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute("SELECT item,quantity FROM collections WHERE player=?",
+                              (loser_key,)).fetchall()
+            protected = dict(db.execute(
+                "SELECT item,quantity FROM protected_cards WHERE player=?", (loser_key,)
+            ).fetchall())
+            eligible = []
+            for item, qty in rows:
+                card = CATALOG_BY_NAME.get(item.casefold())
+                free = qty - protected.get(item, 0)
+                if card and free > 0 and self._rank(card[3]) <= max_rank:
+                    eligible.extend([card] * free)
+            if not eligible:
+                db.rollback()
+                return None
+            card = self.rng.choice(eligible)
+            db.execute("UPDATE collections SET quantity=quantity-1 WHERE player=? AND item=?",
+                       (loser_key, card[1]))
+            db.execute("DELETE FROM collections WHERE player=? AND item=? AND quantity<=0",
+                       (loser_key, card[1]))
+            db.execute("""INSERT INTO collections(player,item,quantity) VALUES (?,?,1)
+                          ON CONFLICT(player,item) DO UPDATE SET quantity=quantity+1""",
+                       (winner_key, card[1]))
+            db.commit()
+        return card
+
+    def defend_card(self, username, reference):
+        card = self.lookup_card(reference)
+        if not card:
+            return "Card not found. Use its card ID from !collection."
+        if card[3] == "common":
+            # Common cards can be protected with a common defense ticket.
+            pass
+        player = self._player(username)
+        with closing(sqlite3.connect(self.database_path)) as db:
+            db.execute("BEGIN IMMEDIATE")
+            owned = db.execute("SELECT quantity FROM collections WHERE player=? AND item=?",
+                               (player, card[1])).fetchone()
+            shielded = db.execute("SELECT quantity FROM protected_cards WHERE player=? AND item=?",
+                                  (player, card[1])).fetchone()
+            if not owned or owned[0] <= (shielded[0] if shielded else 0):
+                db.rollback()
+                return "You need an unshielded copy of that card."
+            ticket = db.execute("""SELECT quantity FROM ticket_inventory
+                                   WHERE player=? AND ticket_type='defend' AND tier=?""",
+                                (player, card[3])).fetchone()
+            if not ticket or ticket[0] < 1:
+                db.rollback()
+                return f"You need a {card[3].upper()} Defense Ticket for this card."
+            if ticket[0] == 1:
+                db.execute("""DELETE FROM ticket_inventory WHERE player=? AND ticket_type='defend' AND tier=?""",
+                           (player, card[3]))
+            else:
+                db.execute("""UPDATE ticket_inventory SET quantity=quantity-1
+                              WHERE player=? AND ticket_type='defend' AND tier=?""",
+                           (player, card[3]))
+            db.execute("""INSERT INTO protected_cards(player,item,quantity) VALUES (?,?,1)
+                          ON CONFLICT(player,item) DO UPDATE SET quantity=quantity+1""",
+                       (player, card[1]))
+            db.commit()
+        return f"🛡 {card[4]} {card[1]} is protected from steals."
+
+    def unprotect_card(self, username, reference):
+        card = self.lookup_card(reference)
+        if not card:
+            return "Card not found. Use its card ID from !collection."
+        player = self._player(username)
+        with closing(sqlite3.connect(self.database_path)) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT quantity FROM protected_cards WHERE player=? AND item=?",
+                             (player, card[1])).fetchone()
+            if not row:
+                db.rollback()
+                return "That card is not protected."
+            if row[0] <= 1:
+                db.execute("DELETE FROM protected_cards WHERE player=? AND item=?",
+                           (player, card[1]))
+            else:
+                db.execute("UPDATE protected_cards SET quantity=quantity-1 WHERE player=? AND item=?",
+                           (player, card[1]))
+            db.commit()
+        return f"Protection removed from {card[4]} {card[1]}."
+
+    @staticmethod
+    def lookup_card(reference):
+        key = str(reference or "").strip().casefold()
+        return CATALOG_BY_ID.get(key) or CATALOG_BY_NAME.get(key)
+
+    def collection(self, username, page=1):
+        player = self._player(username)
+        with closing(sqlite3.connect(self.database_path)) as db:
+            rows = db.execute("SELECT item,quantity FROM collections WHERE player=?",
+                              (player,)).fetchall()
+            tickets = db.execute("""SELECT ticket_type,tier,quantity FROM ticket_inventory
+                                    WHERE player=?""", (player,)).fetchall()
+            protected = dict(db.execute(
+                "SELECT item,quantity FROM protected_cards WHERE player=?", (player,)
+            ).fetchall())
+        cards = [(CATALOG_BY_NAME[item.casefold()], qty, protected.get(item, 0))
+                 for item, qty in rows if item.casefold() in CATALOG_BY_NAME and qty > 0]
+        rank = RARITY_RANK
+        cards.sort(key=lambda row: (rank[row[0][3]], row[0][1].casefold()))
+        total = sum(qty for _, qty, _ in cards)
+        pages = max(1, (len(cards) + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
+        try:
+            page = int(page)
+        except (TypeError, ValueError):
+            page = 1
+        page = max(1, min(page, pages))
+        ticket_summary = ", ".join(
+            f"{tier.title()} {kind}:{qty}" for kind, tier, qty in tickets
+        ) or "none"
+        lines = [f"🎒 {username}'s bestiary · {total} cards · page {page}/{pages}",
+                 f"🎟 Tickets: {ticket_summary}"]
+        selected = cards[(page-1)*self.PAGE_SIZE:page*self.PAGE_SIZE]
+        if not selected:
+            lines.append("No creature cards yet. Watch for a drop!")
+        for card, qty, shielded in selected:
+            lines.extend((self.render_compact(card, qty, holder=username),
+                          f"Shielded copies: {shielded}"))
+        if page < pages:
+            lines.append(f"Next: !collection {page+1}")
+        if page > 1:
+            lines.append(f"Previous: !collection {page-1}")
         return "\n".join(lines)
 
     def expired(self):
-        if self.active and self.clock() > self.active[1]:
+        if self.active and self.clock() > self.active["deadline"]:
             self.active = None
             return True
         return False
