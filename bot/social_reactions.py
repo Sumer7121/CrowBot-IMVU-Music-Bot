@@ -29,16 +29,36 @@ REPLIES = (
     "You called, {name}? 🐦",
     "CrowBot reporting for duty, {name}. 🎵",
     "I'm listening, {name}. What's up?",
-    "Present! Need a song, game, or joke?",
-    "Hey {name}! Try !h for commands.",
-    "Did somebody summon the DJ? 🎧",
-    "Bot online. Chaos optional. 😎",
-    "Yes, {name}? My circuits are listening.",
+    "Present! Need a song, a game, or a tiny bit of bird wisdom?",
+    "Hey {name}! Your feathered DJ is tuned in. 🎧",
+    "Did somebody summon the room's resident songbird?",
+    "Bot online. Chaos optional, good music mandatory. 😎",
+    "Yes, {name}? My circuits are doing a little happy dance.",
+    "I heard my name and flew right over. What's happening?",
+    "At your service! The playlist and I are both listening.",
+    "CrowBot here, perched and ready. 🪶",
+    "I was just practicing my dramatic entrance. You rang?",
+    "What's the mission, {name}: music, games, or friendly nonsense?",
+    "Squawk! That was my very professional notification sound.",
+    "I may be a bot, but I have excellent room-listening skills.",
+    "Reporting from the DJ nest. What can I do for you?",
+    "You summoned the bird. I brought absolutely no worms, just vibes.",
+    "I'm all ears. Well, technically, all feathers and speaker cones.",
+    "A wild CrowBot appeared! What's the next move?",
+    "I heard 'bot' and perked up like a bird near snack time.",
+    "Ready when you are, {name}. The room's yours.",
+    "The DJ booth is awake. Tell me what's on your mind.",
+    "I have landed in the chat. How may I brighten the room?",
+    "A message for the bot? This bird is listening. 🐦",
+    "CrowBot checking in: playlist loaded, personality online.",
+    "You found me! I was hiding behind the shuffle button.",
+    "The room's feathered sidekick has entered the conversation.",
+    "Hello, {name}! I brought a fresh reply and absolutely no repeats.",
 )
 
 
 class SocialReactions:
-    def __init__(self, rng=None, clock=None, cooldown=30):
+    def __init__(self, rng=None, clock=None, cooldown=0):
         self.rng = rng or random.Random()
         self.clock = clock or time.monotonic
         self.cooldown = cooldown
