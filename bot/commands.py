@@ -2328,7 +2328,7 @@ class CommandHandler(QObject):
                 tier = arguments[1].casefold() if len(arguments) > 1 else None
             else:
                 return ("Use !drop [bird|dinosaur|dragon], !drop ticket, "
-                        "!drop steal|defend [tier], or !drop 1-7.")
+                        "!drop steal|defend|sacrifice [tier], or !drop 1-7.")
         if tier and tier not in {"common", "uncommon", "rare", "epic", "legendary"}:
             return "Tier must be common, uncommon, rare, epic, or legendary."
         if ticket_type == "sacrifice" and tier == "legendary":
@@ -2571,7 +2571,7 @@ class CommandHandler(QObject):
                 f"{p}duel accept — accept a duel\n"
                 f"{p}defend <card-id> — protect one matching-tier card\n"
                 f"{p}unprotect <card-id> — remove its shield\n"
-                f"{p}sacrifice <2-3 card IDs> — trade same-rank cards using a Sacrifice Card\n"
+                f"{p}sacrifice <2-3 card IDs> — 2 reroll same rank; 3 upgrade one rank\n"
                 f"{p}top — scores\n"
                 f"{p}rarities — pet drop odds"
             ),
