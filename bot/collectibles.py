@@ -297,8 +297,8 @@ def _creature_name(prefix, prefix_trait, animal, species_index, prefix_index):
         f"{stem} {animal}",
         f"{animal} of the {prefix}",
         f"{prefix_trait} {animal}",
-        f"{stem}born {animal}",
-        f"{animal} {stem}heart",
+        f"The {stem} {animal}",
+        f"{animal} of the {stem}",
     )
     return styles[style]
 
