@@ -490,17 +490,15 @@ class CommandHandler(QObject):
         worker.start()
 
     def _local_ai_reply_completed(self, username, reply, fallback):
+        recent = {previous.casefold() for previous in self._ai_recent_replies}
         reply = " ".join(str(reply or "").split()).strip()
-        if reply and reply.casefold() in {
-            previous.casefold() for previous in self._ai_recent_replies
-        }:
-            reply = ""
+        if not reply or reply.casefold() in recent:
+            reply = str(fallback or "").strip()
+        if reply and reply.casefold() in recent:
+            reply = self.social.mention_reply(username)
         if reply:
             self._ai_recent_replies.append(reply)
             self._ai_recent_replies = self._ai_recent_replies[-8:]
-        else:
-            reply = str(fallback or "").strip()
-        if reply:
             self.async_response.emit(username, reply)
 
     def _release_local_ai_worker(self, worker):
