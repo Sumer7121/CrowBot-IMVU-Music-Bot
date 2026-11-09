@@ -335,10 +335,12 @@ def _build_catalog():
     return tuple(cards)
 
 CATALOG = _build_catalog()
-CATALOG_BY_NAME = {card[1].casefold(): card for card in CATALOG}
 CATALOG_BY_BASE_NAME = {card[10].casefold(): card for card in CATALOG}
+CATALOG_BY_NAME = dict(CATALOG_BY_BASE_NAME)
+CATALOG_BY_NAME.update({card[1].casefold(): card for card in CATALOG})
 CATALOG_BY_ID = {card[4].casefold(): card for card in CATALOG}
-assert len(CATALOG) == len(CATALOG_BY_NAME) == len(CATALOG_BY_BASE_NAME) == len(CATALOG_BY_ID) == 1012
+assert (len(CATALOG) == len({card[1].casefold() for card in CATALOG})
+        == len(CATALOG_BY_BASE_NAME) == len(CATALOG_BY_ID) == 1012)
 
 LEGACY_FAMILY = {"cat": "feline", "dog": "canine", "bird": "bird"}
 def _legacy_name_map():
