@@ -2351,7 +2351,7 @@ class CommandHandler(QObject):
     def pet_rarities(self, arguments, username):
         from bot.collectibles import CATALOG, RARITY_WEIGHT
         return (
-            f"🐱🐶 {len(CATALOG)} collectible cats and dogs\n"
+            f"🐱🐶🐦 {len(CATALOG)} collectible pets: cats, dogs, and birds\n"
             "COMMON 60% | RARE 27% | EPIC 10% | LEGENDARY 3%\n"
             f"Use {self.prefix}catch on wild drops and {self.prefix}pets to view your collection."
         )
