@@ -1,4 +1,4 @@
-"""Persistent cats-and-dogs collectible drops (legacy anime items are not dropped)."""
+"""Persistent cat, dog, and bird collectible drops (legacy anime items are not dropped)."""
 import random
 import sqlite3
 from contextlib import closing
@@ -18,8 +18,14 @@ PET_NAMES = {
         "epic": ["Thunderpaw","Royal Corgi","Lightning Husky","Crystal Akita","Storm Chaser Collie","Glacier Shepherd","Amber Wolfdog","Silver Samoyed","Meteor Shiba","Diamond Dalmatian"],
         "legendary": ["Aurora Wolfhound","Starlight Shiba","Celestial Husky","Golden Phoenix Retriever","Eclipse Wolfdog","Shiny Thunderpaw","Nebula Corgi","Prismatic Shepherd"],
     },
+    "bird": {
+        "common": ["Pip","Kiwi","Peep","Doodle","Bluebell","Chirpy","Feather","Sproutlet","Skittles","Bubbles","Goldie","Tweet","Poppywing","Saffron","Nibbles","Fluffy","Cloverwing","Pebblebeak","Sunnyfinch","Mangolet","Tiki","Wren","Biscuitbeak","Dewdrop"],
+        "rare": ["Azure Macaw","Moonlit Cockatiel","Ruby Finch","Silver Canary","Violet Lorikeet","Golden Conure","Cloud Budgie","Jade Parakeet","Coral Lovebird","Frosty Owl","Scarlet Tanager","Dusk Starling","Opal Dove","Royal Robin","Midnight Raven","Arctic Puffin"],
+        "epic": ["Thunderwing","Aurora Phoenix","Crystal Harpy","Emerald Macaw","Stormfeather","Glacier Owl","Cosmic Hummingbird","Mystic Swan","Silver Roc","Diamond Albatross"],
+        "legendary": ["Celestial Phoenix","Prismatic Peacock","Nebula Raven","Sunflare Eagle","Eclipse Owl","Shiny Thunderwing","Starfire Roc","Moonfeather Phoenix"],
+    },
 }
-PET_EMOJI = {"cat": "🐱", "dog": "🐶"}
+PET_EMOJI = {"cat": "🐱", "dog": "🐶", "bird": "🐦"}
 RARITY_WEIGHT = {"common": 60, "rare": 27, "epic": 10, "legendary": 3}
 CATALOG = tuple(
     (kind, name, PET_EMOJI[kind], rarity)
@@ -85,7 +91,7 @@ class CollectibleDrops:
             rows = db.execute(
                 "SELECT item, quantity FROM collections WHERE player=? ORDER BY item",
                 (player,)).fetchall()
-        # Keep old records intact, but only display active cat/dog pets.
+        # Keep old records intact, but only display active cat, dog, and bird pets.
         pets = [(CATALOG_BY_NAME[item], qty) for item, qty in rows
                 if item in CATALOG_BY_NAME]
         if not pets:
@@ -93,7 +99,7 @@ class CollectibleDrops:
         # Rarest pets first, with their collectible tier clearly visible.
         rank = {"legendary": 0, "epic": 1, "rare": 2, "common": 3}
         pets.sort(key=lambda pair: (rank[pair[0][3]], pair[0][1].casefold()))
-        lines = [f"🎒 {username}'s cats & dogs ({sum(q for _, q in pets)} caught)"]
+        lines = [f"🎒 {username}'s pets ({sum(q for _, q in pets)} caught)"]
         for item, quantity in pets[:20]:
             kind, name, emoji, rarity = item
             lines.append(f"• {emoji} {name} [{rarity.upper()}] x{quantity}")
