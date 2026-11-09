@@ -50,7 +50,7 @@ class CollectibleDrops:
                 PRIMARY KEY (player, item))""")
             db.commit()
 
-    def spawn(self):
+    def spawn(self, species=None):
         if self.active is not None:
             return None
         # Roll rarity first, then choose a pet within that rarity. This
@@ -58,7 +58,7 @@ class CollectibleDrops:
         rarity = self.rng.choices(
             list(RARITY_WEIGHT), weights=list(RARITY_WEIGHT.values()), k=1
         )[0]
-        choices = [pet for pet in CATALOG if pet[3] == rarity]
+        choices = [pet for pet in CATALOG if pet[3] == rarity and (species is None or pet[0] == species)]
         item = self.rng.choice(choices)
         self.active = (item, self.clock() + 90)
         kind, name, emoji, rarity = item
