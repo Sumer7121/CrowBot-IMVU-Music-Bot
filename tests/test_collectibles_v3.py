@@ -12,7 +12,7 @@ class PetCatalogTests(unittest.TestCase):
     def test_catalog_contains_100_plus_unique_cats_and_dogs(self):
         self.assertGreaterEqual(len(CATALOG), 100)
         self.assertEqual(len(CATALOG_BY_NAME), len(CATALOG))
-        self.assertEqual({item[0] for item in CATALOG}, {"cat", "dog"})
+        self.assertEqual({item[0] for item in CATALOG}, {"cat", "dog", "bird"})
         self.assertEqual({item[3] for item in CATALOG}, set(RARITY_WEIGHT))
         self.assertEqual(sum(RARITY_WEIGHT.values()), 100)
 
