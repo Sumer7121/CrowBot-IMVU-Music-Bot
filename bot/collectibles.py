@@ -2,7 +2,6 @@
 import random
 import sqlite3
 import time
-import textwrap
 from contextlib import closing
 from pathlib import Path
 
@@ -120,7 +119,7 @@ RARITY_SAYINGS = {
         "Plot twist: {card} thinks snacks solve most side quests.",
         "The sun saved one warm little ray for {card} and its keeper.",
         "A cheerful pawprint from {card} says today can surprise you.",
-        "Even a common card can carry a very uncommon good day.",
+        "Even {card} can carry a very uncommon good day.",
         "{holder}, {card} dares you to make someone's day brighter.",
     ),
     "uncommon": (
@@ -209,7 +208,9 @@ def _render_card_frame(rows):
     bottom = "╰" + "─" * CARD_FRAME_INNER + "╯"
     body = []
     for row in rows:
-        lines = _wrap_card_text(row)
+        value = str(row)
+        # Keep short ASCII creature art exactly as drawn; wrap only long copy.
+        lines = [value] if len(value) <= CARD_FRAME_INNER else _wrap_card_text(value)
         for line in lines:
             line = line[:CARD_FRAME_INNER]
             body.append("│" + line.ljust(CARD_FRAME_INNER) + "│")
