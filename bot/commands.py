@@ -2312,6 +2312,11 @@ class CommandHandler(QObject):
         species = arguments[0].lower() if arguments else None
         if species not in (None, "cat", "dog", "bird"):
             return f"Use {self.prefix}drop, {self.prefix}drop bird, or {self.prefix}drop 1-7."
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner:
+            return "Set the verified room owner in the CrowBot app first."
+        if not permissions.is_owner(username):
+            return "🔒 Only the registered room owner can manually spawn a pet."
         if self.collectibles.expired():
             pass
         if self.collectibles.active is not None:
@@ -2449,7 +2454,7 @@ class CommandHandler(QObject):
                 "🎮 GAMES • BOARD & TRIVIA\n"
                 f"{p}c4 — Connect 4\n"
                 f"{p}join — join C4\n"
-                f"{p}drop <1-7> — C4 coin; {p}drop [bird] — pet drop\n"
+                f"{p}drop <1-7> — C4 coin; {p}drop [bird] — owner-only pet drop\n"
                 f"{p}board — show C4\n"
                 f"⭕ TIC-TAC-TOE (original)\n"
                 f"{p}ttt — challenge\n"
@@ -2464,7 +2469,7 @@ class CommandHandler(QObject):
                 f"{p}rps rock — RPS\n"
                 f"{p}spin — random player\n"
                 "🐾 GAMES • PET DROPS\n"
-                f"{p}petdrop — random pet drop (3m cooldown)\n"
+                f"{p}petdrop — owner-only random pet drop (3m cooldown)\n"
                 f"{p}drops — next automatic pet drop\n"
                 f"{p}catch — catch a wild pet\n"
                 f"{p}pets — view collection\n"
