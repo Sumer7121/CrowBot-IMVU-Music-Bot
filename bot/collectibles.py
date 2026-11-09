@@ -364,6 +364,15 @@ class CollectibleDrops:
         self.rng = rng or random.Random()
         self.clock = clock or time.monotonic
         self.active = None
+        self._auto_drop_intervals = {
+            "creature": (12 * 60, 30 * 60),
+            "steal": (20 * 60, 40 * 60),
+            "defend": (25 * 60, 45 * 60),
+            "sacrifice": (45 * 60, 75 * 60),
+        }
+        self._auto_drop_due = {}
+        for kind in self._auto_drop_intervals:
+            self._reset_auto_drop(kind)
         self.database_path = str(database_path or
             (Path(__file__).resolve().parent.parent / "data" / "crowbot_collectibles.sqlite"))
         Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
@@ -401,7 +410,33 @@ class CollectibleDrops:
     def _rank(tier):
         return RARITY_RANK.get(str(tier or "").casefold(), -1)
 
-    def spawn(self, species=None, ticket_type=None, tier=None):
+    def _reset_auto_drop(self, kind):
+        minimum, maximum = self._auto_drop_intervals[kind]
+        self._auto_drop_due[kind] = self.clock() + self.rng.randint(minimum, maximum)
+
+    def next_auto_drop_kind(self):
+        return min(self._auto_drop_due, key=self._auto_drop_due.get)
+
+    def next_auto_drop_delay_ms(self):
+        delay = self._auto_drop_due[self.next_auto_drop_kind()] - self.clock()
+        return max(1000, int(delay * 1000))
+
+    def spawn_scheduled_drop(self):
+        """Fire the independently scheduled animal or ability-ticket drop."""
+        now = self.clock()
+        due = [kind for kind, deadline in self._auto_drop_due.items()
+               if deadline <= now]
+        if not due:
+            return None
+        kind = min(due, key=lambda item: self._auto_drop_due[item])
+        self._reset_auto_drop(kind)
+        if self.active is not None:
+            return None
+        if kind == "creature":
+            return self.spawn(allow_random_ticket=False)
+        return self.spawn(ticket_type=kind)
+
+    def spawn(self, species=None, ticket_type=None, tier=None, allow_random_ticket=True):
         if self.active is not None:
             return None
         if ticket_type:
@@ -428,7 +463,7 @@ class CollectibleDrops:
             return self.spawn(ticket_type="random", tier=tier)
         if species and species not in {"cat", "dog", "bird", "dinosaur", "dragon"}:
             return None
-        if species is None and self.rng.random() < TICKET_DROP_CHANCE:
+        if species is None and allow_random_ticket and self.rng.random() < TICKET_DROP_CHANCE:
             return self.spawn(ticket_type="random")
         rarity = self.rng.choices(
             list(RARITY_WEIGHT), weights=list(RARITY_WEIGHT.values()), k=1
@@ -599,6 +634,52 @@ class CollectibleDrops:
             return None
         return self.rng.choices([card for card, _ in owned],
                                 weights=[qty for _, qty in owned], k=1)[0]
+
+    def steal_card(self, winner, loser, reference):
+        """Instantly transfer one requested, unshielded card using its exact-tier ticket."""
+        winner_key, loser_key = self._player(winner), self._player(loser)
+        if winner_key == loser_key:
+            return "You cannot steal a card from yourself."
+        card = self.lookup_card(reference)
+        if not card:
+            return "Card not found. Use the B#### ID from the owner's collection."
+        with closing(sqlite3.connect(self.database_path)) as db:
+            db.execute("BEGIN IMMEDIATE")
+            owned = db.execute("""SELECT quantity FROM collections
+                                  WHERE player=? AND item=?""",
+                               (loser_key, card[1])).fetchone()
+            shielded = db.execute("""SELECT quantity FROM protected_cards
+                                     WHERE player=? AND item=?""",
+                                  (loser_key, card[1])).fetchone()
+            protected_count = shielded[0] if shielded else 0
+            if not owned or owned[0] <= protected_count:
+                db.rollback()
+                return f"{loser} has no unshielded copy of {card[4]}."
+            ticket = db.execute("""SELECT quantity FROM ticket_inventory
+                                   WHERE player=? AND ticket_type='steal' AND tier=?""",
+                                (winner_key, card[3])).fetchone()
+            if not ticket or ticket[0] < 1:
+                db.rollback()
+                return f"You need a {card[3].upper()} Steal Ticket to target that card."
+            if ticket[0] == 1:
+                db.execute("""DELETE FROM ticket_inventory
+                              WHERE player=? AND ticket_type='steal' AND tier=?""",
+                           (winner_key, card[3]))
+            else:
+                db.execute("""UPDATE ticket_inventory SET quantity=quantity-1
+                              WHERE player=? AND ticket_type='steal' AND tier=?""",
+                           (winner_key, card[3]))
+            db.execute("""UPDATE collections SET quantity=quantity-1
+                          WHERE player=? AND item=?""", (loser_key, card[1]))
+            db.execute("""DELETE FROM collections
+                          WHERE player=? AND item=? AND quantity<=0""",
+                       (loser_key, card[1]))
+            db.execute("""INSERT INTO collections(player,item,quantity) VALUES (?,?,1)
+                          ON CONFLICT(player,item) DO UPDATE SET quantity=quantity+1""",
+                       (winner_key, card[1]))
+            db.commit()
+        return (f"🎟 {winner} used a {card[3].upper()} Steal Ticket and took "
+                f"{card[4]} {card[1]} from {loser}.")
 
     def steal_random_pet(self, loser, winner, max_tier):
         loser_key, winner_key = self._player(loser), self._player(winner)
