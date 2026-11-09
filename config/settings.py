@@ -17,7 +17,7 @@ DEFAULT_SETTINGS = {
     "local_ai_enabled": False,
     "ai_commentary_enabled": False,
     "local_ai_endpoint": "http://127.0.0.1:11434",
-    "local_ai_model": "llama3.1",
+    "local_ai_model": "auto",
 }
 
 
