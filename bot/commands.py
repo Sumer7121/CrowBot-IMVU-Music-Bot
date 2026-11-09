@@ -216,7 +216,7 @@ class CommandHandler(QObject):
 
             "c4": self.five_start,
             "join": self.five_accept,
-            "drop": self.five_move,
+            "drop": self.drop_command,
             "board": self.five_board,
             "end4": self.five_end,
             "five": self.five_start,
@@ -2139,6 +2139,12 @@ class CommandHandler(QObject):
     def five_accept(self, arguments, username):
         return self.five_game.accept(self._remember_user(username))
 
+    def drop_command(self, arguments, username):
+        """Route pet drops and Connect Four moves through !drop."""
+        if not arguments or arguments[0].lower() in {"cat", "dog", "bird"}:
+            return self.pet_drop_manual(arguments, username)
+        return self.five_move(arguments, username)
+
     def five_move(self, arguments, username):
         if not arguments:
             return f"Use {self.prefix}drop 1-7"
@@ -2302,10 +2308,10 @@ class CommandHandler(QObject):
         return permissions.welcome_message(username) or "Welcome is disabled."
 
     def pet_drop_manual(self, arguments, username):
-        """Rate-limited manual drop for hosts/players to test the pet game.
-
-        !drop remains Connect Four's column move, so pet drops use !petdrop.
-        """
+        """Rate-limited manual pet drop; !drop bird forces a bird for testing."""
+        species = arguments[0].lower() if arguments else None
+        if species not in (None, "cat", "dog", "bird"):
+            return f"Use {self.prefix}drop, {self.prefix}drop bird, or {self.prefix}drop 1-7."
         if self.collectibles.expired():
             pass
         if self.collectibles.active is not None:
@@ -2319,7 +2325,7 @@ class CommandHandler(QObject):
             remaining = int(180 - (now - self.last_pet_drop_at)) + 1
             return f"🐾 Next manual pet drop available in {remaining}s."
         self.last_pet_drop_at = now
-        return self.collectibles.spawn() or "🐾 A pet drop is already active."
+        return self.collectibles.spawn(species=species) or "🐾 A pet drop is already active."
 
     def drop_status(self, arguments, username):
         """Current pet drop and time until this room's next automatic drop."""
@@ -2443,7 +2449,7 @@ class CommandHandler(QObject):
                 "🎮 GAMES • BOARD & TRIVIA\n"
                 f"{p}c4 — Connect 4\n"
                 f"{p}join — join C4\n"
-                f"{p}drop <1-7> — drop coin\n"
+                f"{p}drop <1-7> — C4 coin; {p}drop [bird] — pet drop\n"
                 f"{p}board — show C4\n"
                 f"⭕ TIC-TAC-TOE (original)\n"
                 f"{p}ttt — challenge\n"
@@ -2458,8 +2464,8 @@ class CommandHandler(QObject):
                 f"{p}rps rock — RPS\n"
                 f"{p}spin — random player\n"
                 "🐾 GAMES • PET DROPS\n"
-                f"{p}petdrop — spawn a pet (3m cooldown)\n"
-                f"{p}drops — next automatic cat/dog drop\n"
+                f"{p}petdrop — random pet drop (3m cooldown)\n"
+                f"{p}drops — next automatic pet drop\n"
                 f"{p}catch — catch a wild pet\n"
                 f"{p}pets — view collection\n"
                 f"{p}top — scores\n"
