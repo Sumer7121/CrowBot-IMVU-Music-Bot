@@ -462,35 +462,37 @@ class CollectibleDrops:
 
     @classmethod
     def render_card(cls, card, quantity=1, holder=None):
-        rarity, mark = card[3], RARITY_MARK[card[3]]
-        art = _ART.get(card[8], _ART["dragon"])
+        # Short decorations avoid padded side borders in proportional IMVU chat.
+        import textwrap
+        mini_art = {
+            "feline": "(=^.^=)", "canine": "/^._.^\\", "bear": "ʕ•ᴥ•ʔ",
+            "rabbit": "(\\_/)", "forest": "(^.^)", "bird": "(o)>",
+            "dragon": "<^..^>", "griffin": "<^.^>", "phoenix": "<*v*>",
+            "reptile": "<o_o>", "sea": "><(((>", "dinosaur": "<o.o>",
+            "mermaid": "(o.o)~", "bat": "/\\^._.^/\\", "moth": "ƸӜƷ",
+            "raccoon": "(o.o)=",
+        }
+        rarity = card[3]
+        dot = RARITY_DOT.get(rarity, "⚪")
+        art = mini_art.get(card[8], "<^.^>")
         saying = cls._fortune(card, holder)
-        rows = [
-            f"{mark} {rarity.upper()} · {card[5].upper()} · {card[4]}",
-            f"{card[2]} {card[1]}",
-            "",
-            f"{art[0]}  {cls._sigil(card)}",
-            art[1], art[2], "",
-            f"Trait: {card[6]}",
-            f"Power: {card[7]} · Copies: x{quantity}",
-            "",
-            f"Card saying · {rarity.title()}",
-            saying,
+        def wrap(text):
+            return textwrap.fill(str(text), width=30, break_long_words=False,
+                                 break_on_hyphens=False)
+        lines = [
+            f"✦── {dot} {rarity.upper()} ──✦",
+            wrap(f"{card[2]} {card[1]}"),
+            f"{art} · {card[5].upper()}",
+            f"{card[4]} · POW {card[7]} · x{quantity}",
+            cls._sigil(card),
+            wrap("“" + saying + "”"),
+            "✦──────────────✦",
         ]
-        return _render_card_frame(rows, card[3])
+        return "\n".join(lines)
 
     @classmethod
     def render_compact(cls, card, quantity, holder=None):
-        art = _ART.get(card[8], _ART["dragon"])
-        rows = [
-            f"{RARITY_MARK[card[3]]} {card[3].upper()} · {card[4]}",
-            f"{card[2]} {card[1]}",
-            f"{art[0]}  {cls._sigil(card)}",
-            f"{card[5].title()} · POW {card[7]} · x{quantity}",
-            "Saying: " + cls._fortune(card, holder),
-        ]
-        return _render_card_frame(rows, card[3])
-
+        return cls.render_card(card, quantity=quantity, holder=holder)
 
     @staticmethod
     def render_ticket(ticket_type, tier, holder=None):
