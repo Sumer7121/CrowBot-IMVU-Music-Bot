@@ -26,8 +26,19 @@ class LocalAIReplyWorker(QThread):
                 "localhost", "127.0.0.1", "::1"
             }:
                 raise ValueError("Local AI endpoint must use localhost.")
-            if not self.model:
-                raise ValueError("Enter the exact local model name from ollama list.")
+            model = self.model
+            if model.casefold() in {"", "auto", "detect"}:
+                tags_request = Request(self.endpoint + "/api/tags", method="GET")
+                with urlopen(tags_request, timeout=8) as response:
+                    available = json.loads(response.read().decode("utf-8")).get("models", [])
+                if not available:
+                    raise RuntimeError("Ollama has no models installed yet.")
+                newest = max(
+                    available, key=lambda item: str(item.get("modified_at", ""))
+                )
+                model = str(newest.get("name") or newest.get("model") or "").strip()
+            if not model:
+                raise ValueError("No installed Ollama model could be detected.")
             if self.mode == "mention":
                 instruction = (
                     "Reply directly to the member's message. Answer their question when "
@@ -51,7 +62,7 @@ class LocalAIReplyWorker(QThread):
                 "CrowBot:"
             )
             body = json.dumps({
-                "model": self.model,
+                "model": model,
                 "prompt": prompt,
                 "stream": False,
                 "options": {"temperature": 0.9, "num_predict": 80},
