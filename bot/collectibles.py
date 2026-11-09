@@ -286,7 +286,7 @@ THEMED_CREATURES = (
     ("punk_raccoon", "Punk Raccoon", "🦝", "raccoon", "punk", "Bin-Raid Rebellion", "uncommon", "small"),
     ("neon_axolotl", "Neon Axolotl", "🦎", "sea", "neon", "Glowfin Escape", "uncommon", "small"),
     ("mourning_dove", "Mourning Dove", "🕊️", "bird", "gothic", "Midnight Lament", "uncommon", "small"),
-    ("shadow_wolf", "Shadow Wolf", "🐺", "canine", "shadow", "Eclipse Howl", "rare", "large"),
+    ("gloam_wolf", "Gloam Wolf", "🐺", "canine", "shadow", "Eclipse Howl", "rare", "large"),
 )
 
 def _creature_name(prefix, prefix_trait, animal, species_index, prefix_index):
