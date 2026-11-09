@@ -377,7 +377,7 @@ class CommandHandler(QObject):
         self.local_ai_endpoint = ai_settings.get(
             "local_ai_endpoint", "http://127.0.0.1:11434"
         )
-        self.local_ai_model = ai_settings.get("local_ai_model", "llama3.1")
+        self.local_ai_model = ai_settings.get("local_ai_model", "auto")
         self._local_ai_workers = set()
         self._ai_recent_replies = []
         self._next_ai_commentary_at = 0.0
