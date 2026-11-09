@@ -2517,13 +2517,8 @@ class CommandHandler(QObject):
             return self.party_games.accept_duel(username, self.collectibles)
         if arguments and arguments[0].casefold() == "cancel":
             return self.party_games.cancel_duel(username)
-        tier = None
-        if arguments and arguments[-1].casefold() in {
-            "common", "uncommon", "rare", "epic", "legendary"
-        }:
-            tier = arguments.pop().casefold()
         name = " ".join(arguments).strip().lstrip("@")
-        return self.party_games.duel(username, name, self.collectibles, tier)
+        return self.party_games.duel(username, name, self.collectibles)
 
     def spin_bottle(self, arguments, username):
         """Spin toward one randomly chosen observed room chatter."""
