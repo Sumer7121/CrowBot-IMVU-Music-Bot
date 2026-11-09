@@ -198,56 +198,37 @@ class PartyGames:
         challenger = str(username or "").strip()
         other = str(opponent or "").strip().lstrip("@")
         if not other:
-            return "⚔️ Use !duel @username [tier] to challenge for a creature."
+            return "⚔️ Use !duel @username to start a friendly creature arena match."
         if other.casefold() == challenger.casefold():
             return "⚔️ You cannot duel yourself!"
         if collectibles is None:
-            return "Creature duels need the collection system to be active."
+            return "Creature arena duels need the collection system to be active."
         if self.pending_duel and time.monotonic() >= self.pending_duel["expires"]:
             self.pending_duel = None
         if self.pending_duel:
             return "⚔️ A duel challenge is already waiting in this room."
-        from bot.collectibles import RARITY_RANK
-        tickets = collectibles.ticket_counts(challenger)
-        available = [t for (kind, t), qty in tickets.items()
-                     if kind == "steal" and qty > 0]
-        if tier:
-            tier = tier.casefold()
-            if tier not in RARITY_RANK:
-                return "Choose common, uncommon, rare, epic, or legendary."
-            if ("steal", tier) not in tickets:
-                return f"You need a {tier.upper()} Steal Ticket."
-        elif available:
-            tier = max(available, key=lambda value: RARITY_RANK[value])
-        else:
-            return "🎟 You need a Steal Ticket. Catch one with !catch."
-        if not collectibles.has_eligible_pet(challenger, tier):
-            return f"You need a creature at {tier.upper()} or lower to risk in this duel."
-        if not collectibles.has_eligible_pet(other, tier, unshielded=True):
-            return f"{other} has no unshielded creature at {tier.upper()} or lower to win."
+        if not collectibles.has_eligible_pet(challenger, "legendary"):
+            return "You need a creature card before you can enter the arena."
+        if not collectibles.has_eligible_pet(other, "legendary"):
+            return f"{other} needs a creature card before entering the arena."
         self.pending_duel = {
-            "challenger": challenger, "opponent": other, "tier": tier,
+            "challenger": challenger, "opponent": other,
             "expires": time.monotonic() + 60,
         }
-        return (f"⚔️ CREATURE DUEL: {challenger} challenges {other}! "
-                f"Ticket tier: {tier.upper()}. {other}, accept with !duel accept "
-                "within 60 seconds. The winner takes one unshielded creature "
-                "at or below the ticket tier.")
+        return (f"⚔️ ARENA CHALLENGE: {challenger} challenges {other}! "
+                f"{other}, accept with !duel accept within 60 seconds. "
+                "Arena matches award points; they never spend tickets or transfer cards.")
 
     def accept_duel(self, username, collectibles):
         challenge = self.pending_duel
         if not challenge:
-            return "⚔️ No creature duel is waiting."
+            return "⚔️ No arena duel is waiting."
         if time.monotonic() >= challenge["expires"]:
             self.pending_duel = None
-            return "⌛ The duel challenge expired."
+            return "⌛ The arena challenge expired."
         player = str(username or "").strip()
         if player.casefold() != challenge["opponent"].casefold():
             return f"⚔️ Only {challenge['opponent']} can accept this duel."
-        if not collectibles.spend_ticket(
-                challenge["challenger"], "steal", challenge["tier"]):
-            self.pending_duel = None
-            return "🎟 The challenger no longer has that Steal Ticket."
         first = collectibles.choose_owned_card(challenge["challenger"])
         second = collectibles.choose_owned_card(challenge["opponent"])
         self.pending_duel = None
@@ -256,22 +237,13 @@ class PartyGames:
         first_roll, second_roll = random.randint(1, 20), random.randint(1, 20)
         first_score, second_score = first[7] + first_roll, second[7] + second_roll
         if first_score == second_score:
-            return (f"🤝 DUEL DRAW! {first[4]} {first[1]} ({first_score}) vs "
-                    f"{second[4]} {second[1]} ({second_score}). No creature was stolen; "
-                    "the ticket was used.")
+            return (f"🤝 ARENA DRAW! {first[1]} ({first_score}) vs "
+                    f"{second[1]} ({second_score}). No ticket or card changed hands.")
         winner = challenge["challenger"] if first_score > second_score else challenge["opponent"]
-        loser = challenge["opponent"] if first_score > second_score else challenge["challenger"]
         points = self._award(winner)
-        stolen = collectibles.steal_random_pet(loser, winner, challenge["tier"])
-        result = (f"🏆 {winner} wins with {max(first_score, second_score)}! "
-                  f"+1 duel point (total {points}).")
-        if stolen:
-            result += f" {winner} took {stolen[4]} {stolen[1]} [{stolen[3].upper()}] from {loser}!"
-        else:
-            result += " The opponent's remaining eligible creatures were shielded."
-        return (f"⚔️ PET DUEL · {first[2]} {first[1]} +{first_roll} "
-                f"({first_score}) vs {second[2]} {second[1]} +{second_roll} "
-                f"({second_score}). {result}")
+        return (f"⚔️ ARENA · {first[1]} +{first_roll} ({first_score}) vs "
+                f"{second[1]} +{second_roll} ({second_score}). "
+                f"🏆 {winner} wins +1 duel point (total {points})!")
 
     def cancel_duel(self, username):
         challenge = self.pending_duel
