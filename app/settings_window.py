@@ -316,10 +316,10 @@ class SettingsWindow(QDialog):
 
         self.local_ai_model = QLineEdit()
         self.local_ai_model.setText(
-            settings.get("local_ai_model", "llama3.1")
+            settings.get("local_ai_model", "auto")
         )
         self.local_ai_model.setPlaceholderText(
-            "Exact model name from ollama list"
+            "auto-detect, or enter a name from ollama list"
         )
 
         # =====================================================
@@ -431,7 +431,7 @@ class SettingsWindow(QDialog):
             "ai_commentary_enabled": self.ai_commentary_enabled.isChecked(),
             "local_ai_endpoint": self.local_ai_endpoint.text().strip()
                 or "http://127.0.0.1:11434",
-            "local_ai_model": self.local_ai_model.text().strip() or "llama3.1",
+            "local_ai_model": self.local_ai_model.text().strip() or "auto",
         })
 
         save_settings(
