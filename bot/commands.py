@@ -251,6 +251,7 @@ class CommandHandler(QObject):
             "cats": self.show_collection,
             "dogs": self.show_collection,
             "pets": self.show_collection,
+            "c": self.hidden_card_catalog,  # Owner-only utility; intentionally omitted from help menus.
             "rarities": self.pet_rarities,
             "spin": self.spin_bottle,
             "question": self.question,
@@ -2379,6 +2380,62 @@ class CommandHandler(QObject):
 
     def unprotect_collectible(self, arguments, username):
         return self.collectibles.unprotect_card(username, " ".join(arguments))
+
+    def hidden_card_catalog(self, arguments, username):
+        """Owner-only, intentionally unlisted creature-card catalog browser."""
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner or not permissions.is_owner(username):
+            return "🔒 This hidden card catalog is owner-only."
+
+        if not arguments or arguments[0].casefold() != "list":
+            return f"Use {self.prefix}c list [page|next|prev|card name]."
+
+        from bot.collectibles import CATALOG, CATALOG_BY_NAME
+
+        query = " ".join(arguments[1:]).strip()
+        if query and query.casefold() not in {"next", "prev", "previous"}:
+            card = CATALOG_BY_NAME.get(query.casefold())
+            if card is None:
+                matches = [item for item in CATALOG if query.casefold() in item[1].casefold()]
+                if not matches:
+                    return f"No card named '{query}' was found. Use {self.prefix}c list to browse names."
+                choices = matches[:10]
+                return ("🔎 Matching cards (use the exact name to view):\n" +
+                        "\n".join(f"{item[1]} · {item[3].title()} · {item[4]}" for item in choices))
+            return self.collectibles.render_card(card, holder=username)
+
+        key = str(username).casefold()
+        pages = getattr(self, "_hidden_catalog_pages", None)
+        if pages is None:
+            pages = self._hidden_catalog_pages = {}
+        page = pages.get(key, 1)
+        if query:
+            action = query.casefold()
+            if action == "next":
+                page += 1
+            elif action in {"prev", "previous"}:
+                page -= 1
+            else:
+                try:
+                    page = int(action)
+                except ValueError:
+                    return f"Use {self.prefix}c list [page|next|prev|card name]."
+        else:
+            page = 1
+        page_size = 10
+        total_pages = (len(CATALOG) + page_size - 1) // page_size
+        page = max(1, min(page, total_pages))
+        pages[key] = page
+        start = (page - 1) * page_size
+        rows = CATALOG[start:start + page_size]
+        listing = "\n".join(
+            f"{item[4]} · {item[1]} · {item[3].title()}" for item in rows
+        )
+        return (f"🔐 PRIVATE BESTIARY · {len(CATALOG)} cards · page {page}/{total_pages}\n"
+                f"{listing}\n"
+                f"Navigate: {self.prefix}c list next | {self.prefix}c list prev | "
+                f"{self.prefix}c list <page>\n"
+                f"View a card: {self.prefix}c list <exact card name>")
 
     def pet_rarities(self, arguments, username):
         from bot.collectibles import CATALOG, RARITY_WEIGHT
