@@ -131,8 +131,7 @@ class RoomSession:
             return None
         prefix = self.command_handler.prefix
         if not message.startswith(prefix):
-            self.command_handler._remember_user(username)
-            return None
+            return self.command_handler.handle(message, username)
 
         parts = message[len(prefix):].strip().split()
         command = parts[0].casefold() if parts else ""
