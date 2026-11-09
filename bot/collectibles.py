@@ -645,14 +645,24 @@ class CollectibleDrops:
             return "Card not found. Use the B#### ID from the owner's collection."
         with closing(sqlite3.connect(self.database_path)) as db:
             db.execute("BEGIN IMMEDIATE")
-            owned = db.execute("""SELECT quantity FROM collections
-                                  WHERE player=? AND item=?""",
-                               (loser_key, card[1])).fetchone()
-            shielded = db.execute("""SELECT quantity FROM protected_cards
-                                     WHERE player=? AND item=?""",
-                                  (loser_key, card[1])).fetchone()
-            protected_count = shielded[0] if shielded else 0
-            if not owned or owned[0] <= protected_count:
+            rows = db.execute("""SELECT item,quantity FROM collections
+                                  WHERE player=?""", (loser_key,)).fetchall()
+            owned_item = None
+            owned_quantity = 0
+            protected_count = 0
+            for item, quantity in rows:
+                stored_card = CATALOG_BY_NAME.get(item.casefold())
+                if not stored_card or stored_card[4] != card[4]:
+                    continue
+                shielded = db.execute("""SELECT quantity FROM protected_cards
+                                         WHERE player=? AND item=?""",
+                                      (loser_key, item)).fetchone()
+                shields = shielded[0] if shielded else 0
+                if quantity > shields:
+                    owned_item, owned_quantity = item, quantity
+                    protected_count = shields
+                    break
+            if owned_item is None:
                 db.rollback()
                 return f"{loser} has no unshielded copy of {card[4]}."
             ticket = db.execute("""SELECT quantity FROM ticket_inventory
@@ -670,10 +680,10 @@ class CollectibleDrops:
                               WHERE player=? AND ticket_type='steal' AND tier=?""",
                            (winner_key, card[3]))
             db.execute("""UPDATE collections SET quantity=quantity-1
-                          WHERE player=? AND item=?""", (loser_key, card[1]))
+                          WHERE player=? AND item=?""", (loser_key, owned_item))
             db.execute("""DELETE FROM collections
                           WHERE player=? AND item=? AND quantity<=0""",
-                       (loser_key, card[1]))
+                       (loser_key, owned_item))
             db.execute("""INSERT INTO collections(player,item,quantity) VALUES (?,?,1)
                           ON CONFLICT(player,item) DO UPDATE SET quantity=quantity+1""",
                        (winner_key, card[1]))
