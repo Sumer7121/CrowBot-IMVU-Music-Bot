@@ -26,7 +26,7 @@ LEGACY_PET_NAMES = {
     },
 }
 
-RARITY_WEIGHT = {"common": 50, "uncommon": 25, "rare": 15, "epic": 8, "legendary": 2}
+RARITY_WEIGHT = {"common": 35, "uncommon": 40, "rare": 17, "epic": 7, "legendary": 1}
 RARITY_RANK = {name: i for i, name in enumerate(RARITY_WEIGHT)}
 RARITY_MARK = {"common": "·", "uncommon": "+", "rare": "*", "epic": "◆", "legendary": "★"}
 TICKET_TYPES = ("steal", "defend")
@@ -81,31 +81,31 @@ SPECIES = (
     ("triceratops", "Triceratops", "🦕", "dinosaur", "Horn Rush", "epic", "large"),
     ("stegosaurus", "Stegosaurus", "🦕", "dinosaur", "Plate Wall", "rare", "large"),
     ("velociraptor", "Velociraptor", "🦖", "dinosaur", "Quick Claw", "rare", "small"),
-    ("spinosaurus", "Spinosaurus", "🦖", "dinosaur", "Sail Surge", "legendary", "giant"),
+    ("spinosaurus", "Spinosaurus", "🦖", "dinosaur", "Sail Surge", "epic", "giant"),
     ("ankylosaurus", "Ankylosaurus", "🦕", "dinosaur", "Tail Mace", "epic", "large"),
     ("brachiosaurus", "Brachiosaurus", "🦕", "dinosaur", "Canopy Reach", "epic", "giant"),
     ("diplodocus", "Diplodocus", "🦕", "dinosaur", "Longtail Sweep", "rare", "giant"),
     ("allosaurus", "Allosaurus", "🦖", "dinosaur", "Razor Lunge", "epic", "large"),
-    ("carnotaurus", "Carnotaurus", "🦖", "dinosaur", "Horned Sprint", "rare", "large"),
+    ("carnotaurus", "Carnotaurus", "🦖", "dinosaur", "Horned Sprint", "uncommon", "large"),
     ("parasaurolophus", "Parasaurolophus", "🦕", "dinosaur", "Echo Crest", "uncommon", "large"),
     ("pachycephalosaurus", "Pachycephalosaurus", "🦕", "dinosaur", "Dome Bash", "uncommon", "medium"),
     ("iguanodon", "Iguanodon", "🦕", "dinosaur", "Thumb Spike", "uncommon", "large"),
     ("therizinosaurus", "Therizinosaurus", "🦕", "dinosaur", "Longclaw Sweep", "epic", "large"),
     ("deinonychus", "Deinonychus", "🦖", "dinosaur", "Sickle Claw", "uncommon", "small"),
     ("utahraptor", "Utahraptor", "🦖", "dinosaur", "Pack Pounce", "epic", "large"),
-    ("giganotosaurus", "Giganotosaurus", "🦖", "dinosaur", "Titan Bite", "legendary", "giant"),
-    ("styracosaurus", "Styracosaurus", "🦕", "dinosaur", "Frill Charge", "rare", "large"),
+    ("giganotosaurus", "Giganotosaurus", "🦖", "dinosaur", "Titan Bite", "epic", "giant"),
+    ("styracosaurus", "Styracosaurus", "🦕", "dinosaur", "Frill Charge", "uncommon", "large"),
     ("compsognathus", "Compsognathus", "🦖", "dinosaur", "Swift Scurry", "common", "small"),
     ("microraptor", "Microraptor", "🦖", "dinosaur", "Feather Glide", "uncommon", "small"),
     ("apatosaurus", "Apatosaurus", "🦕", "dinosaur", "Thunder Tail", "epic", "giant"),
-    ("argentinosaurus", "Argentinosaurus", "🦕", "dinosaur", "Colossus Stride", "legendary", "giant"),
+    ("argentinosaurus", "Argentinosaurus", "🦕", "dinosaur", "Colossus Stride", "epic", "giant"),
     ("corythosaurus", "Corythosaurus", "🦕", "dinosaur", "Crested Call", "uncommon", "large"),
-    ("edmontosaurus", "Edmontosaurus", "🦕", "dinosaur", "River Herd Rush", "rare", "large"),
+    ("edmontosaurus", "Edmontosaurus", "🦕", "dinosaur", "River Herd Rush", "uncommon", "large"),
     ("gallimimus", "Gallimimus", "🦖", "dinosaur", "Fleetfoot Dash", "uncommon", "medium"),
-    ("oviraptor", "Oviraptor", "🦖", "dinosaur", "Nest Guardian", "rare", "small"),
+    ("oviraptor", "Oviraptor", "🦖", "dinosaur", "Nest Guardian", "uncommon", "small"),
     ("protoceratops", "Protoceratops", "🦕", "dinosaur", "Desert Frill", "uncommon", "small"),
-    ("ceratosaurus", "Ceratosaurus", "🦖", "dinosaur", "Horned Ambush", "rare", "large"),
-    ("dilophosaurus", "Dilophosaurus", "🦖", "dinosaur", "Twin Crest Cry", "rare", "large"),
+    ("ceratosaurus", "Ceratosaurus", "🦖", "dinosaur", "Horned Ambush", "uncommon", "large"),
+    ("dilophosaurus", "Dilophosaurus", "🦖", "dinosaur", "Twin Crest Cry", "uncommon", "large"),
     ("maiasaura", "Maiasaura", "🦕", "dinosaur", "Nurturing Herd", "uncommon", "large"),
 )
 
@@ -141,9 +141,34 @@ _ART = {
 }
 def _card_rarity(base_tier, element_bonus, size):
     tiers = tuple(RARITY_WEIGHT)
-    size_bonus = {"small": 0, "medium": 0, "large": 1, "giant": 2, "mythic": 2}
-    rank = RARITY_RANK[base_tier] + element_bonus + size_bonus[size]
-    return tiers[min(len(tiers) - 1, rank)]
+    # Legends stay scarce: only naturally legendary species with the rarest
+    # element families keep the top tier. Giant bodies nudge cards upward,
+    # while other creatures can rise only as far as Epic.
+    if base_tier == "legendary":
+        return "legendary" if element_bonus >= 2 else "epic"
+    size_bonus = 1 if size in {"giant", "mythic"} else 0
+    rare_element_bonus = 1 if element_bonus >= 2 else 0
+    rank = RARITY_RANK[base_tier] + rare_element_bonus + size_bonus
+    return tiers[min(RARITY_RANK["epic"], rank)]
+
+LEGENDARY_TITLES = {
+    ("Shadow", "Dragon"): "Eclipse Sovereign",
+    ("Abyss", "Dragon"): "Voidflare",
+    ("Crystal", "Dragon"): "Prismheart",
+    ("Star", "Dragon"): "Astral Crown",
+    ("Shadow", "Hydra"): "Nightmare Crown",
+    ("Abyss", "Hydra"): "Leviathan's Ruin",
+    ("Crystal", "Hydra"): "Shardstorm",
+    ("Star", "Hydra"): "Worldcoil",
+    ("Shadow", "Phoenix"): "Nightfire Reborn",
+    ("Abyss", "Phoenix"): "Voidwing",
+    ("Crystal", "Phoenix"): "Glassfire",
+    ("Star", "Phoenix"): "Celestial Ash",
+    ("Shadow", "Tyrannosaurus Rex"): "Dreadmaw, the Eclipse King",
+    ("Abyss", "Tyrannosaurus Rex"): "Voidfang, the World Eater",
+    ("Crystal", "Tyrannosaurus Rex"): "Shardback, the Titan Breaker",
+    ("Star", "Tyrannosaurus Rex"): "Starfall, the Ancient Apex",
+}
 
 def _build_catalog():
     cards = []
@@ -154,17 +179,20 @@ def _build_catalog():
     for prefix, element, prefix_trait, rarity_bonus in PREFIXES:
         for key, animal, emoji, family, animal_trait, base_tier, size in SPECIES:
             index += 1
-            name = f"{prefix} {animal}"
+            base_name = f"{prefix} {animal}"
             rarity = _card_rarity(base_tier, rarity_bonus, size)
+            title = LEGENDARY_TITLES.get((prefix, animal)) if rarity == "legendary" else None
+            name = f"{title} — {base_name}" if title else base_name
             power = min(99, rarity_power[rarity] + size_power[size] + ((index * 13) % 7))
             cards.append((key, name, emoji, rarity, f"B{index:04d}",
-                          element, f"{prefix_trait} {animal_trait}", power, family, size))
+                          element, f"{prefix_trait} {animal_trait}", power, family, size, base_name))
     return tuple(cards)
 
 CATALOG = _build_catalog()
 CATALOG_BY_NAME = {card[1].casefold(): card for card in CATALOG}
+CATALOG_BY_BASE_NAME = {card[10].casefold(): card for card in CATALOG}
 CATALOG_BY_ID = {card[4].casefold(): card for card in CATALOG}
-assert len(CATALOG) == len(CATALOG_BY_NAME) == len(CATALOG_BY_ID) == 1000
+assert len(CATALOG) == len(CATALOG_BY_NAME) == len(CATALOG_BY_BASE_NAME) == len(CATALOG_BY_ID) == 1000
 
 LEGACY_FAMILY = {"cat": "feline", "dog": "canine", "bird": "bird"}
 def _legacy_name_map():
