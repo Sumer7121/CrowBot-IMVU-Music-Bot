@@ -11,7 +11,9 @@ from bot.five_in_a_row import FiveInARow
 from bot.party_games import PartyGames
 from bot import party_prompts as prompts
 from bot.social_reactions import SocialReactions
+from bot.local_ai import LocalAIReplyWorker
 from bot.collectibles import CollectibleDrops
+from config.settings import load_settings
 
 
 # =============================================================
@@ -369,6 +371,16 @@ class CommandHandler(QObject):
         self.party_games = PartyGames()
         self.social = SocialReactions()
         self.collectibles = CollectibleDrops()
+        ai_settings = load_settings()
+        self.local_ai_enabled = bool(ai_settings.get("local_ai_enabled", False))
+        self.ai_commentary_enabled = bool(ai_settings.get("ai_commentary_enabled", False))
+        self.local_ai_endpoint = ai_settings.get(
+            "local_ai_endpoint", "http://127.0.0.1:11434"
+        )
+        self.local_ai_model = ai_settings.get("local_ai_model", "llama3.1")
+        self._local_ai_workers = set()
+        self._ai_recent_replies = []
+        self._next_ai_commentary_at = 0.0
         self.last_pet_drop_at = None
         self.next_auto_drop_at = None
         self.adult_jokes = False
@@ -417,7 +429,7 @@ class CommandHandler(QObject):
         if not message.startswith(
             self.prefix
         ):
-            return None
+            return self.handle_room_chat(username, message)
 
         command_text = (
             message[len(self.prefix):]
@@ -448,6 +460,52 @@ class CommandHandler(QObject):
             arguments,
             username,
         )
+
+    def handle_room_chat(self, username, message):
+        """Reply to direct CrowBot mentions and optionally react to room chat."""
+        username = self._remember_user(username)
+        message = str(message or "").strip()
+        fallback = self.social.mention(username, message, self.prefix)
+        if fallback:
+            if self.local_ai_enabled:
+                self._queue_local_ai_reply(username, message, "mention", fallback)
+                return None
+            return fallback
+
+        now = time.monotonic()
+        if (self.local_ai_enabled and self.ai_commentary_enabled
+                and now >= self._next_ai_commentary_at):
+            self._next_ai_commentary_at = now + 90
+            self._queue_local_ai_reply(username, message, "commentary")
+        return None
+
+    def _queue_local_ai_reply(self, username, message, mode, fallback=""):
+        worker = LocalAIReplyWorker(
+            username, message, self.local_ai_endpoint, self.local_ai_model,
+            mode, fallback, tuple(self._ai_recent_replies),
+        )
+        worker.completed.connect(self._local_ai_reply_completed)
+        worker.finished.connect(lambda current=worker: self._release_local_ai_worker(current))
+        self._local_ai_workers.add(worker)
+        worker.start()
+
+    def _local_ai_reply_completed(self, username, reply, fallback):
+        reply = " ".join(str(reply or "").split()).strip()
+        if reply and reply.casefold() in {
+            previous.casefold() for previous in self._ai_recent_replies
+        }:
+            reply = ""
+        if reply:
+            self._ai_recent_replies.append(reply)
+            self._ai_recent_replies = self._ai_recent_replies[-8:]
+        else:
+            reply = str(fallback or "").strip()
+        if reply:
+            self.async_response.emit(username, reply)
+
+    def _release_local_ai_worker(self, worker):
+        self._local_ai_workers.discard(worker)
+        worker.deleteLater()
 
     # =========================================================
     # URL VALIDATION
