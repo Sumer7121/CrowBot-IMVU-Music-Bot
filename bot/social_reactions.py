@@ -101,4 +101,9 @@ class SocialReactions:
         if now - self.last_reply.get(key, float("-inf")) < self.cooldown:
             return None
         self.last_reply[key] = now
+        return self.mention_reply(name)
+
+    def mention_reply(self, username):
+        """Return the next line in the no-repeat CrowBot reply deck."""
+        name = str(username or "friend").strip()
         return self.pick("mention", REPLIES).format(name=name)
