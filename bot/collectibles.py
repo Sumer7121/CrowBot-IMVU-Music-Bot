@@ -665,6 +665,12 @@ class CollectibleDrops:
                 if not row or row[0] < amount:
                     db.rollback()
                     return f"You don't own enough copies of {item} to sacrifice."
+                shielded = db.execute("""SELECT quantity FROM protected_cards
+                                         WHERE player=? AND item=?""",
+                                      (player, item)).fetchone()
+                if row[0] - (shielded[0] if shielded else 0) < amount:
+                    db.rollback()
+                    return f"Remove {item}'s shield before sacrificing it."
             if ticket[0] == 1:
                 db.execute("""DELETE FROM ticket_inventory
                               WHERE player=? AND ticket_type='sacrifice' AND tier=?""",
@@ -687,8 +693,9 @@ class CollectibleDrops:
                           ON CONFLICT(player,item) DO UPDATE SET quantity=quantity+1""",
                        (player, reward[1]))
             db.commit()
-        return (f"⚒ Sacrificed {len(chosen)} {tier.upper()} cards for one "
-                f"{target_tier.upper()} card.\n{self.render_card(reward, holder=username)}")
+        return (f"⚒ Sacrificed {len(chosen)} {tier.upper()} cards and used your "
+                f"{tier.upper()} Sacrifice Card for one {target_tier.upper()} card.\n"
+                f"{self.render_card(reward, holder=username)}")
 
     def defend_card(self, username, reference):
         card = self.lookup_card(reference)
