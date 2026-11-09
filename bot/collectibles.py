@@ -498,7 +498,9 @@ class CollectibleDrops:
         titles = {"steal": "STEAL", "defend": "DEFENSE", "sacrifice": "SACRIFICE"}
         icon, title = icons[ticket_type], titles[ticket_type]
         if ticket_type == "steal":
-            effect = f"Only a {tier.upper()} Steal Ticket can target a {tier.upper()} card."
+            effect = f"Accepted duel can steal one unshielded card up to {tier.upper()}."
+            if tier != "legendary":
+                effect += " Legendary cards require a Legendary ticket."
         elif ticket_type == "defend":
             effect = f"Protect one {tier.upper()} creature with !defend <card-id>."
         else:
