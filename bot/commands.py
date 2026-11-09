@@ -2390,13 +2390,15 @@ class CommandHandler(QObject):
         if not arguments or arguments[0].casefold() != "list":
             return f"Use {self.prefix}c list [page|next|prev|card name]."
 
-        from bot.collectibles import CATALOG, CATALOG_BY_NAME
+        from bot.collectibles import CATALOG, CATALOG_BY_BASE_NAME, CATALOG_BY_NAME
 
         query = " ".join(arguments[1:]).strip()
         if query and query.casefold() not in {"next", "prev", "previous"}:
-            card = CATALOG_BY_NAME.get(query.casefold())
+            card = CATALOG_BY_NAME.get(query.casefold()) or CATALOG_BY_BASE_NAME.get(query.casefold())
             if card is None:
-                matches = [item for item in CATALOG if query.casefold() in item[1].casefold()]
+                matches = [item for item in CATALOG
+                           if query.casefold() in item[1].casefold()
+                           or query.casefold() in item[10].casefold()]
                 if not matches:
                     return f"No card named '{query}' was found. Use {self.prefix}c list to browse names."
                 choices = matches[:10]
