@@ -4880,11 +4880,11 @@ class MainWindow(QMainWindow):
 
 
     def _schedule_collectible(self):
-        """Random 12–30 minute delay; only when a listener is running."""
+        """Random 15–30 minute delay; only when a listener is running."""
         import random
         worker = self.imvu_chat_worker
         if worker is not None and worker.isRunning():
-            self.collectible_timer.start(random.randint(12 * 60_000, 30 * 60_000))
+            self.collectible_timer.start(random.randint(15 * 60_000, 30 * 60_000))
 
     def _spawn_collectible(self):
         worker = self.imvu_chat_worker
