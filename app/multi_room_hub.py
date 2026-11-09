@@ -302,11 +302,10 @@ class MultiRoomHub(QObject):
         timer = self.drop_timers.get(room_id)
         if timer is None:
             return
-        # Keep automatic drops occasional and unpredictable.
-        milliseconds = random.randint(12 * 60_000, 30 * 60_000)
-        self.sessions[room_id].command_handler.next_auto_drop_at = (
-            time.monotonic() + milliseconds / 1000.0
-        )
+        # Each creature and ability-ticket type owns an independent random schedule.
+        handler = self.sessions[room_id].command_handler
+        milliseconds = handler.collectibles.next_auto_drop_delay_ms()
+        handler.next_auto_drop_at = time.monotonic() + milliseconds / 1000.0
         timer.start(milliseconds)
 
     def _spawn_room_drop(self, room_id, epoch):
@@ -315,7 +314,7 @@ class MultiRoomHub(QObject):
         session = self.sessions[room_id]
         try:
             session.command_handler.collectibles.expired()
-            message = session.command_handler.collectibles.spawn()
+            message = session.command_handler.collectibles.spawn_scheduled_drop()
             if message:
                 self._log(room_id, "PET DROP: " + " ".join(message.split()))
                 self._send_room_announcement(room_id, epoch, message)
