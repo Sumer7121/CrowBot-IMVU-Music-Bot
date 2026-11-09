@@ -54,12 +54,7 @@ PREFIXES = (
     ("Ember", "fire", "Spark Sprint", 0),
     ("Venom", "poison", "Venom Mist", 1),
     ("Star", "cosmic", "Starfall", 2),
-    ("Cloud", "sky", "Updraft", 0),
     ("Magma", "lava", "Eruption", 1),
-    ("Mist", "mist", "Mirage", 0),
-    ("Prism", "prism", "Prism Dash", 2),
-    ("Dusk", "dusk", "Dusk Ambush", 1),
-    ("Dawn", "dawn", "Radiant Roar", 1),
 )
 SPECIES = (
     ("cat", "Cat", "🐈", "feline", "Whisker Pounce", "common", "small"),
@@ -102,9 +97,19 @@ SPECIES = (
     ("styracosaurus", "Styracosaurus", "🦕", "dinosaur", "Frill Charge", "rare", "large"),
     ("compsognathus", "Compsognathus", "🦖", "dinosaur", "Swift Scurry", "common", "small"),
     ("microraptor", "Microraptor", "🦖", "dinosaur", "Feather Glide", "uncommon", "small"),
+    ("apatosaurus", "Apatosaurus", "🦕", "dinosaur", "Thunder Tail", "epic", "giant"),
+    ("argentinosaurus", "Argentinosaurus", "🦕", "dinosaur", "Colossus Stride", "legendary", "giant"),
+    ("corythosaurus", "Corythosaurus", "🦕", "dinosaur", "Crested Call", "uncommon", "large"),
+    ("edmontosaurus", "Edmontosaurus", "🦕", "dinosaur", "River Herd Rush", "rare", "large"),
+    ("gallimimus", "Gallimimus", "🦖", "dinosaur", "Fleetfoot Dash", "uncommon", "medium"),
+    ("oviraptor", "Oviraptor", "🦖", "dinosaur", "Nest Guardian", "rare", "small"),
+    ("protoceratops", "Protoceratops", "🦕", "dinosaur", "Desert Frill", "uncommon", "small"),
+    ("ceratosaurus", "Ceratosaurus", "🦖", "dinosaur", "Horned Ambush", "rare", "large"),
+    ("dilophosaurus", "Dilophosaurus", "🦖", "dinosaur", "Twin Crest Cry", "rare", "large"),
+    ("maiasaura", "Maiasaura", "🦕", "dinosaur", "Nurturing Herd", "uncommon", "large"),
 )
 
-assert len(PREFIXES) == 25 and len(SPECIES) == 40
+assert len(PREFIXES) == 20 and len(SPECIES) == 50
 
 _FORTUNES = (
     "{holder}, your brave heart makes this beast proud to stand with you.",
@@ -134,9 +139,11 @@ _ART = {
     "sea": (r"  .~~~~.", r" ( o.o )>", r"  ~~~~~ "),
     "dinosaur": (r"   .---.", r" __/o.o \__", r"/_/\___/\\"),
 }
-def _card_rarity(base_tier, element_bonus):
+def _card_rarity(base_tier, element_bonus, size):
     tiers = tuple(RARITY_WEIGHT)
-    return tiers[min(len(tiers) - 1, RARITY_RANK[base_tier] + element_bonus)]
+    size_bonus = {"small": 0, "medium": 0, "large": 1, "giant": 2, "mythic": 2}
+    rank = RARITY_RANK[base_tier] + element_bonus + size_bonus[size]
+    return tiers[min(len(tiers) - 1, rank)]
 
 def _build_catalog():
     cards = []
@@ -148,7 +155,7 @@ def _build_catalog():
         for key, animal, emoji, family, animal_trait, base_tier, size in SPECIES:
             index += 1
             name = f"{prefix} {animal}"
-            rarity = _card_rarity(base_tier, rarity_bonus)
+            rarity = _card_rarity(base_tier, rarity_bonus, size)
             power = min(99, rarity_power[rarity] + size_power[size] + ((index * 13) % 7))
             cards.append((key, name, emoji, rarity, f"B{index:04d}",
                           element, f"{prefix_trait} {animal_trait}", power, family, size))
