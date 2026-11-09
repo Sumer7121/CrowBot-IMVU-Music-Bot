@@ -232,8 +232,6 @@ class CommandHandler(QObject):
             "top": self.game_scores,
             "catch": self.catch_collectible,
             "petdrop": self.pet_drop_manual,
-            "defend": self.defend_collectible,
-            "unprotect": self.unprotect_collectible,
             "lock": self.lock_command,
             "unlock": self.unlock_command,
             "locks": self.list_locked_commands,
@@ -2142,9 +2140,8 @@ class CommandHandler(QObject):
         return self.five_game.accept(self._remember_user(username))
 
     def drop_command(self, arguments, username):
-        """!drop N keeps its Connect Four move; pet options start a manual drop."""
-        pet_options = {"cat", "dog", "bird", "dinosaur", "dragon", "ticket", "steal", "defend"}
-        if not arguments or arguments[0].casefold() in pet_options:
+        """Route pet drops and Connect Four moves through !drop."""
+        if not arguments or arguments[0].lower() in {"cat", "dog", "bird"}:
             return self.pet_drop_manual(arguments, username)
         return self.five_move(arguments, username)
 
@@ -2311,80 +2308,64 @@ class CommandHandler(QObject):
         return permissions.welcome_message(username) or "Welcome is disabled."
 
     def pet_drop_manual(self, arguments, username):
-        """Owner-only, rate-limited manual pet/ticket drop for testing."""
-        species = None
-        ticket_type = None
-        tier = None
-        allowed_species = {"cat", "dog", "bird", "dinosaur", "dragon"}
-        if arguments:
-            option = arguments[0].casefold()
-            if option in allowed_species:
-                species = option
-                tier = arguments[1].casefold() if len(arguments) > 1 else None
-            elif option in {"ticket", "steal", "defend"}:
-                ticket_type = "random" if option == "ticket" else option
-                tier = arguments[1].casefold() if len(arguments) > 1 else None
-            else:
-                return ("Use !drop [bird|dinosaur|dragon], !drop ticket, "
-                        "!drop steal|defend [tier], or !drop 1-7.")
-        if tier and tier not in {"common", "uncommon", "rare", "epic", "legendary"}:
-            return "Tier must be common, uncommon, rare, epic, or legendary."
+        """Rate-limited manual pet drop; !drop bird forces a bird for testing."""
+        species = arguments[0].lower() if arguments else None
+        if species not in (None, "cat", "dog", "bird"):
+            return f"Use {self.prefix}drop, {self.prefix}drop bird, or {self.prefix}drop 1-7."
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.owner:
             return "Set the verified room owner in the CrowBot app first."
         if not permissions.is_owner(username):
-            return "🔒 Only the registered room owner can manually spawn drops."
+            return "🔒 Only the registered room owner can manually spawn a pet."
         if self.collectibles.expired():
             pass
         if self.collectibles.active is not None:
-            return f"🐾 A drop is already active. Type {self.prefix}catch."
+            return (
+                f"🐾 A pet is already waiting! Type {self.prefix}catch "
+                "before it escapes."
+            )
         now = time.monotonic()
-        if self.last_pet_drop_at is not None and now - self.last_pet_drop_at < 180:
+        if (self.last_pet_drop_at is not None
+                and now - self.last_pet_drop_at < 180):
             remaining = int(180 - (now - self.last_pet_drop_at)) + 1
-            return f"🐾 Next manual drop available in {remaining}s."
+            return f"🐾 Next manual pet drop available in {remaining}s."
         self.last_pet_drop_at = now
-        return (self.collectibles.spawn(species=species, ticket_type=ticket_type, tier=tier)
-                or "🐾 A drop is already active.")
+        return self.collectibles.spawn(species=species) or "🐾 A pet drop is already active."
 
     def drop_status(self, arguments, username):
-        """Current drop and time until this room's next automatic drop."""
+        """Current pet drop and time until this room's next automatic drop."""
         self.collectibles.expired()
         active = self.collectibles.active
         if active:
-            remaining = max(0, int(active["deadline"] - self.collectibles.clock()))
-            if active["kind"] == "ticket":
-                return (f"🎟 WILD {active['tier'].upper()} "
-                        f"{active['ticket_type'].upper()} TICKET · {remaining}s left! "
-                        f"Type {self.prefix}catch.")
-            card = active["card"]
-            return self.collectibles.render_card(card) + (
-                f"\n{remaining}s left · Type {self.prefix}catch."
+            item, deadline = active
+            remaining = max(0, int(deadline - self.collectibles.clock()))
+            return (
+                f"🐾 WILD {item[0].upper()}: {item[2]} {item[1]} "
+                f"[{item[3].upper()}] — {remaining}s left! "
+                f"Type {self.prefix}catch."
             )
         if self.next_auto_drop_at is None:
-            return "🐾 Automatic creature drops start when CrowBot joins this room."
+            return "🐾 Automatic pet drops start when CrowBot joins this room."
         remaining = max(0, int(self.next_auto_drop_at - time.monotonic()))
         minutes, seconds = divmod(remaining, 60)
-        return (f"🐾 Auto drops are active. Next drop in {minutes}m {seconds}s. "
-                f"Manual test: {self.prefix}drop bird / {self.prefix}drop ticket.")
+        return (
+            f"🐾 Auto pet drops are active. Next drop in "
+            f"{minutes}m {seconds}s. Try {self.prefix}petdrop for a manual one."
+        )
 
     def catch_collectible(self, arguments, username):
         return self.collectibles.catch(username)
 
     def show_collection(self, arguments, username):
-        page = arguments[0] if arguments else 1
-        return self.collectibles.collection(username, page)
-
-    def defend_collectible(self, arguments, username):
-        return self.collectibles.defend_card(username, " ".join(arguments))
-
-    def unprotect_collectible(self, arguments, username):
-        return self.collectibles.unprotect_card(username, " ".join(arguments))
+        return self.collectibles.collection(username)
 
     def pet_rarities(self, arguments, username):
         from bot.collectibles import CATALOG, RARITY_WEIGHT
-        odds = " | ".join(f"{tier.upper()} {weight}%" for tier, weight in RARITY_WEIGHT.items())
-        return (f"🐾 {len(CATALOG)} original creature cards\n{odds}\n"
-                "Tickets have matching tiers. Use !collection <page> to browse.")
+        return (
+            f"🐱🐶🐦 {len(CATALOG)} collectible pets: cats, dogs, and birds\n"
+            "COMMON 60% | RARE 27% | EPIC 10% | LEGENDARY 3%\n"
+            f"Use {self.prefix}catch on wild drops and {self.prefix}pets to view your collection."
+        )
 
     def question(self, arguments, username):
         self._remember_user(username)
@@ -2420,17 +2401,8 @@ class CommandHandler(QObject):
 
     def duel_player(self, arguments, username):
         self._remember_user(username)
-        if arguments and arguments[0].casefold() == "accept":
-            return self.party_games.accept_duel(username, self.collectibles)
-        if arguments and arguments[0].casefold() == "cancel":
-            return self.party_games.cancel_duel(username)
-        tier = None
-        if arguments and arguments[-1].casefold() in {
-            "common", "uncommon", "rare", "epic", "legendary"
-        }:
-            tier = arguments.pop().casefold()
         name = " ".join(arguments).strip().lstrip("@")
-        return self.party_games.duel(username, name, self.collectibles, tier)
+        return self.party_games.duel(username, name)
 
     def spin_bottle(self, arguments, username):
         """Spin toward one randomly chosen observed room chatter."""
@@ -2482,7 +2454,7 @@ class CommandHandler(QObject):
                 "🎮 GAMES • BOARD & TRIVIA\n"
                 f"{p}c4 — Connect 4\n"
                 f"{p}join — join C4\n"
-                f"{p}drop <1-7> — C4 move; {p}drop bird — owner test drop\n"
+                f"{p}drop <1-7> — C4 coin; {p}drop [bird] — owner-only pet drop\n"
                 f"{p}board — show C4\n"
                 f"⭕ TIC-TAC-TOE (original)\n"
                 f"{p}ttt — challenge\n"
@@ -2497,14 +2469,10 @@ class CommandHandler(QObject):
                 f"{p}rps rock — RPS\n"
                 f"{p}spin — random player\n"
                 "🐾 GAMES • PET DROPS\n"
-                f"{p}petdrop — owner-only random drop (3m cooldown)\n"
-                f"{p}drops — next automatic creature or ticket drop\n"
+                f"{p}petdrop — owner-only random pet drop (3m cooldown)\n"
+                f"{p}drops — next automatic pet drop\n"
                 f"{p}catch — catch a wild pet\n"
-                f"{p}pets [page] — view creature cards\n"
-                f"{p}duel @player [tier] — accepted pet-steal duel\n"
-                f"{p}duel accept — accept a duel\n"
-                f"{p}defend <card-id> — protect one matching-tier card\n"
-                f"{p}unprotect <card-id> — remove its shield\n"
+                f"{p}pets — view collection\n"
                 f"{p}top — scores\n"
                 f"{p}rarities — pet drop odds"
             ),
