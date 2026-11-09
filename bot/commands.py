@@ -233,6 +233,7 @@ class CommandHandler(QObject):
             "catch": self.catch_collectible,
             "petdrop": self.pet_drop_manual,
             "defend": self.defend_collectible,
+            "steal": self.steal_collectible,
             "sacrifice": self.sacrifice_collectible,
             "unprotect": self.unprotect_collectible,
             "lock": self.lock_command,
@@ -2483,6 +2484,30 @@ class CommandHandler(QObject):
         self._remember_user(username)
         return self.party_games.answer_riddle(username, " ".join(arguments))
 
+    def steal_collectible(self, arguments, username):
+        """Use a tier-matched ticket to steal one named card from a recently seen player."""
+        self._remember_user(username)
+        if len(arguments) < 2:
+            return f"Use {self.prefix}steal @player <card-id>."
+        target_query = " ".join(arguments[:-1]).strip().lstrip("@")
+        card_id = arguments[-1].strip()
+        now = time.monotonic()
+        for key, last_seen in list(self.last_seen_users.items()):
+            if now - last_seen > self.spin_user_ttl_seconds:
+                self.last_seen_users.pop(key, None)
+                self.known_users.pop(key, None)
+        status, target = self._resolve_user(target_query)
+        if status == "multiple":
+            return "Several active players match: " + ", ".join(target)
+        if status != "ok":
+            return f"{target_query} must chat in this room before you can target them."
+        if target.casefold() == str(username).casefold():
+            return "You cannot steal from yourself."
+        last_seen = self.last_seen_users.get(target.casefold())
+        if last_seen is None or now - last_seen > self.spin_user_ttl_seconds:
+            return f"{target} is not currently active in this room."
+        return self.collectibles.steal_card(username, target, card_id)
+
     def duel_player(self, arguments, username):
         self._remember_user(username)
         if arguments and arguments[0].casefold() == "accept":
@@ -2563,9 +2588,9 @@ class CommandHandler(QObject):
                 f"{p}catch  Catch the active drop\n"
                 f"{p}collection [page]  Browse 4 cards at a time\n"
                 f"{p}rarities  See drop odds\n\n"
-                "TICKETS & DUELS\n"
-                f"{p}duel @name [tier]  Challenge using a Steal Ticket\n"
-                f"{p}duel accept  Accept  ·  {p}duel cancel  Cancel\n"
+                "TICKETS\n"
+                f"{p}steal @name <card-id>  Take that unshielded card instantly\n"
+                "Target must be active in this room; ticket must match its rarity.\n"
                 f"{p}defend <card-id>  Shield a card with a matching ticket\n"
                 f"{p}unprotect <card-id>  Remove its shield\n\n"
                 "SACRIFICE\n"
@@ -2573,7 +2598,7 @@ class CommandHandler(QObject):
                 "Two same-rank cards reroll at that rank; three upgrade one rank.\n"
                 "A matching Sacrifice Card is required.\n\n"
                 "Owner test drops: !petdrop  ·  !drop sacrifice [tier]\n"
-                "Automatic drops arrive every 12–30 minutes."
+                "Drop timers: creatures 12–30m · steal 20–40m · defend 25–45m · sacrifice 45–75m."
             ),
             "fun": (
                 "🎭 PARTY & FUN\n\n"
