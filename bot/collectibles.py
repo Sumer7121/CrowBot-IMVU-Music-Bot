@@ -295,10 +295,10 @@ def _creature_name(prefix, prefix_trait, animal, species_index, prefix_index):
     style = (species_index + prefix_index) % 5
     styles = (
         f"{stem} {animal}",
-        f"{animal} of the {prefix}",
+        f"{animal} of {prefix} Realm",
         f"{prefix_trait} {animal}",
         f"The {stem} {animal}",
-        f"{animal} of the {stem}",
+        f"{animal} of {stem}",
     )
     return styles[style]
 
