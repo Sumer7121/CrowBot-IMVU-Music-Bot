@@ -2701,18 +2701,20 @@ class CommandHandler(QObject):
                 f"{p}question  Icebreaker"
             ),
             "system": (
-                "⚙️ ROOM & MODERATION\n\n"
-                f"{p}linkowner  Verify room owner\n"
-                f"{p}requestmod  Request moderator access\n"
-                f"{p}approvemod <name>  Approve moderator\n"
-                f"{p}removemod <name>  Remove moderator\n"
-                f"{p}mods  List moderators\n"
-                f"{p}whoami  Check your role\n"
-                f"{p}lock <command>  Lock a command\n"
-                f"{p}unlock <command>  Unlock a command\n"
-                f"{p}locks  List locked commands\n"
-                f"{p}welcome <text>  Set room greeting\n"
-                f"{p}welcome on|off  Toggle greeting"
+                "⚙️ SYSTEM · OWNER & ROOM ADMIN\n\n"
+                "OWNER SETUP\n"
+                f"{p}linkowner  Verify the room owner account\n"
+                f"{p}approvemod <name>  Approve a pending admin\n"
+                f"{p}removemod <name>  Remove an admin\n"
+                f"{p}welcome <text>  Set the room greeting\n"
+                f"{p}welcome on|off  Toggle the greeting\n\n"
+                "ROOM ACCESS & COMMANDS\n"
+                f"{p}requestmod  Ask the owner for admin access\n"
+                f"{p}mods  List room admins\n"
+                f"{p}whoami  Check your room role\n"
+                f"{p}lock <command>  Restrict a command to admins\n"
+                f"{p}unlock <command>  Reopen a command\n"
+                f"{p}locks  List restricted commands"
             ),
         }
         if topic in menus:
