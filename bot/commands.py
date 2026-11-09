@@ -233,6 +233,7 @@ class CommandHandler(QObject):
             "catch": self.catch_collectible,
             "petdrop": self.pet_drop_manual,
             "defend": self.defend_collectible,
+            "sacrifice": self.sacrifice_collectible,
             "unprotect": self.unprotect_collectible,
             "lock": self.lock_command,
             "unlock": self.unlock_command,
@@ -2144,7 +2145,7 @@ class CommandHandler(QObject):
 
     def drop_command(self, arguments, username):
         """!drop N keeps its Connect Four move; pet options start a manual drop."""
-        pet_options = {"cat", "dog", "bird", "dinosaur", "dragon", "ticket", "steal", "defend"}
+        pet_options = {"cat", "dog", "bird", "dinosaur", "dragon", "ticket", "steal", "defend", "sacrifice"}
         if not arguments or arguments[0].casefold() in pet_options:
             return self.pet_drop_manual(arguments, username)
         return self.five_move(arguments, username)
@@ -2322,7 +2323,7 @@ class CommandHandler(QObject):
             if option in allowed_species:
                 species = option
                 tier = arguments[1].casefold() if len(arguments) > 1 else None
-            elif option in {"ticket", "steal", "defend"}:
+            elif option in {"ticket", "steal", "defend", "sacrifice"}:
                 ticket_type = "random" if option == "ticket" else option
                 tier = arguments[1].casefold() if len(arguments) > 1 else None
             else:
@@ -2330,6 +2331,8 @@ class CommandHandler(QObject):
                         "!drop steal|defend [tier], or !drop 1-7.")
         if tier and tier not in {"common", "uncommon", "rare", "epic", "legendary"}:
             return "Tier must be common, uncommon, rare, epic, or legendary."
+        if ticket_type == "sacrifice" and tier == "legendary":
+            return "Sacrifice Cards go up to EPIC; save Legendary for rare drops or three Epic sacrifices."
         permissions = getattr(self, "room_permissions", None)
         if permissions is None or not permissions.owner:
             return "Set the verified room owner in the CrowBot app first."
@@ -2377,6 +2380,9 @@ class CommandHandler(QObject):
 
     def defend_collectible(self, arguments, username):
         return self.collectibles.defend_card(username, " ".join(arguments))
+
+    def sacrifice_collectible(self, arguments, username):
+        return self.collectibles.sacrifice_cards(username, arguments)
 
     def unprotect_collectible(self, arguments, username):
         return self.collectibles.unprotect_card(username, " ".join(arguments))
@@ -2557,6 +2563,7 @@ class CommandHandler(QObject):
                 f"{p}spin — random player\n"
                 "🐾 GAMES • PET DROPS\n"
                 f"{p}petdrop — owner-only random test drop (3m cooldown)\n"
+                f"{p}drop sacrifice [tier] — owner-only Sacrifice Card test drop\n"
                 f"{p}drops — next creature or ticket (automatic drops every 12–30m)\n"
                 f"{p}catch — catch a wild pet\n"
                 f"{p}collection [page] — view creature cards (4 per page)\n"
@@ -2564,6 +2571,7 @@ class CommandHandler(QObject):
                 f"{p}duel accept — accept a duel\n"
                 f"{p}defend <card-id> — protect one matching-tier card\n"
                 f"{p}unprotect <card-id> — remove its shield\n"
+                f"{p}sacrifice <2-3 card IDs> — trade same-rank cards using a Sacrifice Card\n"
                 f"{p}top — scores\n"
                 f"{p}rarities — pet drop odds"
             ),
