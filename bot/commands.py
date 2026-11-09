@@ -1,11 +1,19 @@
 from urllib.parse import urlparse
 import random
+import time
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 from database.users import UserManager
 from music.resolver import MusicResolver
-from music.youtube_owned import YouTubeOwnedProvider
+from music.youtube_owned import get_shared_youtube_provider
+from bot.five_in_a_row import FiveInARow
+from bot.party_games import PartyGames
+from bot import party_prompts as prompts
+from bot.social_reactions import SocialReactions
+from bot.local_ai import LocalAIReplyWorker
+from bot.collectibles import CollectibleDrops
+from config.settings import load_settings
 
 
 # =============================================================
@@ -14,6 +22,7 @@ from music.youtube_owned import YouTubeOwnedProvider
 
 class MusicResolveWorker(QThread):
 
+    progress = Signal(str)
     resolved = Signal(str, str, object)
     failed = Signal(str, str, str)
 
@@ -23,12 +32,18 @@ class MusicResolveWorker(QThread):
         query,
         username,
         parent=None,
+        room_id="legacy",
+        session_key="legacy",
+        search_only=False,
     ):
         super().__init__(parent)
 
+        self.room_id = room_id
+        self.session_key = session_key
         self.resolver = resolver
         self.query = str(query or "").strip()
         self.username = str(username or "").strip()
+        self.search_only = search_only
 
     def run(self):
 
@@ -40,10 +55,27 @@ class MusicResolveWorker(QThread):
                 f"for {self.username}..."
             )
 
+            if self.search_only:
+                results = get_shared_youtube_provider().search_candidates(
+                    self.query, limit=5, cancel_check=self.isInterruptionRequested
+                )
+                if not self.isInterruptionRequested():
+                    self.resolved.emit(self.username, self.query, {"search_results": results})
+                return
+
             result = self.resolver.resolve(
-                self.query,
-                requested_by=self.username,
+                self.query, requested_by=self.username,
+                room_id=self.room_id, session_key=self.session_key,
+                cancel_check=self.isInterruptionRequested,
+                progress_callback=self.progress.emit,
             )
+            if self.isInterruptionRequested():
+                path = (result or {}).get("temporary_file")
+                if path:
+                    get_shared_youtube_provider().release_room_track(
+                        path, self.room_id, self.session_key
+                    )
+                return
 
             if not result:
                 self.failed.emit(
@@ -107,12 +139,14 @@ class CommandHandler(QObject):
         self.music_resolver = MusicResolver(
             timeout=10,
         )
+        # Set by RoomSession. Each IMVU room has its own AutoDJ.
+        self.dj_controller = None
 
         # -----------------------------------------------------
         # YOUTUBE SEARCH PROVIDER
         # -----------------------------------------------------
 
-        self.youtube_search = YouTubeOwnedProvider()
+        self.youtube_search = get_shared_youtube_provider()
 
         # -----------------------------------------------------
         # FIFO MUSIC PREPARATION
@@ -140,6 +174,10 @@ class CommandHandler(QObject):
         #
         self.music_prepare_queue = []
         self.active_music_worker = None
+        self.room_id = "legacy"
+        self.room_session = "legacy"
+        self._music_shutting_down = False
+        self._active_music_cancelled = False
 
         # -----------------------------------------------------
         # COMMANDS
@@ -147,6 +185,11 @@ class CommandHandler(QObject):
 
         self.commands = {
             "play": self.play,
+            "dj": self.artist_dj,
+            "autoplay": self.autoplay,
+            "language": self.music_language,
+            "lang": self.music_language,
+            "djstatus": self.dj_status,
             "ytsearch": self.ytsearch,
             "queue": self.show_queue,
             "nowplaying": self.now_playing,
@@ -173,6 +216,74 @@ class CommandHandler(QObject):
             "tttboard": self.tic_tac_toe_board,
             "tttend": self.tic_tac_toe_end,
 
+            "c4": self.five_start,
+            "join": self.five_accept,
+            "drop": self.drop_command,
+            "board": self.five_board,
+            "end4": self.five_end,
+            "five": self.five_start,
+            "fiveaccept": self.five_accept,
+            "fivemove": self.five_move,
+            "fiveboard": self.five_board,
+            "fiveend": self.five_end,
+            "quiz": self.trivia_start,
+            "a": self.trivia_answer,
+            "guess": self.guess_start,
+            "g": self.guess_answer,
+            "rps": self.rock_paper_scissors,
+            "top": self.game_scores,
+            "catch": self.catch_collectible,
+            "petdrop": self.pet_drop_manual,
+            "defend": self.defend_collectible,
+            "steal": self.steal_collectible,
+            "sacrifice": self.sacrifice_collectible,
+            "unprotect": self.unprotect_collectible,
+            "lock": self.lock_command,
+            "unlock": self.unlock_command,
+            "locks": self.list_locked_commands,
+            "mods": self.list_mods,
+            "whoami": self.whoami,
+            "linkowner": self.owner_link_help,
+            "requestmod": self.request_mod_help,
+            "approvemod": self.approve_mod,
+            "removemod": self.remove_mod,
+            "welcome": self.configure_welcome,
+            "welcometest": self.preview_welcome,
+            "drops": self.drop_status,
+            "dropstatus": self.drop_status,
+            "collection": self.show_collection,
+            "cats": self.show_collection,
+            "dogs": self.show_collection,
+            "pets": self.show_collection,
+            "c": self.hidden_card_catalog,  # Owner-only utility; intentionally omitted from help menus.
+            "rarities": self.pet_rarities,
+            "spin": self.spin_bottle,
+            "question": self.question,
+            "questions": self.question,
+            "wyr": self.would_you_rather,
+            "wouldyourather": self.would_you_rather,
+            "nhie": self.never_have_i_ever,
+            "neverhaveiever": self.never_have_i_ever,
+            "8ball": self.magic_eight_ball,
+            "riddle": self.riddle_start,
+            "ra": self.riddle_answer,
+            "duel": self.duel_player,
+            "qotd": self.question,
+            "h": self.help,
+            "p": self.play,
+            "q": self.show_queue,
+            "s": self.skip,
+            "pa": self.pause,
+            "r": self.resume,
+            "rm": self.remove,
+            "j": self.joke,
+            "joke18": self.adult_joke,
+            "meme": self.meme,
+            "memes": self.meme,
+            "tr": self.truth,
+            "d": self.dare,
+            "tt": self.tic_tac_toe,
+            "m": self.tic_tac_toe_move,
             "help": self.help,
         }
 
@@ -256,6 +367,23 @@ class CommandHandler(QObject):
         # a single IMVU room/session.
         self.ttt_pending = None
         self.ttt_game = None
+        self.five_game = FiveInARow()
+        self.party_games = PartyGames()
+        self.social = SocialReactions()
+        self.collectibles = CollectibleDrops()
+        ai_settings = load_settings()
+        self.local_ai_enabled = bool(ai_settings.get("local_ai_enabled", False))
+        self.ai_commentary_enabled = bool(ai_settings.get("ai_commentary_enabled", False))
+        self.local_ai_endpoint = ai_settings.get(
+            "local_ai_endpoint", "http://127.0.0.1:11434"
+        )
+        self.local_ai_model = ai_settings.get("local_ai_model", "auto")
+        self._local_ai_workers = set()
+        self._ai_recent_replies = []
+        self._next_ai_commentary_at = 0.0
+        self.last_pet_drop_at = None
+        self.next_auto_drop_at = None
+        self.adult_jokes = False
 
         # -----------------------------------------------------
         # OBSERVED IMVU USERS
@@ -267,6 +395,8 @@ class CommandHandler(QObject):
         # key   = lowercase username
         # value = original IMVU username/capitalization
         self.known_users = {}
+        self.last_seen_users = {}
+        self.spin_user_ttl_seconds = 300
 
 # =========================================================
     # PREFIX
@@ -299,7 +429,7 @@ class CommandHandler(QObject):
         if not message.startswith(
             self.prefix
         ):
-            return None
+            return self.handle_room_chat(username, message)
 
         command_text = (
             message[len(self.prefix):]
@@ -330,6 +460,50 @@ class CommandHandler(QObject):
             arguments,
             username,
         )
+
+    def handle_room_chat(self, username, message):
+        """Reply to direct CrowBot mentions and optionally react to room chat."""
+        username = self._remember_user(username)
+        message = str(message or "").strip()
+        fallback = self.social.mention(username, message, self.prefix)
+        if fallback:
+            if self.local_ai_enabled:
+                self._queue_local_ai_reply(username, message, "mention", fallback)
+                return None
+            return fallback
+
+        now = time.monotonic()
+        if (self.local_ai_enabled and self.ai_commentary_enabled
+                and now >= self._next_ai_commentary_at):
+            self._next_ai_commentary_at = now + 90
+            self._queue_local_ai_reply(username, message, "commentary")
+        return None
+
+    def _queue_local_ai_reply(self, username, message, mode, fallback=""):
+        worker = LocalAIReplyWorker(
+            username, message, self.local_ai_endpoint, self.local_ai_model,
+            mode, fallback, tuple(self._ai_recent_replies),
+        )
+        worker.completed.connect(self._local_ai_reply_completed)
+        worker.finished.connect(lambda current=worker: self._release_local_ai_worker(current))
+        self._local_ai_workers.add(worker)
+        worker.start()
+
+    def _local_ai_reply_completed(self, username, reply, fallback):
+        recent = {previous.casefold() for previous in self._ai_recent_replies}
+        reply = " ".join(str(reply or "").split()).strip()
+        if not reply or reply.casefold() in recent:
+            reply = str(fallback or "").strip()
+        if reply and reply.casefold() in recent:
+            reply = self.social.mention_reply(username)
+        if reply:
+            self._ai_recent_replies.append(reply)
+            self._ai_recent_replies = self._ai_recent_replies[-8:]
+            self.async_response.emit(username, reply)
+
+    def _release_local_ai_worker(self, worker):
+        self._local_ai_workers.discard(worker)
+        worker.deleteLater()
 
     # =========================================================
     # URL VALIDATION
@@ -368,6 +542,9 @@ class CommandHandler(QObject):
         username,
     ):
 
+        if arguments == ["m"]:
+            return self.help(["music"], username)
+
         if not arguments:
 
             current = (
@@ -398,9 +575,15 @@ class CommandHandler(QObject):
         # so they remain immediate.
         # -----------------------------------------------------
 
-        if self.is_valid_url(
-            first_argument
-        ):
+        try:
+            host = (urlparse(first_argument).hostname or "").casefold()
+        except ValueError:
+            host = ""
+        youtube_link = any(
+            host == domain or host.endswith("." + domain)
+            for domain in ("youtube.com", "youtu.be", "youtube-nocookie.com")
+        )
+        if self.is_valid_url(first_argument) and not youtube_link:
 
             url = first_argument
 
@@ -487,6 +670,7 @@ class CommandHandler(QObject):
         self,
         query,
         username,
+        search_only=False,
     ):
         """
         Add a music request to the FIFO preparation queue.
@@ -494,9 +678,12 @@ class CommandHandler(QObject):
         Only one MusicResolveWorker is allowed to run at a time.
         """
 
+        if self._music_shutting_down:
+            return
         request = {
             "query": str(query or "").strip(),
             "username": str(username or "").strip(),
+            "search_only": search_only,
         }
 
         self.music_prepare_queue.append(
@@ -536,7 +723,7 @@ class CommandHandler(QObject):
         If a worker is already running, this method does nothing.
         """
 
-        if self.active_music_worker is not None:
+        if self._music_shutting_down or self.active_music_worker is not None:
             return
 
         if not self.music_prepare_queue:
@@ -568,10 +755,15 @@ class CommandHandler(QObject):
             query,
             username,
             self,
+            room_id=self.room_id,
+            session_key=self.room_session,
+            search_only=request.get("search_only", False),
         )
 
         self.active_music_worker = worker
+        self._active_music_cancelled = False
 
+        worker.progress.connect(self.music_preparation_progress)
         worker.resolved.connect(
             self.music_resolve_succeeded
         )
@@ -598,6 +790,13 @@ class CommandHandler(QObject):
 
         worker.start()
 
+    @Slot(str)
+    def music_preparation_progress(self, message):
+        if not self._music_shutting_down and not self._active_music_cancelled:
+            self.music_controller.status_changed.emit(
+                "MUSIC PREPARATION: " + str(message)
+            )
+
     # =========================================================
     # BACKGROUND MUSIC SUCCESS
     # =========================================================
@@ -609,8 +808,27 @@ class CommandHandler(QObject):
         query,
         result,
     ):
+        if self._music_shutting_down or self._active_music_cancelled:
+            path = (result or {}).get("temporary_file")
+            if path:
+                self.youtube_search.release_room_track(
+                    path, self.room_id, self.room_session
+                )
+            return
 
         try:
+            if "search_results" in result:
+                results = result["search_results"]
+                lines = [f"YouTube results for {query}:"]
+                for number, item in enumerate(results[:3], 1):
+                    lines.append(
+                        f"{number}. {item.get('title', 'Unknown')} - "
+                        f"{item.get('channel', 'Unknown')} [{item.get('id', '')}]"
+                    )
+                response = ("\n".join(lines) if results else
+                            f"No YouTube results found for: {query}")
+                self.async_response.emit(username, response)
+                return
 
             track = dict(
                 result
@@ -708,6 +926,8 @@ class CommandHandler(QObject):
         query,
         error,
     ):
+        if self._music_shutting_down or self._active_music_cancelled:
+            return
 
         error = str(
             error or ""
@@ -774,96 +994,115 @@ class CommandHandler(QObject):
 
         self.start_next_music_resolve()
     # =========================================================
+    # PER-ROOM AUTOMATIC DJ
+    # =========================================================
+
+    def _room_dj(self):
+        return self.dj_controller
+
+    def artist_dj(self, arguments, username):
+        dj = self._room_dj()
+        if dj is None:
+            return "DJ mode is available inside a connected multi-room session."
+        name = " ".join(arguments).strip()
+        if not name or name.casefold() in ("status", "help"):
+            return (
+                "🎧 ARTIST DJ | " + dj.label +
+                f"\nUse {self.prefix}dj <artist name> to play the artist continuously, "
+                f"or {self.prefix}dj off."
+            )
+        if name.casefold() in ("off", "stop", "disable"):
+            dj.off()
+            return "🎧 Artist DJ and autoplay disabled. The current song continues."
+        try:
+            label = dj.set_artist(name)
+            return "🎧 Artist DJ enabled: " + label + (
+                " | Waiting for this room's radio to connect."
+                if not dj.radio_ready else " | Searching for the first song."
+            )
+        except ValueError as error:
+            return str(error)
+
+    def autoplay(self, arguments, username):
+        dj = self._room_dj()
+        if dj is None:
+            return "Autoplay is available inside a connected multi-room session."
+        choice = " ".join(arguments).strip().casefold()
+        if not choice or choice == "status":
+            return "🎶 AutoDJ | " + dj.label
+        if choice in ("on", "yes", "enable", "start"):
+            return "🎶 " + dj.set_autoplay(True)
+        if choice in ("off", "no", "disable", "stop"):
+            return "🎶 " + dj.set_autoplay(False)
+        return f"Usage: {self.prefix}autoplay on|off|status"
+
+    def music_language(self, arguments, username):
+        dj = self._room_dj()
+        if dj is None:
+            return "Music language settings are available inside a connected room."
+        name = " ".join(arguments).strip()
+        if not name:
+            return (
+                "🌐 DJ language: " + (
+                    "Match Current Song" if dj.match_current_language
+                    else dj.language.title() if dj.language else "Any"
+                ) +
+                f"\nUse {self.prefix}language Hindi, Telugu, Tamil, English, match, or off."
+            )
+        try:
+            dj.set_language(name)
+        except ValueError as error:
+            return "🌐 " + str(error)
+        return "🌐 Music discovery language set to " + (
+            "Match Current Song" if dj.match_current_language
+            else dj.language.title() if dj.language else "Any"
+        ) + ". The change affects upcoming AutoDJ songs."
+
+    def dj_status(self, arguments, username):
+        dj = self._room_dj()
+        if dj is None:
+            return "DJ unavailable in this room."
+        if not dj.radio_ready:
+            status = "Radio not ready — connect this room first."
+        elif dj._worker is not None:
+            status = "Preparing a track."
+        elif dj.enabled:
+            status = "Waiting for next track or retry."
+        else:
+            status = "Off."
+        activity = str(dj.last_activity or "")
+        error = str(dj.last_error or "")
+        response = "🎧 DJ status: " + dj.label + "\n" + status
+        if activity:
+            response += "\nLast step: " + activity[:200]
+        if error:
+            response += "\nLast error: " + error[:220]
+        return response
+
+    def stop_music_requests(self):
+        """Cancel this room's unstarted and in-progress manual downloads."""
+        self._music_shutting_down = True
+        return self.cancel_music_requests()
+
+    def cancel_music_requests(self):
+        """Cancel pending songs while allowing new requests after stop/clear."""
+        self._active_music_cancelled = True
+        self.music_prepare_queue.clear()
+        worker = self.active_music_worker
+        if worker is not None:
+            worker.requestInterruption()
+        return worker
+
+    # =========================================================
     # YOUTUBE SEARCH
     # =========================================================
 
-    def ytsearch(
-        self,
-        arguments,
-        username,
-    ):
-
-        query = " ".join(
-            arguments
-        ).strip()
-
+    def ytsearch(self, arguments, username):
+        query = " ".join(arguments).strip()
         if not query:
-
-            return (
-                f"Usage: "
-                f"{self.prefix}ytsearch "
-                "<song or artist>"
-            )
-
-        print()
-        print(
-            "IMVU YTSEARCH: "
-            f"{username}: {query}"
-        )
-
-        try:
-
-            results = (
-                self.youtube_search
-                .search_candidates(
-                    query,
-                    limit=5,
-                )
-            )
-
-        except Exception as error:
-
-            print(
-                "IMVU YTSEARCH ERROR: "
-                f"{error}"
-            )
-
-            return (
-                "YouTube search failed: "
-                f"{error}"
-            )
-
-        if not results:
-
-            return (
-                "No YouTube results "
-                f"found for: {query}"
-            )
-
-        lines = [
-            f"YouTube results for "
-            f"{query}:"
-        ]
-
-        for number, result in enumerate(
-            results[:3],
-            start=1,
-        ):
-
-            title = result.get(
-                "title",
-                "Unknown",
-            )
-
-            channel = result.get(
-                "channel",
-                "Unknown",
-            )
-
-            video_id = result.get(
-                "id",
-                "",
-            )
-
-            lines.append(
-                f"{number}. {title} "
-                f"- {channel} "
-                f"[{video_id}]"
-            )
-
-        return "\n".join(
-            lines
-        )
+            return f"Usage: {self.prefix}ytsearch <song or artist>"
+        self.start_music_resolve(query, username, search_only=True)
+        return f"Searching YouTube: {query}"
 
     # =========================================================
     # QUEUE
@@ -1047,9 +1286,13 @@ class CommandHandler(QObject):
         username,
     ):
 
+        dj = self._room_dj()
+        if dj is not None and dj.enabled:
+            dj.set_autoplay(False)
+        self.cancel_music_requests()
         self.music_controller.stop()
 
-        return "Music stopped."
+        return "Music stopped. Autoplay is off."
 
     # =========================================================
     # CLEAR
@@ -1061,6 +1304,7 @@ class CommandHandler(QObject):
         username,
     ):
 
+        self.cancel_music_requests()
         self.music_controller.clear_queue()
 
         return "Queue cleared."
@@ -1144,10 +1388,8 @@ class CommandHandler(QObject):
         if not value:
             return ""
 
-        self.known_users[
-            value.lower()
-        ] = value
-
+        self.known_users[value.lower()] = value
+        self.last_seen_users[value.lower()] = time.monotonic()
         return value
 
     def _known_user_values(
@@ -1361,20 +1603,13 @@ class CommandHandler(QObject):
     # JOKE
     # =========================================================
 
-    def joke(
-        self,
-        arguments,
-        username,
-    ):
+    def joke(self, arguments, username):
+        self._remember_user(username)
+        return "😂 JOKE\n" + self.social.pick("jokes_sfw", prompts.JOKES_SFW)
 
-        self._remember_user(
-            username
-        )
-
-        return (
-            "😂 JOKE\n"
-            f"{random.choice(self.jokes)}"
-        )
+    def adult_joke(self, arguments, username):
+        self._remember_user(username)
+        return "🌶️ LATE-NIGHT JOKE (mild)\n" + self.social.pick("jokes_adult", prompts.JOKES_ADULT)
 
     # =========================================================
     # ROAST
@@ -1401,9 +1636,7 @@ class CommandHandler(QObject):
         if error:
             return error
 
-        roast_text = random.choice(
-            self.roasts
-        ).format(
+        roast_text = self.social.pick("roasts", prompts.ROASTS).format(
             name=target
         )
 
@@ -1430,15 +1663,14 @@ class CommandHandler(QObject):
             self._resolve_target(
                 arguments,
                 username,
+                allow_unknown=True,
             )
         )
 
         if error:
             return error
 
-        prompt = random.choice(
-            self.truths
-        )
+        prompt = self.social.pick("truths", prompts.TOD_TRUTHS)
 
         return (
             "🎯 TRUTH\n"
@@ -1464,15 +1696,14 @@ class CommandHandler(QObject):
             self._resolve_target(
                 arguments,
                 username,
+                allow_unknown=True,
             )
         )
 
         if error:
             return error
 
-        prompt = random.choice(
-            self.dares
-        )
+        prompt = self.social.pick("dares", prompts.TOD_DARES)
 
         return (
             "🔥 DARE\n"
@@ -1489,24 +1720,22 @@ class CommandHandler(QObject):
         arguments,
         username,
     ):
+        """Random truth/dare for a named player, or the sender when omitted.
 
-        self._remember_user(
-            username
+        A name can be typed directly (including spaces) even when that person
+        has not chatted yet. This is a nomination, not an occupancy check.
+        """
+        self._remember_user(username)
+        target, error = self._resolve_target(
+            arguments, username, allow_unknown=True
         )
-
-        if random.choice(
-            (True, False)
-        ):
-
-            return self.truth(
-                arguments,
-                username,
-            )
-
-        return self.dare(
-            arguments,
-            username,
-        )
+        if error:
+            return error
+        if random.choice((True, False)):
+            prompt = self.social.pick("truths", prompts.TOD_TRUTHS)
+            return f"🎯 TRUTH\n👤 {target}\n\n{prompt}"
+        prompt = self.social.pick("dares", prompts.TOD_DARES)
+        return f"🔥 DARE\n👤 {target}\n\n{prompt}"
 
     # =========================================================
     # TIC-TAC-TOE HELPERS
@@ -1960,35 +2189,539 @@ class CommandHandler(QObject):
             "🎮 There is no Tic-Tac-Toe game to end."
         )
 
+
+    # =========================================================
+    # FIVE IN A ROW
+    # =========================================================
+
+    def five_start(self, arguments, username):
+        return self.five_game.start(self._remember_user(username))
+
+    def five_accept(self, arguments, username):
+        return self.five_game.accept(self._remember_user(username))
+
+    def drop_command(self, arguments, username):
+        """!drop N keeps its Connect Four move; pet options start a manual drop."""
+        pet_options = {"cat", "dog", "bird", "dinosaur", "dragon", "ticket", "steal", "defend", "sacrifice"}
+        if not arguments or arguments[0].casefold() in pet_options:
+            return self.pet_drop_manual(arguments, username)
+        return self.five_move(arguments, username)
+
+    def five_move(self, arguments, username):
+        if not arguments:
+            return f"Use {self.prefix}drop 1-7"
+        return self.five_game.move(self._remember_user(username), arguments[0])
+
+    def five_board(self, arguments, username):
+        return self.five_game.render()
+
+    def five_end(self, arguments, username):
+        return self.five_game.end(self._remember_user(username))
+
+    # =========================================================
+    # QUICK PARTY GAMES
+    # =========================================================
+
+    def trivia_start(self, arguments, username):
+        return self.party_games.start_trivia()
+
+    def trivia_answer(self, arguments, username):
+        return self.party_games.answer(username, " ".join(arguments))
+
+    def guess_start(self, arguments, username):
+        return self.party_games.start_guess()
+
+    def guess_answer(self, arguments, username):
+        return self.party_games.try_guess(username, arguments[0] if arguments else "")
+
+    def rock_paper_scissors(self, arguments, username):
+        return self.party_games.rps(username, arguments[0] if arguments else "")
+
+    def game_scores(self, arguments, username):
+        return self.party_games.leaderboard()
+
+    def meme(self, arguments, username):
+        return self.social.meme()
+
+    def lock_command(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Only this room's owner or moderators can lock commands."
+        if not arguments:
+            return f"Usage: {self.prefix}lock <command>"
+        try:
+            name = permissions.lock_command(arguments[0], self.commands)
+        except ValueError as error:
+            return str(error)
+        return f"🔒 !{name} is now locked for regular users in this room."
+
+    def unlock_command(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Only this room's owner or moderators can unlock commands."
+        if not arguments:
+            return f"Usage: {self.prefix}unlock <command>"
+        try:
+            name = permissions.unlock_command(arguments[0], self.commands)
+        except ValueError as error:
+            return str(error)
+        return f"🔓 !{name} is now available to regular users in this room."
+
+    def list_locked_commands(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None:
+            return "Room permissions are unavailable."
+        locked = sorted(permissions.locked_commands)
+        return ("🔒 Locked commands: " + ", ".join("!" + v for v in locked)
+                if locked else "🔓 No additional commands are locked.")
+
+    def remove_mod(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner:
+            return "Set the verified room owner in the CrowBot app first."
+        if not permissions.is_owner(username):
+            return "🔒 Only the registered room owner can remove admins."
+        target = " ".join(arguments).strip()
+        if not target:
+            return f"Usage: {self.prefix}removemod <display name>"
+        if target.lstrip("@").casefold() == permissions.owner.casefold():
+            return "The room owner cannot be removed."
+        return (f"✅ Removed {target} from room admins."
+                if permissions.remove_mod(target)
+                else "That user is not an appointed admin.")
+
+    def owner_link_help(self, arguments, username):
+        return "Owner verification is handled by your room's chat listener."
+
+    def request_mod_help(self, arguments, username):
+        return "Use !requestmod in the room to ask the owner for admin access."
+
+    def approve_mod(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_owner(username):
+            return "🔒 Only the registered room owner can approve admin requests."
+        target = " ".join(arguments).strip()
+        if not target:
+            return f"Usage: {self.prefix}approvemod <display name>"
+        key = target.casefold()
+        pending = getattr(self, "pending_admin_links", {}).get(key)
+        if not pending or time.monotonic() - pending["created_at"] > 900:
+            self.pending_admin_links.pop(key, None)
+            return (
+                "No recent request for " + target +
+                ". That user must send " + self.prefix + "requestmod first."
+            )
+        if pending["username"].casefold() != key:
+            return "🔒 The requested display name does not match."
+        try:
+            added = permissions.add_mod(pending["username"])
+        except ValueError as error:
+            return "🔒 " + str(error)
+        self.pending_admin_links.pop(key, None)
+        return (
+            ("✅ " + pending["username"] + " is now a room admin."
+             if added else "This display name is already a room admin.")
+        )
+
+    def whoami(self, arguments, username):
+        display = str(getattr(self, "actor_display_name", username) or username)
+        account = str(getattr(self, "actor_account_username", "") or "")
+        permissions = getattr(self, "room_permissions", None)
+        if account:
+            role = ("owner" if permissions and permissions.is_owner(account)
+                    else "admin" if permissions and
+                    " ".join(display.split()).casefold() in permissions.mods
+                    else "member")
+            return "👤 Chat name: " + display + "\nUsername: @" + account + " | " + role
+        role = ("admin" if permissions and
+                " ".join(display.split()).casefold() in permissions.mods else "member")
+        return "👤 Chat name: " + display + " | " + role
+
+    def list_mods(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner:
+            return "🔒 Set the verified room owner from the local CrowBot dashboard."
+        return ("👑 Room owner: " + permissions.owner +
+                "\n🛡️ Room admins: " + (", ".join(permissions.mods.values()) or "None") +
+                "\nMembers use !requestmod; the owner uses !approvemod <display name>.")
+
+    def configure_welcome(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Only the room owner or appointed moderators may change welcomes."
+        message = " ".join(arguments).strip()
+        if not message:
+            return ("👋 Current welcome: " + permissions.welcome +
+                    f"\nUse {self.prefix}welcome <text> with {{user}} or {{room}}.")
+        if message.casefold() in ("on", "off"):
+            permissions.welcome_enabled = message.casefold() == "on"
+            permissions.save()
+            return "👋 Automatic welcome " + message.upper()
+        try:
+            permissions.set_welcome(message)
+        except ValueError as error:
+            return str(error)
+        return "✅ Room welcome updated: " + permissions.welcome
+
+    def preview_welcome(self, arguments, username):
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.is_mod(username):
+            return "🔒 Room moderators only."
+        return permissions.welcome_message(username) or "Welcome is disabled."
+
+    def pet_drop_manual(self, arguments, username):
+        """Owner-only, rate-limited manual pet/ticket drop for testing."""
+        species = None
+        ticket_type = None
+        tier = None
+        allowed_species = {"cat", "dog", "bird", "dinosaur", "dragon"}
+        if arguments:
+            option = arguments[0].casefold()
+            if option in allowed_species:
+                species = option
+                tier = arguments[1].casefold() if len(arguments) > 1 else None
+            elif option in {"ticket", "steal", "defend", "sacrifice"}:
+                ticket_type = "random" if option == "ticket" else option
+                tier = arguments[1].casefold() if len(arguments) > 1 else None
+            else:
+                return ("Use !drop [bird|dinosaur|dragon], !drop ticket, "
+                        "!drop steal|defend|sacrifice [tier], or !drop 1-7.")
+        if tier and tier not in {"common", "uncommon", "rare", "epic", "legendary"}:
+            return "Tier must be common, uncommon, rare, epic, or legendary."
+        if ticket_type == "sacrifice" and tier == "legendary":
+            return "Sacrifice Cards go up to EPIC; save Legendary for rare drops or three Epic sacrifices."
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner:
+            return "Set the verified room owner in the CrowBot app first."
+        if not permissions.is_owner(username):
+            return "🔒 Only the registered room owner can manually spawn drops."
+        if self.collectibles.expired():
+            pass
+        if self.collectibles.active is not None:
+            return f"🐾 A drop is already active. Type {self.prefix}catch."
+        now = time.monotonic()
+        if self.last_pet_drop_at is not None and now - self.last_pet_drop_at < 180:
+            remaining = int(180 - (now - self.last_pet_drop_at)) + 1
+            return f"🐾 Next manual drop available in {remaining}s."
+        self.last_pet_drop_at = now
+        return (self.collectibles.spawn(species=species, ticket_type=ticket_type, tier=tier)
+                or "🐾 A drop is already active.")
+
+    def drop_status(self, arguments, username):
+        """Current drop and time until this room's next automatic drop."""
+        self.collectibles.expired()
+        active = self.collectibles.active
+        if active:
+            remaining = max(0, int(active["deadline"] - self.collectibles.clock()))
+            if active["kind"] == "ticket":
+                return (f"🎟 WILD {active['tier'].upper()} "
+                        f"{active['ticket_type'].upper()} TICKET · {remaining}s left! "
+                        f"Type {self.prefix}catch.")
+            card = active["card"]
+            return self.collectibles.render_card(card) + (
+                f"\n{remaining}s left · Type {self.prefix}catch."
+            )
+        if self.next_auto_drop_at is None:
+            return "🐾 Automatic creature drops start when CrowBot joins this room."
+        remaining = max(0, int(self.next_auto_drop_at - time.monotonic()))
+        minutes, seconds = divmod(remaining, 60)
+        kind = self.collectibles.next_auto_drop_kind()
+        labels = {"creature": "creature", "steal": "Steal Ticket",
+                  "defend": "Defense Ticket", "sacrifice": "Sacrifice Card"}
+        return (f"🐾 Next {labels[kind]} drop in {minutes}m {seconds}s. "
+                "Each drop type follows its own timer.")
+
+    def catch_collectible(self, arguments, username):
+        return self.collectibles.catch(username)
+
+    def show_collection(self, arguments, username):
+        page = arguments[0] if arguments else 1
+        return self.collectibles.collection(username, page)
+
+    def defend_collectible(self, arguments, username):
+        return self.collectibles.defend_card(username, " ".join(arguments))
+
+    def sacrifice_collectible(self, arguments, username):
+        return self.collectibles.sacrifice_cards(username, arguments)
+
+    def unprotect_collectible(self, arguments, username):
+        return self.collectibles.unprotect_card(username, " ".join(arguments))
+
+    def hidden_card_catalog(self, arguments, username):
+        """Owner-only, intentionally unlisted creature-card catalog browser."""
+        permissions = getattr(self, "room_permissions", None)
+        if permissions is None or not permissions.owner or not permissions.is_owner(username):
+            return "🔒 This hidden card catalog is owner-only."
+
+        if not arguments or arguments[0].casefold() != "list":
+            return f"Use {self.prefix}c list [page|next|prev|card name]."
+
+        from bot.collectibles import CATALOG, CATALOG_BY_BASE_NAME, CATALOG_BY_NAME
+
+        query = " ".join(arguments[1:]).strip()
+        if query and query.casefold() not in {"next", "prev", "previous"}:
+            card = CATALOG_BY_NAME.get(query.casefold()) or CATALOG_BY_BASE_NAME.get(query.casefold())
+            if card is None:
+                matches = [item for item in CATALOG
+                           if query.casefold() in item[1].casefold()
+                           or query.casefold() in item[10].casefold()]
+                if not matches:
+                    return f"No card named '{query}' was found. Use {self.prefix}c list to browse names."
+                choices = matches[:10]
+                return ("🔎 Matching cards (use the exact name to view):\n" +
+                        "\n".join(f"{item[1]} · {item[3].title()} · {item[4]}" for item in choices))
+            return self.collectibles.render_card(card, holder=username)
+
+        key = str(username).casefold()
+        pages = getattr(self, "_hidden_catalog_pages", None)
+        if pages is None:
+            pages = self._hidden_catalog_pages = {}
+        page = pages.get(key, 1)
+        if query:
+            action = query.casefold()
+            if action == "next":
+                page += 1
+            elif action in {"prev", "previous"}:
+                page -= 1
+            else:
+                try:
+                    page = int(action)
+                except ValueError:
+                    return f"Use {self.prefix}c list [page|next|prev|card name]."
+        else:
+            page = 1
+        page_size = 10
+        total_pages = (len(CATALOG) + page_size - 1) // page_size
+        page = max(1, min(page, total_pages))
+        pages[key] = page
+        start = (page - 1) * page_size
+        rows = CATALOG[start:start + page_size]
+        listing = "\n".join(
+            f"{item[4]} · {item[1]} · {item[3].title()}" for item in rows
+        )
+        return (f"🔐 PRIVATE BESTIARY · {len(CATALOG)} cards · page {page}/{total_pages}\n"
+                f"{listing}\n"
+                f"Navigate: {self.prefix}c list next | {self.prefix}c list prev | "
+                f"{self.prefix}c list <page>\n"
+                f"View a card: {self.prefix}c list <exact card name>")
+
+    def pet_rarities(self, arguments, username):
+        from bot.collectibles import CATALOG, RARITY_WEIGHT
+        odds = " | ".join(f"{tier.upper()} {weight}%" for tier, weight in RARITY_WEIGHT.items())
+        return (f"🐾 {len(CATALOG)} original creature cards\n{odds}\n"
+                "Tickets have matching tiers. Use !collection <page> to browse.")
+
+    def question(self, arguments, username):
+        self._remember_user(username)
+        return "💬 QUESTION\n" + self.social.pick("questions", prompts.QUESTIONS)
+
+    def would_you_rather(self, arguments, username):
+        self._remember_user(username)
+        return "🤔 WOULD YOU RATHER\n" + self.social.pick(
+            "would_you_rather", prompts.WOULD_YOU_RATHER
+        )
+
+    def never_have_i_ever(self, arguments, username):
+        self._remember_user(username)
+        return "🙋 NEVER HAVE I EVER\n" + self.social.pick(
+            "never_have_i_ever", prompts.NEVER_HAVE_I_EVER
+        )
+
+    def magic_eight_ball(self, arguments, username):
+        self._remember_user(username)
+        question = " ".join(arguments).strip()
+        if not question:
+            return f"🎱 Ask a question: {self.prefix}8ball <question>"
+        answer = self.social.pick("magic_eight_ball", prompts.MAGIC_EIGHT_BALL)
+        return f"🎱 {username} asked: {question}\nCrowBot says: {answer}"
+
+    def riddle_start(self, arguments, username):
+        self._remember_user(username)
+        return self.party_games.start_riddle()
+
+    def riddle_answer(self, arguments, username):
+        self._remember_user(username)
+        return self.party_games.answer_riddle(username, " ".join(arguments))
+
+    def steal_collectible(self, arguments, username):
+        """Use a tier-matched ticket to steal one named card from a recently seen player."""
+        self._remember_user(username)
+        if len(arguments) < 2:
+            return f"Use {self.prefix}steal @player <card-id>."
+        target_query = " ".join(arguments[:-1]).strip().lstrip("@")
+        card_id = arguments[-1].strip()
+        now = time.monotonic()
+        for key, last_seen in list(self.last_seen_users.items()):
+            if now - last_seen > self.spin_user_ttl_seconds:
+                self.last_seen_users.pop(key, None)
+                self.known_users.pop(key, None)
+        status, target = self._resolve_user(target_query)
+        if status == "multiple":
+            return "Several active players match: " + ", ".join(target)
+        if status != "ok":
+            return f"{target_query} must chat in this room before you can target them."
+        if target.casefold() == str(username).casefold():
+            return "You cannot steal from yourself."
+        last_seen = self.last_seen_users.get(target.casefold())
+        if last_seen is None or now - last_seen > self.spin_user_ttl_seconds:
+            return f"{target} is not currently active in this room."
+        return self.collectibles.steal_card(username, target, card_id)
+
+    def duel_player(self, arguments, username):
+        self._remember_user(username)
+        if arguments and arguments[0].casefold() == "accept":
+            return self.party_games.accept_duel(username, self.collectibles)
+        if arguments and arguments[0].casefold() == "cancel":
+            return self.party_games.cancel_duel(username)
+        name = " ".join(arguments).strip().lstrip("@")
+        return self.party_games.duel(username, name, self.collectibles)
+
+    def spin_bottle(self, arguments, username):
+        """Spin toward one randomly chosen observed room chatter."""
+        self._remember_user(username)
+        # The sender is a participant, but prefer someone else if possible.
+        now = time.monotonic()
+        # Chat observation is not a reliable IMVU occupancy signal. Drop
+        # inactive participants rather than selecting indefinitely stale names.
+        for key, last_seen in list(self.last_seen_users.items()):
+            if now - last_seen > self.spin_user_ttl_seconds:
+                self.last_seen_users.pop(key, None)
+                self.known_users.pop(key, None)
+        names = list(self.known_users.values())
+        eligible = [name for name in names if name.casefold() != str(username).casefold()]
+        if not eligible:
+            return "🍾 SPIN THE BOTTLE\nNeed another person to chat before spinning!"
+        target = random.choice(eligible)
+        question = self.social.pick("questions", prompts.QUESTIONS)
+        return f"🍾 SPIN THE BOTTLE\n🌀 Bottle points to @{target}!\n💬 {question}"
+
     # =========================================================
     # HELP
     # =========================================================
 
-    def help(
-        self,
-        arguments,
-        username,
-    ):
+    def help(self, arguments, username):
+        """Show a short command menu or a focused help page."""
+        p = self.prefix
+        topic = arguments[0].casefold() if arguments else ""
+        topic = {
+            "m": "music", "g": "games", "f": "fun", "sys": "system",
+            "pet": "pets", "p": "pets",
+        }.get(topic, topic)
+        menus = {
+            "music": (
+                "🎵 MUSIC\n\n"
+                "REQUESTS & QUEUE\n"
+                f"{p}p <song>  Request a song\n"
+                f"{p}q  Show queue\n"
+                f"{p}np  Show now playing\n"
+                f"{p}s  Skip song\n"
+                f"{p}pa  Pause\n"
+                f"{p}r  Resume\n"
+                f"{p}rm <#>  Remove a queued song\n"
+                f"{p}clear  Clear queue\n\n"
+                "ARTIST DJ\n"
+                f"{p}dj <artist>  Play that artist\n"
+                f"{p}dj off  Stop artist DJ\n"
+                f"{p}autoplay on|off  Toggle continuous music\n"
+                f"{p}language <name>  Set DJ language\n"
+                f"{p}djstatus  Check DJ mode"
+            ),
+            "games": (
+                "🎮 GAMES MENU\n\n"
+                "CONNECT 4\n"
+                f"{p}c4  Start a challenge\n"
+                f"{p}join  Join the waiting game\n"
+                f"{p}drop <1-7>  Drop a piece into a column\n"
+                f"{p}board  Show the board\n"
+                f"{p}end4  End the game\n\n"
+                "TIC-TAC-TOE\n"
+                f"{p}ttt  Start a challenge\n"
+                f"{p}accept  Join the waiting game\n"
+                f"{p}move <1-9>  Place your mark\n"
+                f"{p}tttboard  Show the board\n"
+                f"{p}tttend  End the game\n\n"
+                "TRIVIA\n"
+                f"{p}quiz  Start a question\n"
+                f"{p}a <answer>  Submit your answer\n\n"
+                "RIDDLE\n"
+                f"{p}riddle  Start a riddle\n"
+                f"{p}ra <answer>  Submit your answer\n\n"
+                "NUMBER GUESS\n"
+                f"{p}guess  Start a round\n"
+                f"{p}g <number>  Make a guess\n\n"
+                "QUICK PLAY\n"
+                f"{p}rps <rock|paper|scissors>  Play RPS\n"
+                f"{p}spin  Pick a recently active player\n"
+                f"{p}top  Show game scores\n\n"
+                "CREATURE ARENA\n"
+                f"{p}duel @name  Challenge a player\n"
+                f"{p}duel accept  Accept a challenge\n"
+                f"{p}duel cancel  Cancel your challenge\n"
+                "Arena matches award points and never transfer cards.\n\n"
+                f"🐾 Pet collecting has its own menu: {p}h pets"
+            ),
+            "pets": (
+                "🐾 PET GAME\n\n"
+                "DROP & COLLECTION\n"
+                f"{p}drops  Show active drop or next drop\n"
+                f"{p}catch  Catch the active drop\n"
+                f"{p}collection [page]  Browse 4 cards per page\n"
+                f"{p}rarities  Show drop odds\n\n"
+                "DIRECT STEAL · NO ACCEPTANCE\n"
+                f"{p}steal @name <card-id>  Take that card instantly\n"
+                "Target must have chatted in this room in the last 5 minutes.\n"
+                "Use a Steal Ticket matching the card's exact rarity.\n"
+                "Protected cards cannot be taken. One ticket steals one copy.\n\n"
+                "DEFENSE\n"
+                f"{p}defend <card-id>  Protect one card with its rarity ticket\n"
+                f"{p}unprotect <card-id>  Remove one shield\n\n"
+                "SACRIFICE\n"
+                f"{p}sacrifice <2-3 card IDs>  Same-rank cards only\n"
+                "Two reroll at the same rank; three create one rank higher.\n"
+                "A matching Sacrifice Card is required.\n\n"
+                "DROP TIMERS\n"
+                "Creatures: 12–30 min\n"
+                "Steal Tickets: 20–40 min\n"
+                "Defense Tickets: 25–45 min\n"
+                "Sacrifice Cards: 45–75 min"
+            ),
+            "fun": (
+                "🎭 PARTY & FUN\n\n"
+                f"{p}tod <name>  Truth or dare\n"
+                f"{p}truth <name>  Truth\n"
+                f"{p}dare <name>  Dare\n"
+                f"{p}wyr  Would you rather\n"
+                f"{p}nhie  Never have I ever\n"
+                f"{p}8ball <question>  Ask the magic 8-ball\n"
+                f"{p}roast @name  Playful roast\n"
+                f"{p}j  Tell a joke\n"
+                f"{p}meme  Share a meme\n"
+                f"{p}question  Icebreaker"
+            ),
+            "system": (
+                "⚙️ SYSTEM · OWNER & ROOM ADMIN\n\n"
+                "OWNER SETUP\n"
+                f"{p}linkowner  Verify the room owner account\n"
+                f"{p}approvemod <name>  Approve a pending admin\n"
+                f"{p}removemod <name>  Remove an admin\n"
+                f"{p}welcome <text>  Set the room greeting\n"
+                f"{p}welcome on|off  Toggle the greeting\n\n"
+                "ROOM ACCESS & COMMANDS\n"
+                f"{p}requestmod  Ask the owner for admin access\n"
+                f"{p}mods  List room admins\n"
+                f"{p}whoami  Check your room role\n"
+                f"{p}lock <command>  Restrict a command to admins\n"
+                f"{p}unlock <command>  Reopen a command\n"
+                f"{p}locks  List restricted commands"
+            ),
+        }
+        if topic in menus:
+            return menus[topic]
         return (
-            "CROWBOT COMMANDS\n"
-            f"{self.prefix}play <song/artist or URL> | "
-            f"{self.prefix}queue | "
-            f"{self.prefix}nowplaying | "
-            f"{self.prefix}skip\n"
-            f"{self.prefix}pause | "
-            f"{self.prefix}resume | "
-            f"{self.prefix}stop | "
-            f"{self.prefix}remove <number> | "
-            f"{self.prefix}clear\n"
-            f"{self.prefix}joke | "
-            f"{self.prefix}roast [username] | "
-            f"{self.prefix}truth | "
-            f"{self.prefix}dare | "
-            f"{self.prefix}tod\n"
-            f"{self.prefix}ttt | "
-            f"{self.prefix}accept | "
-            f"{self.prefix}move <1-9> | "
-            f"{self.prefix}tttboard | "
-            f"{self.prefix}tttend"
+            "🐦 CROWBOT MENU\n\n"
+            f"{p}h m  Music\n"
+            f"{p}h g  Games\n"
+            f"{p}h pets  Pet collecting\n"
+            f"{p}h f  Party & fun\n"
+            f"{p}h sys  Room tools"
         )
-

@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QFormLayout,
@@ -285,6 +286,42 @@ class SettingsWindow(QDialog):
                 mode_index
             )
 
+        # -----------------------------------------------------
+        # OPTIONAL LOCAL OLLAMA CHAT
+        # -----------------------------------------------------
+
+        self.local_ai_enabled = QCheckBox(
+            "Use local Llama AI for bot mentions"
+        )
+        self.local_ai_enabled.setChecked(
+            bool(settings.get("local_ai_enabled", False))
+        )
+        self.local_ai_enabled.setStyleSheet("color: #dbe5f1;")
+
+        self.ai_commentary_enabled = QCheckBox(
+            "Allow occasional room comments (max once per 90 seconds)"
+        )
+        self.ai_commentary_enabled.setChecked(
+            bool(settings.get("ai_commentary_enabled", False))
+        )
+        self.ai_commentary_enabled.setStyleSheet("color: #dbe5f1;")
+
+        self.local_ai_endpoint = QLineEdit()
+        self.local_ai_endpoint.setText(
+            settings.get("local_ai_endpoint", "http://127.0.0.1:11434")
+        )
+        self.local_ai_endpoint.setPlaceholderText(
+            "http://127.0.0.1:11434"
+        )
+
+        self.local_ai_model = QLineEdit()
+        self.local_ai_model.setText(
+            settings.get("local_ai_model", "auto")
+        )
+        self.local_ai_model.setPlaceholderText(
+            "auto-detect, or enter a name from ollama list"
+        )
+
         # =====================================================
         # FORM ROWS
         # =====================================================
@@ -294,10 +331,8 @@ class SettingsWindow(QDialog):
             self.username
         )
 
-        form.addRow(
-            "Room ID:",
-            self.room_id
-        )
+        # Room IDs are now managed independently in the multi-room dashboard.
+        # Keep the hidden legacy widget for compatibility, not as a setting.
 
         form.addRow(
             "Bot Name:",
@@ -318,6 +353,11 @@ class SettingsWindow(QDialog):
             "Music Mode:",
             self.music_mode
         )
+
+        form.addRow("Local AI:", self.local_ai_enabled)
+        form.addRow("AI Personality:", self.ai_commentary_enabled)
+        form.addRow("Ollama URL:", self.local_ai_endpoint)
+        form.addRow("Model name:", self.local_ai_model)
 
         layout.addLayout(
             form
@@ -357,15 +397,10 @@ class SettingsWindow(QDialog):
 
     def save_settings(self):
 
-        settings = {
+        settings = load_settings()
+        settings.update({
             "username": (
                 self.username
-                .text()
-                .strip()
-            ),
-
-            "room_id": (
-                self.room_id
                 .text()
                 .strip()
             ),
@@ -392,7 +427,12 @@ class SettingsWindow(QDialog):
                 self.music_mode
                 .currentText()
             ),
-        }
+            "local_ai_enabled": self.local_ai_enabled.isChecked(),
+            "ai_commentary_enabled": self.ai_commentary_enabled.isChecked(),
+            "local_ai_endpoint": self.local_ai_endpoint.text().strip()
+                or "http://127.0.0.1:11434",
+            "local_ai_model": self.local_ai_model.text().strip() or "auto",
+        })
 
         save_settings(
             settings

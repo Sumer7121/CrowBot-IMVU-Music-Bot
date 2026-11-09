@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from playwright.sync_api import sync_playwright
 
 
@@ -96,41 +98,49 @@ class IMVUWebController:
 
 
 
-    def find_imvu_room(self):
-
+    def list_imvu_rooms(self):
+        """List open IMVU room tabs without selecting an arbitrary target."""
         if not self.context:
-
-            raise RuntimeError(
-
-                "The controller is not connected to Chrome."
-
-            )
-
-
-
+            raise RuntimeError("The controller is not connected to Chrome.")
+        rooms = []
         for page in self.context.pages:
-
             try:
-
                 url = page.url or ""
-
-                if "imvu.com/next/chat/room-" in url.lower():
-
-                    self.page = page
-
-                    return page
-
+                parsed = urlparse(url)
+                if (parsed.netloc.casefold() in ("imvu.com", "www.imvu.com")
+                        and parsed.path.lower().startswith("/next/chat/room-")):
+                    canonical = "https://www.imvu.com" + parsed.path.rstrip("/") + "/"
+                    rooms.append({"url": canonical, "title": page.title()})
             except Exception:
-
                 continue
+        return rooms
 
+    def find_imvu_room(self, room_url=None):
+        """Select an exact IMVU room tab when room_url is supplied.
 
-
+        Preserve the old first-room behavior for existing single-room code.
+        Never fall back to another room if an exact target was requested.
+        """
+        if not self.context:
+            raise RuntimeError("The controller is not connected to Chrome.")
+        target = urlparse(str(room_url or "")).path.rstrip("/")
+        for page in self.context.pages:
+            try:
+                current_url = page.url or ""
+                parsed = urlparse(current_url)
+                url_path = parsed.path.rstrip("/")
+                if parsed.netloc.casefold() not in ("imvu.com", "www.imvu.com"):
+                    continue
+                if not url_path.lower().startswith("/next/chat/room-"):
+                    continue
+                if target and url_path != target:
+                    continue
+                self.page = page
+                return page
+            except Exception:
+                continue
         self.page = None
-
         return None
-
-
 
     def get_room_url(self):
 
@@ -243,124 +253,93 @@ class IMVUWebController:
 
 
     def ensure_joined(self, timeout_ms=30000):
+        """Wait for IMVU room UI before deciding whether JOIN is required.
 
+        DOMContentLoaded alone is not enough: the IMVU SPA renders JOIN later.
+        Only treat the room as joined after verified in-room controls appear.
+        """
         if not self.page:
+            raise RuntimeError("No IMVU room page has been selected.")
 
+        import time
+        deadline = time.monotonic() + timeout_ms / 1000.0
+        try:
+            self.page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
+        except Exception as error:
+            raise RuntimeError(f"IMVU room page did not load: {error}") from error
+
+        readiness_js = """() => {
+            const visible = el => {
+                if (!el) return false;
+                const style = window.getComputedStyle(el);
+                return style.visibility !== 'hidden' &&
+                    style.display !== 'none' && el.getClientRects().length > 0;
+            };
+            const join = document.querySelector('button.join-cta') ||
+                Array.from(document.querySelectorAll('button'))
+                    .find(b => b.textContent.trim().toUpperCase() === 'JOIN');
+            if (visible(join)) {
+                return join.disabled ? 'join-loading' : 'join-ready';
+            }
+            const chat = document.querySelector(
+                'textarea[placeholder="Say something..."]'
+            );
+            const media = document.querySelector('li[data-nav="media-button"]');
+            const send = document.querySelector('button.btn-send');
+            // The Media navigation item may be hidden while chat is open.
+            // Chat composer plus send controls is sufficient in-room evidence.
+            if (visible(chat) && (visible(send) || visible(media))) {
+                return 'already-joined';
+            }
+            return 'loading';
+        }"""
+
+        # Wait for the SPA to render JOIN or verified in-room chat + media.
+        state = "loading"
+        while time.monotonic() < deadline:
+            try:
+                state = self.page.evaluate(readiness_js)
+            except Exception:
+                state = "loading"
+            if state in ("join-ready", "already-joined"):
+                break
+            self.page.wait_for_timeout(200)
+        else:
             raise RuntimeError(
-
-                "No IMVU room page has been selected."
-
+                "Timed out waiting for IMVU JOIN button or in-room controls. "
+                "Check whether the page is still loading or requires login. "
+                f"Current page: {self.page.url}"
             )
 
-
-
-        self.page.wait_for_load_state(
-
-            "domcontentloaded",
-
-            timeout=timeout_ms,
-
-        )
-
-        self.page.wait_for_timeout(1000)
-
-
-
-        if not self.join_button_visible():
-
-            # IMVU can retain a dead temporary radio URL from an earlier
-            # session. Clear only its error modal before chat starts.
+        if state == "already-joined":
             self.dismiss_radio_stream_error()
-
             return {
-
-                "joined": True,
-
-                "clicked": False,
-
-                "status": "already_joined",
-
-                "room_url": self.get_room_url(),
-
+                "joined": True, "clicked": False,
+                "status": "already_joined", "room_url": self.get_room_url(),
             }
 
-
-
+        remaining_ms = max(500, int((deadline - time.monotonic()) * 1000))
         button = self.join_button().first
+        button.wait_for(state="visible", timeout=remaining_ms)
+        button.click(timeout=remaining_ms)
 
+        # Confirm a genuine joined room, not merely a vanished JOIN button.
+        while time.monotonic() < deadline:
+            try:
+                if self.page.evaluate(readiness_js) == "already-joined":
+                    self.dismiss_radio_stream_error()
+                    return {
+                        "joined": True, "clicked": True,
+                        "status": "joined", "room_url": self.get_room_url(),
+                    }
+            except Exception:
+                pass
+            self.page.wait_for_timeout(250)
 
-
-        try:
-
-            button.scroll_into_view_if_needed()
-
-        except Exception:
-
-            pass
-
-
-
-        button.click(timeout=timeout_ms)
-
-
-
-        try:
-
-            button.wait_for(
-
-                state="hidden",
-
-                timeout=timeout_ms,
-
-            )
-
-        except Exception:
-
-            if self.join_button_visible():
-
-                raise RuntimeError(
-
-                    "JOIN was clicked, but IMVU still shows the "
-
-                    "JOIN control. The room may not have finished "
-
-                    "joining or IMVU may have displayed a prompt."
-
-                )
-
-
-
-        self.page.wait_for_timeout(1500)
-
-        # Dismiss the error caused by IMVU retrying a persisted dead radio URL.
-        self.dismiss_radio_stream_error()
-
-
-
-        if self.join_button_visible():
-
-            raise RuntimeError(
-
-                "IMVU still shows the JOIN control after the "
-
-                "automatic join attempt."
-
-            )
-
-
-
-        return {
-
-            "joined": True,
-
-            "clicked": True,
-
-            "status": "joined",
-
-            "room_url": self.get_room_url(),
-
-        }
-
+        raise RuntimeError(
+            "JOIN was clicked, but IMVU in-room controls did not appear "
+            "before the timeout."
+        )
 
 
     # =========================================================
@@ -486,9 +465,28 @@ class IMVUWebController:
                     (row.getAttribute("data-chat-entry") || "")
                     .trim();
 
-                const userId =
-                    (row.getAttribute("data-id") || "")
-                    .trim();
+                // data-id on the chat row is normally a MESSAGE ID, not
+                // the sender's IMVU customer ID. Never use it for permissions.
+                // Accept explicit profile CID markers only.
+                const profile = row.querySelector(".chat-row-profile");
+                const identityNodes = [
+                    row, profile, row.querySelector(".display-name-text"),
+                    ...Array.from(profile?.querySelectorAll("*") || []),
+                ].filter(Boolean);
+                let userId = "";
+                for (const node of identityNodes) {
+                    for (const attribute of [
+                        "data-user-id", "data-avatar-id", "data-account-id",
+                        "data-imvu-id", "data-cid", "data-customer-id",
+                    ]) {
+                        const candidate = (node.getAttribute(attribute) || "").trim();
+                        if (/^[1-9][0-9]{0,14}$/.test(candidate)) {
+                            userId = candidate;
+                            break;
+                        }
+                    }
+                    if (userId) break;
+                }
 
                 const timestamp =
                     (row.getAttribute("data-timestamp") || "")
@@ -541,11 +539,72 @@ class IMVUWebController:
 
                 }
 
+                // IMVU display names are arbitrary and can contain emoji,
+                // spaces and duplicate nicknames. They are NOT identities.
+                // Resolve the actual account handle from profile links
+                // or explicit machine-readable account-username attributes.
+                // Owner verification must use account metadata. Appointed
+                // moderators are matched separately by their display names.
+                const validHandle = (value) => {
+                    const name = String(value || "").trim().replace(/^@/, "");
+                    return /^[a-zA-Z0-9_.-]{1,60}$/.test(name) ? name : "";
+                };
+                let accountUsername = "";
+                const nodes = [
+                    ...identityNodes,
+                ].filter(Boolean);
+                for (const node of nodes) {
+                    for (const key of ["data-username", "data-user-name",
+                                       "data-account-username", "data-avatar-name"]) {
+                        const name = validHandle(node.getAttribute(key));
+                        if (name) {
+                            accountUsername = name;
+                            break;
+                        }
+                    }
+                    if (accountUsername) break;
+                }
+                if (!accountUsername) {
+                    for (const link of row.querySelectorAll("a[href]")) {
+                        try {
+                            const profile = new URL(link.getAttribute("href"), location.href);
+                            const host = profile.hostname.toLowerCase();
+                            if (host !== "imvu.com" &&
+                                host !== "www.imvu.com" &&
+                                host !== "avatars.imvu.com") continue;
+                            const match = profile.pathname.match(
+                                new RegExp("^/(?:next/av/|profile/)?([^/?#]+)/?$", "i")
+                            );
+                            if (!match) continue;
+                            // For imvu.com accept a recognized profile route
+                            // only; don't interpret arbitrary web paths as users.
+                            if (host !== "avatars.imvu.com" &&
+                                !new RegExp("^/(?:next/av/|profile/)", "i").test(
+                                    profile.pathname
+                                )) continue;
+                            const profileValue = decodeURIComponent(match[1]);
+                            if (/^[1-9][0-9]{0,14}$/.test(profileValue)) {
+                                if (!userId) userId = profileValue;
+                                continue;
+                            }
+                            accountUsername = validHandle(profileValue);
+                            if (accountUsername) break;
+                        } catch (_) {
+                            // Ignore malformed/non-profile URLs.
+                        }
+                    }
+                }
                 return {
                     entry_id: entryId,
                     user_id: userId,
+                    // Legacy data-id is opaque chat identity, not a profile CID.
+                    // Only a reviewed owner-link request may authorize it.
+                    chat_actor_id: !userId && row.getAttribute("data-id")
+                        ? "legacy-chat:" + row.getAttribute("data-id").trim()
+                        : "",
                     timestamp: timestamp,
                     username: username,
+                    account_username: accountUsername,
                     message: message,
                     is_me: isMe,
                 };
@@ -570,87 +629,37 @@ class IMVUWebController:
 
 
 
+    def _chat_identity(self, message):
+        entry_id = str(message.get("entry_id") or "").strip()
+        if entry_id:
+            return "id:" + entry_id
+        # When IMVU omits an ID, use position + content as a fallback.
+        # This avoids treating identical text from different rendered entries
+        # as the same message.
+        return "fallback:" + "|".join(
+            str(message.get(key) or "") for key in
+            ("user_id", "timestamp", "username", "message", "_position")
+        )
+
     def prime_chat_listener(self):
-
         messages = self.get_visible_chat_messages(include_own=True)
-
-
-
-        for message in messages:
-
-            entry_id = message.get("entry_id")
-
-            if entry_id:
-
-                self.seen_chat_entries.add(entry_id)
-
-
-
+        for index, message in enumerate(messages):
+            message["_position"] = index
+            self.seen_chat_entries.add(self._chat_identity(message))
         return len(self.seen_chat_entries)
 
-
-
     def get_new_chat_messages(self):
-
         messages = self.get_visible_chat_messages(include_own=True)
-
-        new_messages = []
-
-
-
-        for message in messages:
-
-            entry_id = message.get("entry_id")
-
-
-
-            if entry_id:
-
-                signature = entry_id
-
-            else:
-
-                signature = "|".join(
-
-                    [
-
-                        message.get("user_id", ""),
-
-                        message.get("timestamp", ""),
-
-                        message.get("username", ""),
-
-                        message.get("message", ""),
-
-                    ]
-
-                )
-
-
-
+        result = []
+        for index, message in enumerate(messages):
+            message["_position"] = index
+            signature = self._chat_identity(message)
             if signature in self.seen_chat_entries:
-
                 continue
-
-
-
             self.seen_chat_entries.add(signature)
-
-
-
-            if message.get("is_me"):
-
-                continue
-
-
-
-            new_messages.append(message)
-
-
-
-        return new_messages
-
-
+            if not message.get("is_me"):
+                result.append(message)
+        return result
 
     def wait_for_new_chat_messages(
 
@@ -658,7 +667,7 @@ class IMVUWebController:
 
         timeout_ms=500,
 
-        poll_interval_ms=100,
+        poll_interval_ms=75,
 
     ):
 
@@ -1622,16 +1631,21 @@ class IMVUWebController:
 
             self.click_load()
 
-
+            # Clicking LOAD is not proof that the selected room accepted
+            # this stream. Check the field after the click and surface any
+            # mismatch instead of reporting an unconditional success.
+            actual_url = self.get_current_stream_url().strip()
+            if actual_url != stream_url.strip():
+                raise RuntimeError(
+                    "IMVU radio URL changed or disappeared after LOAD "
+                    f"in room {self.get_room_url()}. "
+                    f"Expected {stream_url!r}, found {actual_url!r}."
+                )
 
             return {
-
                 "previous_url": previous_url,
-
-                "new_url": stream_url,
-
+                "new_url": actual_url,
                 "loaded": True,
-
             }
 
 

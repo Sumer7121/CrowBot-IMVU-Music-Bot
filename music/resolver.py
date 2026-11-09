@@ -1,4 +1,6 @@
-﻿from music.youtube_owned import YouTubeOwnedProvider
+﻿import time
+
+from music.youtube_owned import get_shared_youtube_provider
 
 
 class MusicResolver:
@@ -19,14 +21,26 @@ class MusicResolver:
         self.timeout = timeout
 
         self.youtube = (
-            YouTubeOwnedProvider()
+            get_shared_youtube_provider()
         )
 
     def resolve(
         self,
         query,
         requested_by=None,
+        room_id="legacy",
+        session_key="legacy",
+        cancel_check=None,
+        progress_callback=None,
     ):
+        # Full searches can involve several YouTube metadata requests. Bound
+        # the *whole* request, including download, to a reasonable deadline.
+        deadline = time.monotonic() + 180
+
+        def interrupted():
+            return (bool(cancel_check and cancel_check())
+                    or time.monotonic() >= deadline)
+
         query = str(
             query or ""
         ).strip()
@@ -47,17 +61,15 @@ class MusicResolver:
 
         try:
             track = self.youtube.search(
-                query,
-                requested_by=requested_by,
+                query, requested_by=requested_by,
+                room_id=room_id, session_key=session_key,
+                cancel_check=interrupted,
+                progress_callback=progress_callback,
             )
 
         except Exception as error:
-            print(
-                "RESOLVER: yt-dlp failed: "
-                f"{error}"
-            )
-
-            track = None
+            print("RESOLVER: yt-dlp or local MP3 preparation failed: " + str(error))
+            raise RuntimeError("Song preparation failed: " + str(error)) from error
 
         if not track:
             print(
@@ -112,7 +124,6 @@ class MusicResolver:
         local HTTP server when CrowBot shuts down.
         """
 
-        try:
-            self.youtube.close()
-        except Exception:
-            pass
+        # Shared for the lifetime of the process; do not shut down the
+        # temporary media server while another room still streams from it.
+        return None

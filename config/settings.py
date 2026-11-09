@@ -8,11 +8,16 @@ SETTINGS_FILE = get_settings_file()
 
 DEFAULT_SETTINGS = {
     "username": "",
-    "room_id": "",
+    "room_id": "",  # Legacy single-room setting; not used by multi-room UI.
+    "rooms": [],
     "bot_name": "",
     "prefix": "!",
     "music_mode": "Radio Stream",
     "imvu_client": "Auto Detect",
+    "local_ai_enabled": False,
+    "ai_commentary_enabled": False,
+    "local_ai_endpoint": "http://127.0.0.1:11434",
+    "local_ai_model": "auto",
 }
 
 
