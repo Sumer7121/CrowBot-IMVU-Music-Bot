@@ -1,7 +1,6 @@
 """Lightweight room games with no external dependencies."""
 import random
 import secrets
-import time
 
 
 class PartyGames:
@@ -124,7 +123,6 @@ class PartyGames:
         self.scores = {}
         self._trivia_remaining = []
         self._riddle_remaining = []
-        self.pending_duel = None
 
     @staticmethod
     def _key(name):
@@ -194,95 +192,21 @@ class PartyGames:
         points = self._award(username)
         return f"🧩 {username} solved it! +1 point (total: {points})."
 
-    def duel(self, username, opponent, collectibles=None, tier=None):
+    def duel(self, username, opponent):
         challenger = str(username or "").strip()
         other = str(opponent or "").strip().lstrip("@")
         if not other:
-            return "⚔️ Use !duel @username [tier] to challenge for a creature."
+            return "⚔️ DUEL | Use !duel <username>."
         if other.casefold() == challenger.casefold():
             return "⚔️ You cannot duel yourself!"
-        if collectibles is None:
-            return "Creature duels need the collection system to be active."
-        if self.pending_duel and time.monotonic() >= self.pending_duel["expires"]:
-            self.pending_duel = None
-        if self.pending_duel:
-            return "⚔️ A duel challenge is already waiting in this room."
-        from bot.collectibles import RARITY_RANK
-        tickets = collectibles.ticket_counts(challenger)
-        available = [t for (kind, t), qty in tickets.items()
-                     if kind == "steal" and qty > 0]
-        if tier:
-            tier = tier.casefold()
-            if tier not in RARITY_RANK:
-                return "Choose common, uncommon, rare, epic, or legendary."
-            if ("steal", tier) not in tickets:
-                return f"You need a {tier.upper()} Steal Ticket."
-        elif available:
-            tier = max(available, key=lambda value: RARITY_RANK[value])
+        first, second = random.randint(1, 6), random.randint(1, 6)
+        if first == second:
+            outcome = "It's a draw! No points awarded."
         else:
-            return "🎟 You need a Steal Ticket. Catch one with !catch."
-        if not collectibles.has_eligible_pet(challenger, tier):
-            return f"You need a creature at {tier.upper()} or lower to risk in this duel."
-        if not collectibles.has_eligible_pet(other, tier, unshielded=True):
-            return f"{other} has no unshielded creature at {tier.upper()} or lower to win."
-        self.pending_duel = {
-            "challenger": challenger, "opponent": other, "tier": tier,
-            "expires": time.monotonic() + 60,
-        }
-        return (f"⚔️ CREATURE DUEL: {challenger} challenges {other}! "
-                f"Ticket tier: {tier.upper()}. {other}, accept with !duel accept "
-                "within 60 seconds. The winner takes one unshielded creature "
-                "at or below the ticket tier.")
-
-    def accept_duel(self, username, collectibles):
-        challenge = self.pending_duel
-        if not challenge:
-            return "⚔️ No creature duel is waiting."
-        if time.monotonic() >= challenge["expires"]:
-            self.pending_duel = None
-            return "⌛ The duel challenge expired."
-        player = str(username or "").strip()
-        if player.casefold() != challenge["opponent"].casefold():
-            return f"⚔️ Only {challenge['opponent']} can accept this duel."
-        if not collectibles.spend_ticket(
-                challenge["challenger"], "steal", challenge["tier"]):
-            self.pending_duel = None
-            return "🎟 The challenger no longer has that Steal Ticket."
-        first = collectibles.choose_owned_card(challenge["challenger"])
-        second = collectibles.choose_owned_card(challenge["opponent"])
-        self.pending_duel = None
-        if not first or not second:
-            return "⚔️ Both players need at least one creature card."
-        first_roll, second_roll = random.randint(1, 20), random.randint(1, 20)
-        first_score, second_score = first[7] + first_roll, second[7] + second_roll
-        if first_score == second_score:
-            return (f"🤝 DUEL DRAW! {first[4]} {first[1]} ({first_score}) vs "
-                    f"{second[4]} {second[1]} ({second_score}). No creature was stolen; "
-                    "the ticket was used.")
-        winner = challenge["challenger"] if first_score > second_score else challenge["opponent"]
-        loser = challenge["opponent"] if first_score > second_score else challenge["challenger"]
-        points = self._award(winner)
-        stolen = collectibles.steal_random_pet(loser, winner, challenge["tier"])
-        result = (f"🏆 {winner} wins with {max(first_score, second_score)}! "
-                  f"+1 duel point (total {points}).")
-        if stolen:
-            result += f" {winner} took {stolen[4]} {stolen[1]} [{stolen[3].upper()}] from {loser}!"
-        else:
-            result += " The opponent's remaining eligible creatures were shielded."
-        return (f"⚔️ PET DUEL · {first[2]} {first[1]} +{first_roll} "
-                f"({first_score}) vs {second[2]} {second[1]} +{second_roll} "
-                f"({second_score}). {result}")
-
-    def cancel_duel(self, username):
-        challenge = self.pending_duel
-        if not challenge:
-            return "⚔️ No creature duel is waiting."
-        player = str(username or "").strip().casefold()
-        if player not in {challenge["challenger"].casefold(),
-                          challenge["opponent"].casefold()}:
-            return "🔒 Only duel participants can cancel this challenge."
-        self.pending_duel = None
-        return "⚔️ Duel challenge cancelled. No ticket was used."
+            winner = challenger if first > second else other
+            points = self._award(winner)
+            outcome = f"🏆 {winner} wins! +1 point (total: {points})."
+        return f"⚔️ DUEL | {challenger} rolled {first}, {other} rolled {second}. {outcome}"
 
     def start_guess(self):
         self.guess = {"number": secrets.randbelow(20) + 1, "attempts": 0}
