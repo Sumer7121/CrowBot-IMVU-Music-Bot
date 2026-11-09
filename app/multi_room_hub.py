@@ -294,7 +294,7 @@ class MultiRoomHub(QObject):
         )
         self.drop_timers[room_id] = timer
         self._schedule_room_drop(room_id, epoch, initial=True)
-        self._log(room_id, "Automatic cat/dog drops enabled. Use !drops or !petdrop.")
+        self._log(room_id, "Automatic pet drops enabled. Use !drops or !petdrop.")
 
     def _schedule_room_drop(self, room_id, epoch, initial=False):
         if not self._current(room_id, epoch):
@@ -302,11 +302,8 @@ class MultiRoomHub(QObject):
         timer = self.drop_timers.get(room_id)
         if timer is None:
             return
-        # First drop is fairly quick; follow-up drops are spaced to avoid
-        # interrupting IMVU chat and music every minute.
-        milliseconds = random.randint(60_000, 90_000) if initial else random.randint(
-            6 * 60_000, 10 * 60_000
-        )
+        # Keep automatic drops occasional and unpredictable.
+        milliseconds = random.randint(15 * 60_000, 30 * 60_000)
         self.sessions[room_id].command_handler.next_auto_drop_at = (
             time.monotonic() + milliseconds / 1000.0
         )
