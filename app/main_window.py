@@ -4880,11 +4880,13 @@ class MainWindow(QMainWindow):
 
 
     def _schedule_collectible(self):
-        """Random 12–30 minute delay; only when a listener is running."""
-        import random
+        """Schedule the nearest independently timed pet or ticket drop."""
         worker = self.imvu_chat_worker
         if worker is not None and worker.isRunning():
-            self.collectible_timer.start(random.randint(12 * 60_000, 30 * 60_000))
+            drops = self.command_handler.collectibles
+            milliseconds = drops.next_auto_drop_delay_ms()
+            self.command_handler.next_auto_drop_at = time.monotonic() + milliseconds / 1000.0
+            self.collectible_timer.start(milliseconds)
 
     def _spawn_collectible(self):
         worker = self.imvu_chat_worker
@@ -4892,7 +4894,7 @@ class MainWindow(QMainWindow):
             return
         drops = self.command_handler.collectibles
         drops.expired()
-        announcement = drops.spawn()
+        announcement = drops.spawn_scheduled_drop()
         if announcement:
             self.send_bot_response_to_imvu(announcement)
         self._schedule_collectible()
