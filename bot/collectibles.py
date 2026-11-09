@@ -2,6 +2,7 @@
 import random
 import sqlite3
 import time
+import textwrap
 from contextlib import closing
 from pathlib import Path
 
@@ -111,20 +112,62 @@ SPECIES = (
 
 assert len(PREFIXES) == 20 and len(SPECIES) == 50
 
-_FORTUNES = (
-    "{holder}, your brave heart makes this beast proud to stand with you.",
-    "{holder}, your kindness is the magic this creature trusts most.",
-    "{holder}, you bring a bright spark wherever you go.",
-    "{holder}, your patience is quietly becoming strength.",
-    "{holder}, your curious spirit is ready for a new adventure.",
-    "{holder}, your loyalty makes a powerful kind of magic.",
-    "{holder}, your smile could outshine a legendary aura.",
-    "{holder}, your courage is bigger than your worries today.",
-    "{holder}, even small steps can lead to a mighty win.",
-    "{holder}, this card is proof that your heart is one of a kind.",
-    "{holder}, the world is better with your particular kind of brave.",
-    "{holder}, may good luck follow every footprint you leave.",
-)
+RARITY_SAYINGS = {
+    "common": (
+        "{holder}, {card} says: 'Small wins still count. Keep going.'",
+        "A tiny omen follows {card}: good luck often arrives quietly.",
+        "{card} believes your next laugh is closer than you think, {holder}.",
+        "Plot twist: {card} thinks snacks solve most side quests.",
+        "The sun saved one warm little ray for {card} and its keeper.",
+        "A cheerful pawprint from {card} says today can surprise you.",
+        "Even a common card can carry a very uncommon good day.",
+        "{holder}, {card} dares you to make someone's day brighter.",
+    ),
+    "uncommon": (
+        "{card} picked your side, {holder}; may good luck follow its footprints.",
+        "A secret shortcut appears whenever {card} joins your party.",
+        "{holder}, {card} says your kindness is stronger than it looks.",
+        "The clever ones know: {card} is never ordinary for long.",
+        "Fortune favors the curious, and {card} has noticed you.",
+        "{card} keeps a spare bit of courage for rainy afternoons.",
+        "A good friend, a brave choice, and {card}: a fine little alliance.",
+        "{holder}, {card} predicts a pleasant surprise before sunset.",
+    ),
+    "rare": (
+        "FORTUNE: {card} sees a turning point just beyond the next hill.",
+        "UNO REVERSE omen: {card} turns a bad turn into your comeback.",
+        "{holder}, {card} keeps one lucky favor sealed beneath its sigil.",
+        "The moon wrote {card} into the margin of your best story.",
+        "{card} says: trust the quiet instinct that brought you this far.",
+        "A rare ally changes the odds; {card} already knows the move.",
+        "{holder}, {card} has hidden a little extra luck in your pocket.",
+        "The next twist belongs to {card}; fate can wait its turn.",
+    ),
+    "epic": (
+        "GOTHIC PROPHECY: {card} blooms where the midnight roses grow.",
+        "{card} says: 'Let the storm speak. I have survived louder things.'",
+        "A velvet-dark favor surrounds {card}; the night knows your name.",
+        "{holder}, {card} turns old heartbreak into a sharper kind of courage.",
+        "The shadows bow to {card}, but only kindness earns its trust.",
+        "EMO ANTHEM: {card} makes the rain sound like a victory song.",
+        "{card} carries a moonlit blessing for the one who keeps going.",
+        "The villain's plan meets {card}: one dramatic reverse card.",
+        "No crown lasts forever; {card} prefers the power of choice.",
+        "{holder}, {card} promises that even dark chapters can glow.",
+    ),
+    "legendary": (
+        "FATE REVERSED: {card} holds the final UNO REVERSE of the stars.",
+        "{card} needs no throne; the night itself makes room.",
+        "LEGENDARY FAVOR: {card} has chosen you for one impossible comeback.",
+        "The old gods fell silent when {card} opened its eyes.",
+        "{holder}, {card} says: your brave heart can change the ending.",
+        "Even the villain checks the shadows before crossing {card}.",
+        "A crown of comets follows {card}; destiny is only a suggestion.",
+        "The last page is blank. {card} is holding the pen.",
+        "{card} turns doom on its heel and walks away laughing.",
+        "One impossible favor waits in the wings with {card}.",
+    ),
+}
 _ART = {
     "feline": (r" /\_/\\", r"( o.o )-<", r" / >*\\"),
     "canine": (r" / \__/", r"( •ᴥ• )=>", r" /|  |\ "),
@@ -138,7 +181,40 @@ _ART = {
     "reptile": (r" __/\____", r"( o  .  )>", r" /_/ \_\ "),
     "sea": (r"  .~~~~.", r" ( o.o )>", r"  ~~~~~ "),
     "dinosaur": (r"   .---.", r" __/o.o \__", r"/_/\___/\\"),
+    "mermaid": (r"  .-=-.", r" (o.o)  ~~~", r" /(  )\\_/"),
+    "bat": (r" /\\_/\\", r"( •.• )><", r" /|___|\\ "),
+    "moth": (r" /\\  /\\", r"(  .-.  )", r"  /   \\  "),
+    "raccoon": (r"  .---.", r" (o.o)=|", r" /|___|\\ "),
 }
+CARD_FRAME_WIDTH = 58
+CARD_FRAME_INNER = CARD_FRAME_WIDTH - 2
+
+def _wrap_card_text(value):
+    words = str(value).split()
+    if not words:
+        return [""]
+    lines, line = [], ""
+    for word in words:
+        if line and len(line) + 1 + len(word) > CARD_FRAME_INNER:
+            lines.append(line)
+            line = word
+        else:
+            line = word if not line else line + " " + word
+    if line:
+        lines.append(line)
+    return lines
+
+def _render_card_frame(rows):
+    top = "╭" + "─" * CARD_FRAME_INNER + "╮"
+    bottom = "╰" + "─" * CARD_FRAME_INNER + "╯"
+    body = []
+    for row in rows:
+        lines = _wrap_card_text(row)
+        for line in lines:
+            line = line[:CARD_FRAME_INNER]
+            body.append("│" + line.ljust(CARD_FRAME_INNER) + "│")
+    return "\n".join([top, *body, bottom])
+
 def _card_rarity(base_tier, element_bonus, size):
     tiers = tuple(RARITY_WEIGHT)
     # Legends stay scarce: only naturally legendary species with the rarest
@@ -170,6 +246,21 @@ LEGENDARY_TITLES = {
     ("Star", "Tyrannosaurus Rex"): "Starfall, the Ancient Apex",
 }
 
+THEMED_CREATURES = (
+    ("gothic_mermaid", "Gothic Mermaid", "🧜‍♀️", "mermaid", "gothic", "Black Tide Ballad", "epic", "medium"),
+    ("moonveil_mermaid", "Moonveil Mermaid", "🧜‍♀️", "mermaid", "moon", "Silver Current", "rare", "medium"),
+    ("blackwater_mermaid", "Blackwater Mermaid", "🧜‍♀️", "mermaid", "abyss", "Deepwater Lullaby", "epic", "medium"),
+    ("emo_cat", "Emo Cat", "🐈‍⬛", "feline", "emo", "Rainy-Day Pounce", "uncommon", "small"),
+    ("midnight_emo_cat", "Midnight Emo Cat", "🐈‍⬛", "feline", "dusk", "Velvet Pawstep", "rare", "small"),
+    ("graveyard_raven", "Graveyard Raven", "🐦‍⬛", "bird", "gothic", "Cemetery Chorus", "rare", "small"),
+    ("velvet_bat", "Velvet Bat", "🦇", "bat", "gothic", "Velvet Night Flight", "rare", "small"),
+    ("phantom_moth", "Phantom Moth", "🦋", "moth", "shadow", "Lantern Drift", "uncommon", "small"),
+    ("punk_raccoon", "Punk Raccoon", "🦝", "raccoon", "punk", "Bin-Raid Rebellion", "uncommon", "small"),
+    ("neon_axolotl", "Neon Axolotl", "🦎", "sea", "neon", "Glowfin Escape", "uncommon", "small"),
+    ("mourning_dove", "Mourning Dove", "🕊️", "bird", "gothic", "Midnight Lament", "uncommon", "small"),
+    ("shadow_wolf", "Shadow Wolf", "🐺", "canine", "shadow", "Eclipse Howl", "rare", "large"),
+)
+
 def _build_catalog():
     cards = []
     index = 0
@@ -186,13 +277,19 @@ def _build_catalog():
             power = min(99, rarity_power[rarity] + size_power[size] + ((index * 13) % 7))
             cards.append((key, name, emoji, rarity, f"B{index:04d}",
                           element, f"{prefix_trait} {animal_trait}", power, family, size, base_name))
+    for key, name, emoji, family, element, trait, base_tier, size in THEMED_CREATURES:
+        index += 1
+        rarity = _card_rarity(base_tier, 0, size)
+        power = min(99, rarity_power[rarity] + size_power[size] + ((index * 13) % 7))
+        cards.append((key, name, emoji, rarity, f"B{index:04d}",
+                      element, trait, power, family, size, name))
     return tuple(cards)
 
 CATALOG = _build_catalog()
 CATALOG_BY_NAME = {card[1].casefold(): card for card in CATALOG}
 CATALOG_BY_BASE_NAME = {card[10].casefold(): card for card in CATALOG}
 CATALOG_BY_ID = {card[4].casefold(): card for card in CATALOG}
-assert len(CATALOG) == len(CATALOG_BY_NAME) == len(CATALOG_BY_BASE_NAME) == len(CATALOG_BY_ID) == 1000
+assert len(CATALOG) == len(CATALOG_BY_NAME) == len(CATALOG_BY_BASE_NAME) == len(CATALOG_BY_ID) == 1012
 
 LEGACY_FAMILY = {"cat": "feline", "dog": "canine", "bird": "bird"}
 def _legacy_name_map():
@@ -297,31 +394,43 @@ class CollectibleDrops:
 
     @classmethod
     def _fortune(cls, card, holder=None):
-        if not holder:
-            return "Fortune waits for its card holder."
-        name = str(holder).strip().lstrip("@") or "Traveler"
+        name = str(holder or "the next keeper").strip().lstrip("@") or "the next keeper"
         seed = int(card[4][1:]) + sum(ord(ch) for ch in name.casefold())
-        return _FORTUNES[seed % len(_FORTUNES)].format(holder="@" + name)
+        sayings = RARITY_SAYINGS[card[3]]
+        saying = sayings[seed % len(sayings)]
+        return saying.format(holder="@" + name if holder else name, card=card[1])
 
     @classmethod
     def render_card(cls, card, quantity=1, holder=None):
         rarity, mark = card[3], RARITY_MARK[card[3]]
         art = _ART.get(card[8], _ART["dragon"])
-        fortune = cls._fortune(card, holder)
-        return (f"╭─ {mark} {rarity.upper()} · {card[5].upper()} · {card[4]} ─╮\n"
-                f"{card[2]} {card[1]}\n"
-                f"{art[0]}  {cls._sigil(card)}\n{art[1]}\n{art[2]}\n"
-                f"Trait: {card[6]} · Power {card[7]} · x{quantity}\n"
-                f"Fortune: {fortune}\n╰────────────────────────╯")
+        saying = cls._fortune(card, holder)
+        rows = [
+            f"{mark} {rarity.upper()} · {card[5].upper()} · {card[4]}",
+            f"{card[2]} {card[1]}",
+            "",
+            f"{art[0]}  {cls._sigil(card)}",
+            art[1], art[2], "",
+            f"Trait: {card[6]}",
+            f"Power: {card[7]} · Copies: x{quantity}",
+            "",
+            f"Card saying · {rarity.title()}",
+            saying,
+        ]
+        return _render_card_frame(rows)
 
     @classmethod
     def render_compact(cls, card, quantity, holder=None):
         art = _ART.get(card[8], _ART["dragon"])
-        return (f"{RARITY_MARK[card[3]]}{card[3][0].upper()} {card[4]} "
-                f"{card[2]} {card[1]} x{quantity}\n"
-                f"{art[0]} {cls._sigil(card)} {art[1]}\n"
-                f"{card[5].title()} · {card[6]} · POW {card[7]}\n"
-                f"Fortune: {cls._fortune(card, holder)}")
+        rows = [
+            f"{RARITY_MARK[card[3]]} {card[3].upper()} · {card[4]}",
+            f"{card[2]} {card[1]}",
+            f"{art[0]}  {cls._sigil(card)}",
+            f"{card[5].title()} · POW {card[7]} · x{quantity}",
+            "Saying: " + cls._fortune(card, holder),
+        ]
+        return _render_card_frame(rows)
+
 
     @staticmethod
     def render_ticket(ticket_type, tier, holder=None):
