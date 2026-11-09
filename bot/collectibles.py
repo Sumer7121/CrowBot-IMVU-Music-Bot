@@ -26,10 +26,12 @@ LEGACY_PET_NAMES = {
     },
 }
 
-RARITY_WEIGHT = {"common": 35, "uncommon": 40, "rare": 17, "epic": 7, "legendary": 1}
+RARITY_WEIGHT = {"common": 35, "uncommon": 40, "rare": 17, "epic": 7.5, "legendary": 0.5}
 RARITY_RANK = {name: i for i, name in enumerate(RARITY_WEIGHT)}
 RARITY_MARK = {"common": "·", "uncommon": "+", "rare": "*", "epic": "◆", "legendary": "★"}
-TICKET_TYPES = ("steal", "defend")
+RARITY_DOT = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
+TICKET_TYPES = ("steal", "defend", "sacrifice")
+TICKET_TYPE_WEIGHT = {"steal": 40, "defend": 40, "sacrifice": 20}
 TICKET_DROP_CHANCE = 0.10
 
 # Curated name stems and animal forms produce a stable, exactly 1,000-card
@@ -56,6 +58,29 @@ PREFIXES = (
     ("Star", "cosmic", "Starfall", 2),
     ("Magma", "lava", "Eruption", 1),
 )
+NAME_STEMS = {
+    "Water": ("Aqua", "Riptide", "Tideborn"),
+    "Fire": ("Pyro", "Cinder", "Flareborn"),
+    "Storm": ("Thundra", "Tempest", "Stormveil"),
+    "Shadow": ("Nightshade", "Gloam", "Dreadveil"),
+    "Wind": ("Gale", "Skybound", "Whirlwind"),
+    "Lightning": ("Volt", "Thunderclap", "Sparkborn"),
+    "Forest": ("Verdant", "Wildroot", "Briar"),
+    "Electric": ("Neon", "Arcflash", "Pulseborn"),
+    "Abyss": ("Abyssal", "Voidtide", "Deepveil"),
+    "Stone": ("Terra", "Flint", "Mountainheart"),
+    "Moon": ("Lunar", "Moonglow", "Moonveil"),
+    "Frost": ("Glacial", "Snowdrift", "Icebound"),
+    "Solar": ("Radiant", "Sunflare", "Daybreak"),
+    "Iron": ("Ironclad", "Forged", "Steelheart"),
+    "Tide": ("Brine", "Surgebound", "Seaborn"),
+    "Crystal": ("Prism", "Shardborn", "Glassfire"),
+    "Ember": ("Ashen", "Sear", "Emberheart"),
+    "Venom": ("Venomfang", "Toxic", "Viper"),
+    "Star": ("Astral", "Starfall", "Cometborn"),
+    "Magma": ("Pyroclast", "Lavaforged", "Embercore"),
+}
+
 SPECIES = (
     ("cat", "Cat", "🐈", "feline", "Whisker Pounce", "common", "small"),
     ("lion", "Lion", "🦁", "feline", "Royal Pounce", "rare", "large"),
@@ -203,9 +228,11 @@ def _wrap_card_text(value):
         lines.append(line)
     return lines
 
-def _render_card_frame(rows):
-    top = "╭" + "─" * CARD_FRAME_INNER + "╮"
-    bottom = "╰" + "─" * CARD_FRAME_INNER + "╯"
+def _render_card_frame(rows, rarity="common"):
+    dot = RARITY_DOT.get(rarity, "⚪")
+    # Colored dots decorate both ends; UTF-8 IMVU chat supports these glyphs.
+    top = "╭" + dot + "─" * 52 + dot + "╮"
+    bottom = "╰" + dot + "─" * 52 + dot + "╯"
     body = []
     for row in rows:
         value = str(row)
@@ -262,25 +289,46 @@ THEMED_CREATURES = (
     ("shadow_wolf", "Shadow Wolf", "🐺", "canine", "shadow", "Eclipse Howl", "rare", "large"),
 )
 
+def _creature_name(prefix, prefix_trait, animal, species_index, prefix_index):
+    stems = NAME_STEMS[prefix]
+    stem = stems[(species_index + prefix_index) % len(stems)]
+    style = (species_index + prefix_index) % 5
+    styles = (
+        f"{stem} {animal}",
+        f"{animal} of the {prefix}",
+        f"{prefix_trait} {animal}",
+        f"{stem}born {animal}",
+        f"{animal} {stem}heart",
+    )
+    return styles[style]
+
 def _build_catalog():
     cards = []
+    used_names = set()
     index = 0
     size_power = {"small": 0, "medium": 4, "large": 8, "giant": 12, "mythic": 10}
     rarity_power = {"common": 20, "uncommon": 35, "rare": 50,
                     "epic": 70, "legendary": 90}
-    for prefix, element, prefix_trait, rarity_bonus in PREFIXES:
-        for key, animal, emoji, family, animal_trait, base_tier, size in SPECIES:
+    for prefix_index, (prefix, element, prefix_trait, rarity_bonus) in enumerate(PREFIXES):
+        for species_index, (key, animal, emoji, family, animal_trait, base_tier, size) in enumerate(SPECIES):
             index += 1
             base_name = f"{prefix} {animal}"
             rarity = _card_rarity(base_tier, rarity_bonus, size)
+            creature_name = _creature_name(prefix, prefix_trait, animal, species_index, prefix_index)
             title = LEGENDARY_TITLES.get((prefix, animal)) if rarity == "legendary" else None
-            name = f"{title} — {base_name}" if title else base_name
+            name = f"{title} — {creature_name}" if title else creature_name
+            if name.casefold() in used_names:
+                name = f"{name} ({base_name})"
+            used_names.add(name.casefold())
             power = min(99, rarity_power[rarity] + size_power[size] + ((index * 13) % 7))
             cards.append((key, name, emoji, rarity, f"B{index:04d}",
                           element, f"{prefix_trait} {animal_trait}", power, family, size, base_name))
     for key, name, emoji, family, element, trait, base_tier, size in THEMED_CREATURES:
         index += 1
         rarity = _card_rarity(base_tier, 0, size)
+        if name.casefold() in used_names:
+            name = f"{name} the Unusual"
+        used_names.add(name.casefold())
         power = min(99, rarity_power[rarity] + size_power[size] + ((index * 13) % 7))
         cards.append((key, name, emoji, rarity, f"B{index:04d}",
                       element, trait, power, family, size, name))
@@ -356,11 +404,20 @@ class CollectibleDrops:
             return None
         if ticket_type:
             if ticket_type == "random":
-                ticket_type = self.rng.choice(TICKET_TYPES)
+                ticket_type = self.rng.choices(
+                    list(TICKET_TYPE_WEIGHT), weights=list(TICKET_TYPE_WEIGHT.values()), k=1
+                )[0]
             if ticket_type not in TICKET_TYPES:
                 return None
+            if ticket_type == "sacrifice":
+                available_tiers = [name for name in RARITY_WEIGHT if name != "legendary"]
+                if tier == "legendary":
+                    return None
+            else:
+                available_tiers = list(RARITY_WEIGHT)
             tier = tier or self.rng.choices(
-                list(RARITY_WEIGHT), weights=list(RARITY_WEIGHT.values()), k=1
+                available_tiers,
+                weights=[RARITY_WEIGHT[name] for name in available_tiers], k=1
             )[0]
             self.active = {"kind": "ticket", "ticket_type": ticket_type,
                            "tier": tier, "deadline": self.clock() + 90}
@@ -418,7 +475,7 @@ class CollectibleDrops:
             f"Card saying · {rarity.title()}",
             saying,
         ]
-        return _render_card_frame(rows)
+        return _render_card_frame(rows, card[3])
 
     @classmethod
     def render_compact(cls, card, quantity, holder=None):
@@ -430,17 +487,22 @@ class CollectibleDrops:
             f"{card[5].title()} · POW {card[7]} · x{quantity}",
             "Saying: " + cls._fortune(card, holder),
         ]
-        return _render_card_frame(rows)
+        return _render_card_frame(rows, card[3])
 
 
     @staticmethod
     def render_ticket(ticket_type, tier, holder=None):
-        icon = "⚔" if ticket_type == "steal" else "🛡"
-        title = "STEAL" if ticket_type == "steal" else "DEFENSE"
+        icons = {"steal": "⚔", "defend": "🛡", "sacrifice": "⚒"}
+        titles = {"steal": "STEAL", "defend": "DEFENSE", "sacrifice": "SACRIFICE"}
+        icon, title = icons[ticket_type], titles[ticket_type]
         if ticket_type == "steal":
-            effect = f"Accepted duel can take one unshielded card up to {tier.upper()}."
-        else:
+            effect = f"Only a {tier.upper()} Steal Ticket can target a {tier.upper()} card."
+        elif ticket_type == "defend":
             effect = f"Protect one {tier.upper()} creature with !defend <card-id>."
+        else:
+            next_tier = tuple(RARITY_WEIGHT)[RARITY_RANK[tier] + 1]
+            effect = (f"Trade 2 {tier.upper()} cards for a fresh {tier.upper()}, "
+                      f"or 3 for 1 {next_tier.upper()}.")
         return (f"╭──── 🎟 {title} TICKET ────╮\n"
                 f"│ {icon} TIER: {tier.upper()} │\n"
                 f"│ .-========-.           │\n"
@@ -561,6 +623,70 @@ class CollectibleDrops:
                        (winner_key, card[1]))
             db.commit()
         return card
+
+    def sacrifice_cards(self, username, references):
+        """Consume a matching Sacrifice Ticket and 2-3 same-rank cards."""
+        player = self._player(username)
+        refs = [str(value).strip() for value in (references or []) if str(value).strip()]
+        if len(refs) not in (2, 3):
+            return "Use !sacrifice <two or three card IDs>."
+        chosen = [self.lookup_card(value) for value in refs]
+        if any(card is None for card in chosen):
+            return "I couldn't find one of those card IDs. Use the B#### ID from !collection."
+        tiers = {card[3] for card in chosen}
+        if len(tiers) != 1:
+            return "Sacrifice cards must all have the same rarity."
+        tier = chosen[0][3]
+        if tier == "legendary":
+            return "Legendary cards cannot be sacrificed; protect their rarity."
+        target_tier = tier if len(chosen) == 2 else tuple(RARITY_WEIGHT)[RARITY_RANK[tier] + 1]
+        consumed = {}
+        for card in chosen:
+            consumed[card[1]] = consumed.get(card[1], 0) + 1
+        options = [card for card in CATALOG
+                   if card[3] == target_tier and card[4] not in {item[4] for item in chosen}]
+        if not options:
+            options = [card for card in CATALOG if card[3] == target_tier]
+        reward = self.rng.choice(options)
+
+        with closing(sqlite3.connect(self.database_path)) as db:
+            db.execute("BEGIN IMMEDIATE")
+            ticket = db.execute("""SELECT quantity FROM ticket_inventory
+                                   WHERE player=? AND ticket_type='sacrifice' AND tier=?""",
+                                (player, tier)).fetchone()
+            if not ticket or ticket[0] < 1:
+                db.rollback()
+                return f"You need a {tier.upper()} Sacrifice Card for that exchange."
+            for item, amount in consumed.items():
+                row = db.execute("""SELECT quantity FROM collections
+                                    WHERE player=? AND item=?""", (player, item)).fetchone()
+                if not row or row[0] < amount:
+                    db.rollback()
+                    return f"You don't own enough copies of {item} to sacrifice."
+            if ticket[0] == 1:
+                db.execute("""DELETE FROM ticket_inventory
+                              WHERE player=? AND ticket_type='sacrifice' AND tier=?""",
+                           (player, tier))
+            else:
+                db.execute("""UPDATE ticket_inventory SET quantity=quantity-1
+                              WHERE player=? AND ticket_type='sacrifice' AND tier=?""",
+                           (player, tier))
+            for item, amount in consumed.items():
+                remaining = db.execute("""SELECT quantity FROM collections
+                                          WHERE player=? AND item=?""",
+                                       (player, item)).fetchone()[0] - amount
+                if remaining:
+                    db.execute("""UPDATE collections SET quantity=?
+                                  WHERE player=? AND item=?""", (remaining, player, item))
+                else:
+                    db.execute("DELETE FROM collections WHERE player=? AND item=?",
+                               (player, item))
+            db.execute("""INSERT INTO collections (player,item,quantity) VALUES (?,?,1)
+                          ON CONFLICT(player,item) DO UPDATE SET quantity=quantity+1""",
+                       (player, reward[1]))
+            db.commit()
+        return (f"⚒ Sacrificed {len(chosen)} {tier.upper()} cards for one "
+                f"{target_tier.upper()} card.\n{self.render_card(reward, holder=username)}")
 
     def defend_card(self, username, reference):
         card = self.lookup_card(reference)
