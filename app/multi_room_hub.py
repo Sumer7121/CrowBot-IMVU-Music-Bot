@@ -303,7 +303,7 @@ class MultiRoomHub(QObject):
         if timer is None:
             return
         # Keep automatic drops occasional and unpredictable.
-        milliseconds = random.randint(15 * 60_000, 30 * 60_000)
+        milliseconds = random.randint(12 * 60_000, 30 * 60_000)
         self.sessions[room_id].command_handler.next_auto_drop_at = (
             time.monotonic() + milliseconds / 1000.0
         )
