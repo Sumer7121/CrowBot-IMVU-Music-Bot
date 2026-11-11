@@ -43,6 +43,11 @@ class GameDeckTests(unittest.TestCase):
                 games.start_trivia()
                 topic = games.trivia["topic"]
                 question = games.trivia["question"]
+                choices = games.trivia["options"].values()
+                self.assertEqual(len(set(choices)), 3)
+                answer = games.trivia["answer"]
+                expected = answer if isinstance(answer, str) else answer[0]
+                self.assertIn(expected, choices)
                 self.assertNotEqual(topic, last_topic)
                 self.assertNotIn(question, drawn)
                 drawn.add(question)

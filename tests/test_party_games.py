@@ -14,6 +14,22 @@ class PartyGamesTests(unittest.TestCase):
         self.assertIn("+1 point", self.games.answer("Alex", "TOKYO CITY"))
         self.assertIn("Alex", self.games.leaderboard())
 
+    def test_trivia_accepts_correct_letter_and_rejects_wrong_letter(self):
+        self.games.TRIVIA_TOPICS = {"Geography": (
+            ("Capital of Japan?", "tokyo"),
+            ("Capital of Italy?", "rome"),
+            ("Capital of France?", "paris"),
+        )}
+        prompt = self.games.start_trivia()
+        self.assertIn("Answer: !a <letter or answer>", prompt)
+        options = self.games.trivia["options"]
+        self.assertEqual(set(options), {"a", "b", "c"})
+        expected = self.games.trivia["answer"]
+        correct = next(letter for letter, choice in options.items() if choice == expected)
+        incorrect = next(letter for letter in options if letter != correct)
+        self.assertIn("Not quite", self.games.answer("Alex", incorrect))
+        self.assertIn("+1 point", self.games.answer("Alex", correct.upper()))
+
     def test_guess_higher_lower_and_win(self):
         with patch("bot.party_games.secrets.randbelow", return_value=9):
             self.games.start_guess()

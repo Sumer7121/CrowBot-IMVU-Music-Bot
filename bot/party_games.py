@@ -97,8 +97,28 @@ class PartyGames:
             self._trivia_remaining = list(reversed(rounds))
         topic, question, answer = self._trivia_remaining.pop()
         self._last_trivia_topic = topic
-        self.trivia = {"topic": topic, "question": question, "answer": answer}
-        return f"🧠 TRIVIA · {topic}\n{question}\nAnswer: {prefix}a <answer>"
+        accepted = (answer,) if isinstance(answer, str) else answer
+        distractors = set()
+        for _, other_answer in self.TRIVIA_TOPICS[topic]:
+            candidate = other_answer if isinstance(other_answer, str) else other_answer[0]
+            if candidate not in accepted:
+                distractors.add(candidate)
+        matching = [candidate for candidate in sorted(distractors)
+                    if candidate.isdecimal() == accepted[0].isdecimal()]
+        if len(matching) < 2:
+            matching = sorted(distractors)
+        choices = [accepted[0], *random.sample(matching, min(2, len(matching)))]
+        random.shuffle(choices)
+        options = dict(zip("abc", choices))
+        self.trivia = {"topic": topic, "question": question, "answer": answer,
+                       "options": options}
+        lines = [f"🧠 TRIVIA · {topic}", question]
+        if len(options) > 1:
+            lines.extend(f"{letter.upper()}) {choice}" for letter, choice in options.items())
+            lines.append(f"Answer: {prefix}a <letter or answer>")
+        else:
+            lines.append(f"Answer: {prefix}a <answer>")
+        return "\n".join(lines)
 
     def answer(self, username, answer, prefix="!"):
         if not self.trivia:
@@ -109,6 +129,8 @@ class PartyGames:
         accepted = (expected,) if isinstance(expected, str) else expected
         actual = self._key(answer).strip(" .!?").removeprefix("the ")
         actual = " ".join(actual.split())
+        if actual not in accepted:
+            actual = self.trivia.get("options", {}).get(actual)
         if actual not in accepted:
             return "❌ Not quite! Try again."
         self.trivia = None
