@@ -8,10 +8,10 @@ class PartyGamesTests(unittest.TestCase):
         self.games = PartyGames()
 
     def test_trivia_correct_answer_awards_point(self):
-        self.games.QUESTIONS = (("Capital of Japan?", "tokyo"),)
-        self.games.start_trivia()
+        self.games.TRIVIA_TOPICS = {"Geography": (("Capital of Japan?", ("tokyo", "tokyo city")),)}
+        self.assertIn("Answer: ?a", self.games.start_trivia("?"))
         self.assertIn("Not quite", self.games.answer("Alex", "Osaka"))
-        self.assertIn("+1 point", self.games.answer("Alex", "TOKYO"))
+        self.assertIn("+1 point", self.games.answer("Alex", "TOKYO CITY"))
         self.assertIn("Alex", self.games.leaderboard())
 
     def test_guess_higher_lower_and_win(self):

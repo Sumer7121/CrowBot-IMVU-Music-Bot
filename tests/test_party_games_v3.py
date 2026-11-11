@@ -30,17 +30,28 @@ class GameDeckTests(unittest.TestCase):
             drawn = [social.pick(key, deck) for _ in range(len(deck))]
             self.assertEqual(len(set(drawn)), len(deck))
 
-    def test_trivia_has_500_unique_mixed_questions(self):
+    def test_trivia_rotates_topics_without_repeating_questions(self):
         games = PartyGames()
-        self.assertEqual(len(games.QUESTIONS), 500)
-        self.assertEqual(len(set(q for q, _ in games.QUESTIONS)), 500)
-        self.assertTrue(any("capital" in q.lower() for q, _ in games.QUESTIONS))
-        self.assertTrue(any("divided by" in q.lower() for q, _ in games.QUESTIONS))
-        drawn = []
-        for _ in range(500):
-            games.start_trivia()
-            drawn.append(games.trivia["question"])
-        self.assertEqual(len(set(drawn)), 500)
+        topics = set(games.TRIVIA_TOPICS)
+        self.assertTrue({"History", "Geography", "Currencies", "Arithmetic"} <= topics)
+        drawn = set()
+        last_topic = None
+        self.assertEqual(len(topics), 25)
+        for _ in range(20):
+            current_topics = set()
+            for _ in topics:
+                games.start_trivia()
+                topic = games.trivia["topic"]
+                question = games.trivia["question"]
+                self.assertNotEqual(topic, last_topic)
+                self.assertNotIn(question, drawn)
+                drawn.add(question)
+                current_topics.add(topic)
+                last_topic = topic
+            self.assertEqual(current_topics, topics)
+        self.assertEqual(len(drawn), 500)
+        games.start_trivia()
+        self.assertNotEqual(games.trivia["topic"], last_topic)
 
     def test_riddles_do_not_repeat_within_deck(self):
         games = PartyGames()

@@ -4,75 +4,11 @@ import secrets
 import time
 
 
+from bot.trivia_questions import TRIVIA_TOPICS
+
+
 class PartyGames:
-    # 50 curated, factual general-knowledge questions and 450 math
-    # challenges (addition, subtraction, multiplication, division, percent).
-    # The fixed answer key is independent of the randomly selected question.
-    FACT_QUESTIONS = (
-        ("What is the largest planet in our solar system?", "jupiter"),
-        ("Which planet is called the Red Planet?", "mars"),
-        ("What star does Earth orbit?", "sun"),
-        ("Which planet is closest to the Sun?", "mercury"),
-        ("Which planet is famous for its rings?", "saturn"),
-        ("Which planet is often called Earth's twin?", "venus"),
-        ("How many planets orbit our Sun?", "8"),
-        ("What is the natural satellite of Earth called?", "moon"),
-        ("What galaxy contains our solar system?", "milky way"),
-        ("What force keeps planets in orbit?", "gravity"),
-        ("Which animal is known for its black and white stripes?", "zebra"),
-        ("What is a baby dog called?", "puppy"),
-        ("What is a baby cat called?", "kitten"),
-        ("Which animal is the largest living land mammal?", "elephant"),
-        ("Which bird is known for mimicking human speech?", "parrot"),
-        ("Which ocean animal has eight arms?", "octopus"),
-        ("What do bees produce from nectar?", "honey"),
-        ("What is the fastest land animal?", "cheetah"),
-        ("What is the tallest living land animal?", "giraffe"),
-        ("Which mammal can truly fly?", "bat"),
-        ("What is the capital of France?", "paris"),
-        ("What is the capital of Japan?", "tokyo"),
-        ("What is the capital of Italy?", "rome"),
-        ("What is the capital of Australia?", "canberra"),
-        ("What is the capital of Canada?", "ottawa"),
-        ("Which country is home to the Taj Mahal?", "india"),
-        ("On which continent is Egypt?", "africa"),
-        ("What is the largest ocean on Earth?", "pacific"),
-        ("What is the largest hot desert on Earth?", "sahara"),
-        ("Which country is famous for the city of Rio de Janeiro?", "brazil"),
-        ("How many keys does a standard piano typically have?", "88"),
-        ("How many notes are in a standard major scale?", "7"),
-        ("What instrument typically has six strings and frets?", "guitar"),
-        ("What do you call the speed of a musical piece?", "tempo"),
-        ("What instrument is played with two sticks and pedals in a drum kit?", "drums"),
-        ("What symbol indicates silence for a duration in music?", "rest"),
-        ("What musical term means gradually getting louder?", "crescendo"),
-        ("What do you call the repeating beat of music?", "rhythm"),
-        ("What is a group of three notes sounded together usually called?", "chord"),
-        ("What is the person directing an orchestra called?", "conductor"),
-        ("How many sides does a triangle have?", "3"),
-        ("How many sides does a hexagon have?", "6"),
-        ("What is the chemical symbol for gold?", "au"),
-        ("What is the chemical formula for water?", "h2o"),
-        ("What gas do humans breathe in to survive?", "oxygen"),
-        ("What is the freezing point of water in Celsius?", "0"),
-        ("How many minutes are in one hour?", "60"),
-        ("How many seconds are in one minute?", "60"),
-        ("What device measures temperature?", "thermometer"),
-        ("What process do plants use to make food from sunlight?", "photosynthesis"),
-    )
-    ADDITION = tuple((f"What is {a} + {b}?", str(a+b))
-                     for a in range(11, 21) for b in range(2, 11))
-    SUBTRACTION = tuple((f"What is {a} - {b}?", str(a-b))
-                        for a in range(31, 41) for b in range(2, 11))
-    MULTIPLICATION = tuple((f"What is {a} x {b}?", str(a*b))
-                           for a in range(3, 13) for b in range(2, 11))
-    DIVISION = tuple((f"What is {a*b} divided by {b}?", str(a))
-                     for a in range(3, 13) for b in range(2, 11))
-    PERCENTAGES = tuple((f"What is {b*10}% of {a*10}?", str(a*b))
-                        for a in range(1, 11) for b in range(1, 10))
-    QUESTIONS = (FACT_QUESTIONS + ADDITION + SUBTRACTION
-                 + MULTIPLICATION + DIVISION + PERCENTAGES)
-    assert len(QUESTIONS) == len({question for question, _ in QUESTIONS}) == 500
+    TRIVIA_TOPICS = TRIVIA_TOPICS
 
     RIDDLES = (
         ("What has keys but cannot open locks?", "piano"),
@@ -123,6 +59,7 @@ class PartyGames:
         self.riddle = None
         self.scores = {}
         self._trivia_remaining = []
+        self._last_trivia_topic = None
         self._riddle_remaining = []
         self.pending_duel = None
 
@@ -138,32 +75,41 @@ class PartyGames:
         self.scores[key] = current
         return current["points"]
 
-    def start_trivia(self):
+    def start_trivia(self, prefix="!"):
         if not self._trivia_remaining:
-            self._trivia_remaining = list(range(len(self.QUESTIONS)))
-            random.shuffle(self._trivia_remaining)
-        question, answer = self.QUESTIONS[self._trivia_remaining.pop()]
-        self.trivia = {"question": question, "answer": answer}
-        return f"🧠 TRIVIA | {question}\nAnswer: !a <answer>"
+            decks = {topic: list(questions)
+                     for topic, questions in self.TRIVIA_TOPICS.items()}
+            for deck in decks.values():
+                random.shuffle(deck)
+            rounds = []
+            last_topic = self._last_trivia_topic
+            while decks:
+                topics = list(decks)
+                random.shuffle(topics)
+                if len(topics) > 1 and topics[0] == last_topic:
+                    topics[0], topics[1] = topics[1], topics[0]
+                for topic in topics:
+                    deck = decks[topic]
+                    rounds.append((topic, *deck.pop()))
+                    if not deck:
+                        del decks[topic]
+                last_topic = topics[-1]
+            self._trivia_remaining = list(reversed(rounds))
+        topic, question, answer = self._trivia_remaining.pop()
+        self._last_trivia_topic = topic
+        self.trivia = {"topic": topic, "question": question, "answer": answer}
+        return f"🧠 TRIVIA · {topic}\n{question}\nAnswer: {prefix}a <answer>"
 
-    def answer(self, username, answer):
+    def answer(self, username, answer, prefix="!"):
         if not self.trivia:
-            return "No trivia running. Use !quiz."
+            return f"No trivia running. Use {prefix}quiz."
         if not answer:
-            return "Use !a <answer>."
+            return f"Use {prefix}a <answer>."
         expected = self.trivia["answer"]
-        actual = self._key(answer).strip(" .!?")
-        if actual.startswith("the "):
-            actual = actual[4:]
-        aliases = {
-            "pacific": {"pacific ocean"},
-            "sahara": {"sahara desert"},
-            "sun": {"our sun"},
-            "milky way": {"milky way galaxy"},
-            "drums": {"drum kit", "drum set"},
-            "h2o": {"water"},
-        }
-        if actual != expected and actual not in aliases.get(expected, set()):
+        accepted = (expected,) if isinstance(expected, str) else expected
+        actual = self._key(answer).strip(" .!?").removeprefix("the ")
+        actual = " ".join(actual.split())
+        if actual not in accepted:
             return "❌ Not quite! Try again."
         self.trivia = None
         points = self._award(username)
