@@ -36,8 +36,8 @@ class BlackjackTests(unittest.TestCase):
 
     def test_dealer_draws_and_stands(self):
         self.game._deck = lambda: [
-            ("5", "♣"), ("6", "♣"), ("9", "♦"), ("7", "♥"),
-            ("8", "♠")
+            ("2", "♣"), ("6", "♣"), ("9", "♦"), ("K", "♥"),
+            ("Q", "♠")
         ]
         self.game.start("Alice")
         result = self.game.stand("Alice")
@@ -56,8 +56,8 @@ class BlackjackTests(unittest.TestCase):
 
     def test_double_and_quit(self):
         self.game._deck = lambda: [
-            ("4", "♣"), ("7", "♥"), ("9", "♣"), ("8", "♣"),
-            ("2", "♠")
+            ("3", "♣"), ("4", "♣"), ("7", "♥"), ("9", "♣"),
+            ("8", "♣"), ("2", "♠")
         ]
         self.game.start("Alice")
         self.assertIn("Dealer:", self.game.double("Alice"))
