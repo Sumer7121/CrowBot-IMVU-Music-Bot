@@ -3,6 +3,7 @@ import random
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
+from bot.blackjack import Blackjack
 from database.users import UserManager
 from music.resolver import MusicResolver
 from music.youtube_owned import YouTubeOwnedProvider
@@ -99,6 +100,7 @@ class CommandHandler(QObject):
         )
 
         self.prefix = prefix or "!"
+        self.blackjack_game = Blackjack()
 
         # -----------------------------------------------------
         # UNIFIED MUSIC RESOLVER
@@ -172,6 +174,16 @@ class CommandHandler(QObject):
             "move": self.tic_tac_toe_move,
             "tttboard": self.tic_tac_toe_board,
             "tttend": self.tic_tac_toe_end,
+
+            "blackjack": self.blackjack,
+            "bj": self.blackjack,
+            "hit": self.blackjack_hit,
+            "stand": self.blackjack_stand,
+            "double": self.blackjack_double,
+            "bjhand": self.blackjack_hand,
+            "bjquit": self.blackjack_quit,
+            "bjstats": self.blackjack_stats,
+            "bjtop": self.blackjack_top,
 
             "help": self.help,
         }
@@ -1961,6 +1973,34 @@ class CommandHandler(QObject):
         )
 
     # =========================================================
+    # BLACKJACK (IMVU CHAT)
+    # =========================================================
+
+    def blackjack(self, arguments, username):
+        return self.blackjack_game.start(username, self.prefix)
+
+    def blackjack_hit(self, arguments, username):
+        return self.blackjack_game.hit(username, self.prefix)
+
+    def blackjack_stand(self, arguments, username):
+        return self.blackjack_game.stand(username, self.prefix)
+
+    def blackjack_double(self, arguments, username):
+        return self.blackjack_game.double(username, self.prefix)
+
+    def blackjack_hand(self, arguments, username):
+        return self.blackjack_game.hand(username, self.prefix)
+
+    def blackjack_quit(self, arguments, username):
+        return self.blackjack_game.quit(username, self.prefix)
+
+    def blackjack_stats(self, arguments, username):
+        return self.blackjack_game.player_stats(username)
+
+    def blackjack_top(self, arguments, username):
+        return self.blackjack_game.leaderboard()
+
+    # =========================================================
     # HELP
     # =========================================================
 
@@ -1989,6 +2029,14 @@ class CommandHandler(QObject):
             f"{self.prefix}accept | "
             f"{self.prefix}move <1-9> | "
             f"{self.prefix}tttboard | "
-            f"{self.prefix}tttend"
+            f"{self.prefix}tttend\n"
+            f"{self.prefix}blackjack | "
+            f"{self.prefix}hit | "
+            f"{self.prefix}stand | "
+            f"{self.prefix}double | "
+            f"{self.prefix}bjhand | "
+            f"{self.prefix}bjquit | "
+            f"{self.prefix}bjstats | "
+            f"{self.prefix}bjtop"
         )
 

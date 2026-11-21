@@ -1,0 +1,157 @@
+"""Blackjack game engine for CrowBot IMVU rooms.
+
+No real-money or virtual-currency wagering. One independent hand per IMVU user.
+The dealer stands on all 17s, including soft 17.
+"""
+import random
+from collections import Counter
+
+SUITS = ("♠", "♥", "♦", "♣")
+RANKS = ("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K")
+
+
+def hand_value(cards):
+    total = sum(11 if rank == "A" else 10 if rank in ("J", "Q", "K") else int(rank)
+                for rank, _ in cards)
+    aces = sum(rank == "A" for rank, _ in cards)
+    while total > 21 and aces:
+        total -= 10
+        aces -= 1
+    return total
+
+
+def format_hand(cards):
+    return " ".join(rank + suit for rank, suit in cards)
+
+
+class Blackjack:
+    """Stateful, room-chat-friendly Blackjack with per-player sessions."""
+
+    def __init__(self, rng=None):
+        self.rng = rng or random.SystemRandom()
+        self.games = {}
+        self.stats = {}
+
+    @staticmethod
+    def player_key(username):
+        return str(username or "").strip().lower()
+
+    def _record(self, player, outcome):
+        self.stats.setdefault(player, Counter())[outcome] += 1
+
+    def _deck(self):
+        deck = [(rank, suit) for suit in SUITS for rank in RANKS]
+        self.rng.shuffle(deck)
+        return deck
+
+    def _display(self, username, game, reveal=False):
+        player = game["player"]
+        dealer = game["dealer"]
+        if reveal:
+            dealer_line = f"Dealer: {format_hand(dealer)} ({hand_value(dealer)})"
+        else:
+            dealer_line = f"Dealer: {dealer[0][0]}{dealer[0][1]} [hidden]"
+        return (f"🃏 Blackjack — {username}\n"
+                f"Your hand: {format_hand(player)} ({hand_value(player)})\n"
+                + dealer_line)
+
+    def start(self, username, prefix="!"):
+        key = self.player_key(username)
+        if not key:
+            return "A valid IMVU username is required."
+        if key in self.games:
+            return (self._display(username, self.games[key]) +
+                    f"\nYour game is active. Use {prefix}hit or {prefix}stand.")
+        deck = self._deck()
+        # Deal alternately, player then dealer.
+        game = {"deck": deck, "player": [deck.pop(), deck.pop()],
+                "dealer": [deck.pop(), deck.pop()]}
+        self.games[key] = game
+        player_bj = hand_value(game["player"]) == 21
+        dealer_bj = hand_value(game["dealer"]) == 21
+        if player_bj or dealer_bj:
+            if player_bj and dealer_bj:
+                return self._finish(username, key, "push", "Both have Blackjack. Push!")
+            if player_bj:
+                return self._finish(username, key, "wins", "Natural Blackjack! You win!")
+            return self._finish(username, key, "losses", "Dealer has Blackjack. You lose.")
+        return (self._display(username, game) +
+                f"\nType {prefix}hit to draw or {prefix}stand to hold.")
+
+    def _finish(self, username, key, outcome, result):
+        game = self.games.pop(key)
+        self._record(key, outcome)
+        return self._display(username, game, reveal=True) + "\n" + result
+
+    def hit(self, username, prefix="!"):
+        key = self.player_key(username)
+        game = self.games.get(key)
+        if game is None:
+            return f"No active Blackjack game. Type {prefix}blackjack to start."
+        game["player"].append(game["deck"].pop())
+        value = hand_value(game["player"])
+        if value > 21:
+            return self._finish(username, key, "losses", "Bust! You lose.")
+        if value == 21:
+            return self.stand(username, prefix)
+        return (self._display(username, game) +
+                f"\nType {prefix}hit or {prefix}stand.")
+
+    def stand(self, username, prefix="!"):
+        key = self.player_key(username)
+        game = self.games.get(key)
+        if game is None:
+            return f"No active Blackjack game. Type {prefix}blackjack to start."
+        dealer = game["dealer"]
+        while hand_value(dealer) < 17:
+            dealer.append(game["deck"].pop())
+        player_total = hand_value(game["player"])
+        dealer_total = hand_value(dealer)
+        if dealer_total > 21:
+            return self._finish(username, key, "wins", "Dealer busts! You win!")
+        if player_total > dealer_total:
+            return self._finish(username, key, "wins", "You win!")
+        if player_total < dealer_total:
+            return self._finish(username, key, "losses", "Dealer wins.")
+        return self._finish(username, key, "push", "Push! It's a tie.")
+
+    def double(self, username, prefix="!"):
+        """A single final draw, without wagering or changing any stake."""
+        key = self.player_key(username)
+        game = self.games.get(key)
+        if game is None:
+            return f"No active Blackjack game. Type {prefix}blackjack to start."
+        if len(game["player"]) != 2:
+            return "Double is only available on your first two cards."
+        game["player"].append(game["deck"].pop())
+        if hand_value(game["player"]) > 21:
+            return self._finish(username, key, "losses", "Double draw — bust! You lose.")
+        return self.stand(username, prefix)
+
+    def hand(self, username, prefix="!"):
+        key = self.player_key(username)
+        game = self.games.get(key)
+        if game is None:
+            return f"No active Blackjack game. Type {prefix}blackjack to start."
+        return self._display(username, game) + f"\n{prefix}hit | {prefix}stand | {prefix}double | {prefix}bjquit"
+
+    def quit(self, username, prefix="!"):
+        key = self.player_key(username)
+        if self.games.pop(key, None) is None:
+            return f"No active Blackjack game. Type {prefix}blackjack to start."
+        return "Blackjack hand closed. No result recorded."
+
+    def player_stats(self, username):
+        key = self.player_key(username)
+        stat = self.stats.get(key, Counter())
+        return (f"🃏 {username} — Blackjack: {stat['wins']} wins, "
+                f"{stat['losses']} losses, {stat['push']} pushes "
+                "(this bot session).")
+
+    def leaderboard(self):
+        if not self.stats:
+            return "🃏 No Blackjack results yet this session."
+        top = sorted(self.stats.items(), key=lambda item: (-item[1]["wins"], item[0]))[:5]
+        return "🃏 Blackjack leaders (this session): " + " | ".join(
+            f"{index}. {name}: {stat['wins']} wins"
+            for index, (name, stat) in enumerate(top, 1))
