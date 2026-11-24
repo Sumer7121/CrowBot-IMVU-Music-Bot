@@ -4,6 +4,7 @@ import random
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 from bot.blackjack import Blackjack
+from bot.coins import CoinWallet
 from database.users import UserManager
 from music.resolver import MusicResolver
 from music.youtube_owned import YouTubeOwnedProvider
@@ -100,7 +101,8 @@ class CommandHandler(QObject):
         )
 
         self.prefix = prefix or "!"
-        self.blackjack_game = Blackjack()
+        self.coin_wallet = CoinWallet()
+        self.blackjack_game = Blackjack(wallet=self.coin_wallet)
 
         # -----------------------------------------------------
         # UNIFIED MUSIC RESOLVER
@@ -184,6 +186,10 @@ class CommandHandler(QObject):
             "bjquit": self.blackjack_quit,
             "bjstats": self.blackjack_stats,
             "bjtop": self.blackjack_top,
+            "coins": self.coins,
+            "balance": self.coins,
+            "richlist": self.richlist,
+            "baltop": self.richlist,
 
             "help": self.help,
         }
@@ -1977,7 +1983,13 @@ class CommandHandler(QObject):
     # =========================================================
 
     def blackjack(self, arguments, username):
-        return self.blackjack_game.start(username, self.prefix)
+        if len(arguments) > 1:
+            return f"Usage: {self.prefix}blackjack [bet]"
+        try:
+            bet = int(arguments[0]) if arguments else 50
+        except (ValueError, TypeError):
+            return f"Usage: {self.prefix}blackjack [bet in CrowCoins]"
+        return self.blackjack_game.start(username, self.prefix, bet)
 
     def blackjack_hit(self, arguments, username):
         return self.blackjack_game.hit(username, self.prefix)
@@ -1999,6 +2011,12 @@ class CommandHandler(QObject):
 
     def blackjack_top(self, arguments, username):
         return self.blackjack_game.leaderboard()
+
+    def coins(self, arguments, username):
+        return self.coin_wallet.status(username)
+
+    def richlist(self, arguments, username):
+        return self.coin_wallet.leaderboard()
 
     # =========================================================
     # HELP
@@ -2037,6 +2055,8 @@ class CommandHandler(QObject):
             f"{self.prefix}bjhand | "
             f"{self.prefix}bjquit | "
             f"{self.prefix}bjstats | "
-            f"{self.prefix}bjtop"
+            f"{self.prefix}bjtop | "
+            f"{self.prefix}coins | "
+            f"{self.prefix}richlist"
         )
 
