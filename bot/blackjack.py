@@ -1,6 +1,6 @@
 """Blackjack game engine for CrowBot IMVU rooms.
 
-No real-money or virtual-currency wagering. One independent hand per IMVU user.
+Optional fictional CrowCoins wagers. One independent hand per IMVU user.
 The dealer stands on all 17s, including soft 17.
 """
 import random
@@ -27,8 +27,9 @@ def format_hand(cards):
 class Blackjack:
     """Stateful, room-chat-friendly Blackjack with per-player sessions."""
 
-    def __init__(self, rng=None):
+    def __init__(self, rng=None, wallet=None):
         self.rng = rng or random.SystemRandom()
+        self.wallet = wallet
         self.games = {}
         self.stats = {}
 
@@ -55,17 +56,26 @@ class Blackjack:
                 f"Your hand: {format_hand(player)} ({hand_value(player)})\n"
                 + dealer_line)
 
-    def start(self, username, prefix="!"):
+    def start(self, username, prefix="!", bet=50):
         key = self.player_key(username)
         if not key:
             return "A valid IMVU username is required."
         if key in self.games:
             return (self._display(username, self.games[key]) +
                     f"\nYour game is active. Use {prefix}hit or {prefix}stand.")
+        if self.wallet is not None:
+            if isinstance(bet, bool) or not isinstance(bet, int) or not 1 <= bet <= 10000:
+                return "Bet must be 1–10,000 CrowCoins."
+            if not self.wallet.withdraw(username, bet):
+                return (f"Not enough CrowCoins for a {bet:,} bet. "
+                        f"Use {prefix}coins; +200 coins arrive every hour.")
+        else:
+            bet = 0
         deck = self._deck()
         # Deal alternately, player then dealer.
         game = {"deck": deck, "player": [deck.pop(), deck.pop()],
                 "dealer": [deck.pop(), deck.pop()]}
+        game["bet"] = bet
         self.games[key] = game
         player_bj = hand_value(game["player"]) == 21
         dealer_bj = hand_value(game["dealer"]) == 21
@@ -73,15 +83,29 @@ class Blackjack:
             if player_bj and dealer_bj:
                 return self._finish(username, key, "push", "Both have Blackjack. Push!")
             if player_bj:
-                return self._finish(username, key, "wins", "Natural Blackjack! You win!")
+                return self._finish(username, key, "wins", "Natural Blackjack! You win!", natural=True)
             return self._finish(username, key, "losses", "Dealer has Blackjack. You lose.")
         return (self._display(username, game) +
+                (f"\nStake: {bet:,} CrowCoins." if bet else "") +
                 f"\nType {prefix}hit to draw or {prefix}stand to hold.")
 
-    def _finish(self, username, key, outcome, result):
+    def _finish(self, username, key, outcome, result, natural=False):
         game = self.games.pop(key)
         self._record(key, outcome)
-        return self._display(username, game, reveal=True) + "\n" + result
+        bet = game.get("bet", 0)
+        payout = 0
+        if self.wallet is not None and bet:
+            if outcome == "wins":
+                payout = (5 * bet // 2) if natural else (2 * bet)
+            elif outcome == "push":
+                payout = bet
+            if payout:
+                self.wallet.deposit(username, payout)
+        summary = self._display(username, game, reveal=True) + "\n" + result
+        if self.wallet is not None and bet:
+            summary += (f"\nStake: {bet:,} | Returned: {payout:,} | "
+                        f"Balance: {self.wallet.balance(username):,} CrowCoins")
+        return summary
 
     def hit(self, username, prefix="!"):
         key = self.player_key(username)
@@ -123,6 +147,11 @@ class Blackjack:
             return f"No active Blackjack game. Type {prefix}blackjack to start."
         if len(game["player"]) != 2:
             return "Double is only available on your first two cards."
+        bet = game.get("bet", 0)
+        if self.wallet is not None and bet:
+            if not self.wallet.withdraw(username, bet):
+                return f"Not enough CrowCoins to double. Need {bet:,} more."
+            game["bet"] = bet * 2
         game["player"].append(game["deck"].pop())
         if hand_value(game["player"]) > 21:
             return self._finish(username, key, "losses", "Double draw — bust! You lose.")
@@ -137,8 +166,12 @@ class Blackjack:
 
     def quit(self, username, prefix="!"):
         key = self.player_key(username)
-        if self.games.pop(key, None) is None:
+        game = self.games.pop(key, None)
+        if game is None:
             return f"No active Blackjack game. Type {prefix}blackjack to start."
+        if self.wallet is not None and game.get("bet"):
+            self.wallet.deposit(username, game["bet"])
+            return "Blackjack hand closed; your stake was refunded."
         return "Blackjack hand closed. No result recorded."
 
     def player_stats(self, username):
